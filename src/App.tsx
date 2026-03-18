@@ -12,6 +12,7 @@ import FindingsPage from "./pages/FindingsPage.js";
 import CyberRiskDetailsPage from "./pages/CyberRiskDetailsPage.js";
 import ThreatsPage from "./pages/ThreatsPage.js";
 import CyberRiskAssessmentsPage from "./pages/CyberRiskAssessmentsPage.js";
+import NewCyberRiskAssessmentPage from "./pages/NewCyberRiskAssessmentPage.js";
 
 export default function App() {
   return (
@@ -112,6 +113,10 @@ export default function App() {
         <Route
           path="cyber-risk/cyber-risk-assessments"
           element={<CyberRiskAssessmentsPage />}
+        />
+        <Route
+          path="cyber-risk/cyber-risk-assessments/new"
+          element={<NewCyberRiskAssessmentPage />}
         />
         <Route
           path="cyber-risk/file-import"

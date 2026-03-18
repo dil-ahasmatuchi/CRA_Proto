@@ -202,14 +202,17 @@ const statusData = {
   concluded: assessmentRows.filter((r) => r.status === "Concluded").length,
 };
 
+/** Figma: Assessments by business unit — moss scale + orange for zero-coverage BU */
 const businessUnitData = [
-  { label: "Information Technology", value: 4, color: "#0086fa" },
-  { label: "Finance & Accounting", value: 3, color: "#26c926" },
-  { label: "Operations", value: 2, color: "#f5a623" },
-  { label: "Human Resources", value: 1, color: "#a855f7" },
-  { label: "Legal & Compliance", value: 3, color: "#e22e33" },
-  { label: "Sales & Marketing", value: 2, color: "#06b6d4" },
+  { label: "Information Technology", value: 3, color: "#00894f" },
+  { label: "Finance & Accounting", value: 2, color: "#00a661" },
+  { label: "Operations", value: 2, color: "#2ec377" },
+  { label: "Human Resources", value: 2, color: "#53df90" },
+  { label: "Legal & Compliance", value: 1, color: "#72fcaa" },
+  { label: "Sales & Marketing", value: 0, color: "#ffb780" },
 ];
+
+const BUSINESS_UNIT_COUNT = businessUnitData.length;
 
 function AssessmentsByStatusCard() {
   const total = statusData.draft + statusData.inProgress + statusData.concluded;
@@ -261,7 +264,7 @@ function AssessmentsByStatusCard() {
           pt: 0,
         }}
       >
-        <Box sx={{ position: "relative", width: 220, height: 220 }}>
+        <Box sx={{ position: "relative", width: 256, height: 256 }}>
           <Doughnut
             data={chartData}
             options={{
@@ -280,14 +283,19 @@ function AssessmentsByStatusCard() {
               left: "50%",
               transform: "translate(-50%, -50%)",
               textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 0.5,
             }}
           >
             <Typography
-              variant="h2"
               component="span"
               sx={({ tokens: t }) => ({
                 color: t.semantic.color.type.default.value,
                 fontWeight: 400,
+                fontSize: 26,
+                lineHeight: "34px",
               })}
             >
               {total}
@@ -296,6 +304,8 @@ function AssessmentsByStatusCard() {
               variant="body1"
               sx={({ tokens: t }) => ({
                 color: t.semantic.color.type.muted.value,
+                lineHeight: "24px",
+                letterSpacing: "0.2px",
               })}
             >
               Assessments
@@ -306,9 +316,10 @@ function AssessmentsByStatusCard() {
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(1, 1fr)",
-            gridTemplateRows: "repeat(3, 1fr)",
-            gap: 2,
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gridAutoRows: "auto",
+            columnGap: 2,
+            rowGap: 2,
             width: "100%",
           }}
         >
@@ -347,8 +358,6 @@ function AssessmentsByStatusCard() {
 }
 
 function AssessmentCoverageCard() {
-  const total = businessUnitData.reduce((sum, bu) => sum + bu.value, 0);
-
   const chartData = {
     labels: businessUnitData.map((bu) => bu.label),
     datasets: [
@@ -362,87 +371,122 @@ function AssessmentCoverageCard() {
   };
 
   return (
-    <Card sx={{ flex: 1, minWidth: 0, border: "none", width: "100%" }}>
-      <CardHeader
-        title={
-          <Typography variant="h4" component="h3" fontWeight="600">
-            Assessments by business unit
-          </Typography>
-        }
-        action={
-          <Button
-            variant="text"
-            size="small"
-            aria-label="More options for assessments by business unit"
-          >
-            <MoreIcon aria-hidden />
-          </Button>
-        }
-        sx={{ display: "flex" }}
-      />
+    <Card
+      sx={({ tokens: t }) => ({
+        flex: 1,
+        minWidth: 0,
+        width: "100%",
+        border: "none",
+        backgroundColor: t.semantic.color.background.base.value,
+        borderRadius: "16px",
+        boxShadow: "none",
+      })}
+    >
       <CardContent
         sx={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          gap: "51px",
+          gap: 1.5,
           height: "100%",
+          minHeight: 474,
+          p: 3,
           pt: 0,
+          "&:last-child": { pb: 3 },
         }}
       >
-        <Box sx={{ position: "relative", width: 220, height: 220 }}>
-          <Doughnut
-            data={chartData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: true,
-              plugins: {
-                legend: { display: false },
-                tooltip: { enabled: true },
-              },
-            }}
-          />
-          <Box
-            sx={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              textAlign: "center",
-            }}
+        <Stack
+          direction="row"
+          alignItems="center"
+          gap={1}
+          sx={{ width: "100%", minHeight: 28 }}
+        >
+          <Typography variant="h4" component="h3" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
+            Assessments by business unit
+          </Typography>
+          <Button
+            variant="text"
+            size="small"
+            aria-label="More options for assessments by business unit"
+            sx={{ flexShrink: 0, p: 0.5, minWidth: 0 }}
           >
-            <Typography
-              variant="h2"
-              component="span"
-              sx={({ tokens: t }) => ({
-                color: t.semantic.color.type.default.value,
-                fontWeight: 400,
-              })}
+            <MoreIcon aria-hidden />
+          </Button>
+        </Stack>
+
+        <Box
+          sx={{
+            position: "relative",
+            flex: "1 1 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 260,
+            width: "100%",
+          }}
+        >
+          <Box sx={{ position: "relative", width: 256, height: 256 }}>
+            <Doughnut
+              data={chartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: { enabled: true },
+                },
+              }}
+            />
+            <Box
+              sx={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 0.5,
+              }}
             >
-              {total}
-            </Typography>
-            <Typography
-              variant="body1"
-              sx={({ tokens: t }) => ({
-                color: t.semantic.color.type.muted.value,
-              })}
-            >
-              Assessments
-            </Typography>
+              <Typography
+                component="span"
+                sx={({ tokens: t }) => ({
+                  color: t.semantic.color.type.default.value,
+                  fontWeight: 400,
+                  fontSize: 26,
+                  lineHeight: "34px",
+                })}
+              >
+                {BUSINESS_UNIT_COUNT}
+              </Typography>
+              <Typography
+                variant="body1"
+                sx={({ tokens: t }) => ({
+                  color: t.semantic.color.type.muted.value,
+                  lineHeight: "24px",
+                  letterSpacing: "0.2px",
+                })}
+              >
+                Business units
+              </Typography>
+            </Box>
           </Box>
         </Box>
 
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 2,
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gridTemplateRows: "repeat(2, auto)",
+            columnGap: 2,
+            rowGap: 2,
             width: "100%",
           }}
         >
           {businessUnitData.map((item) => (
-            <Stack key={item.label} gap={0}>
-              <Stack direction="row" alignItems="center" gap={1}>
+            <Stack key={item.label} gap={0} alignItems="flex-start">
+              <Stack direction="row" alignItems="center" gap={1} sx={{ height: 16 }}>
                 <Box
                   sx={{
                     width: 16,
@@ -456,16 +500,28 @@ function AssessmentCoverageCard() {
                   variant="textSm"
                   sx={({ tokens: t }) => ({
                     color: t.semantic.color.type.default.value,
+                    letterSpacing: "0.3px",
+                    lineHeight: "16px",
                   })}
                 >
                   {item.label}
                 </Typography>
               </Stack>
-              <Typography variant="textMd" sx={{ pl: 3, fontWeight: 600 }}>
-                <Link href="#" underline="hover">
+              <Stack direction="row" alignItems="center" sx={{ pl: 3, pt: 0 }}>
+                <Link
+                  href="#"
+                  underline="always"
+                  sx={({ tokens: t }) => ({
+                    fontWeight: 600,
+                    fontSize: 14,
+                    lineHeight: "20px",
+                    letterSpacing: "0.2px",
+                    color: t.semantic.color.type.default.value,
+                  })}
+                >
                   {item.value}
                 </Link>
-              </Typography>
+              </Stack>
             </Stack>
           ))}
         </Box>
@@ -662,7 +718,13 @@ export default function CyberRiskAssessmentsPage() {
             </OverflowBreadcrumbs>
           }
           moreButton={
-            <Button variant="contained">New risk assessment</Button>
+            <Button
+              variant="contained"
+              component={NavLink}
+              to="/cyber-risk/cyber-risk-assessments/new"
+            >
+              New cyber risk assessment
+            </Button>
           }
         />
 
