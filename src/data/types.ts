@@ -169,6 +169,7 @@ export interface MockScenario {
   cyberRiskScoreLabel: FivePointScaleLabel;
   threatIds: string[];
   vulnerabilityIds: string[];
+  scoringRationale: string;
 }
 
 export interface MockCyberRiskAssessment {

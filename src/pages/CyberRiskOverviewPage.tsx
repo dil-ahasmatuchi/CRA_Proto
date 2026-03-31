@@ -12,7 +12,6 @@ import {
   Link,
   Stack,
   Typography,
-  useTheme,
 } from "@mui/material";
 import {
   DataGridPro,
@@ -32,7 +31,7 @@ import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 import ArrowUpIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowUp";
 import ArrowDownIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowDown";
 
-import { type RiskHeatmapLevel } from "../data/ragDataVisualization.js";
+import { type RiskHeatmapLevel, ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import ResidualRisksMatrix from "../components/ResidualRisksMatrix.js";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -121,70 +120,111 @@ const treatmentData = [
 const treatmentTotal = treatmentData.reduce((sum, d) => sum + d.value, 0);
 
 // ---------------------------------------------------------------------------
-// Top 5 critical assets data
+// Most exposed assets data
 // ---------------------------------------------------------------------------
+
+type ScoreChip = { numeric: string; label: string; rag: RagDataVizKey };
 
 interface CriticalAssetRow {
   id: number;
   assetName: string;
   assetType: string;
-  criticality: "High" | "Very high";
+  criticality: ScoreChip;
   vulnerabilities: number;
-  findings: number;
-  cyberRiskScore: string;
-  status: "At risk" | "Remediation in progress";
+  threats: number;
+  cyberRiskScore: ScoreChip;
 }
 
 const criticalAssetRows: CriticalAssetRow[] = [
   {
     id: 1,
-    assetName: "Vendor master database",
+    assetName: "Customer database",
     assetType: "Database",
-    criticality: "High",
-    vulnerabilities: 3,
-    findings: 5,
-    cyberRiskScore: "5 \u2013 Very high",
-    status: "At risk",
+    criticality: { numeric: "5", label: "Very high", rag: "neg05" },
+    vulnerabilities: 4,
+    threats: 6,
+    cyberRiskScore: { numeric: "115", label: "Very high", rag: "neg05" },
   },
   {
     id: 2,
-    assetName: "ERP system administrator credentials",
-    assetType: "Infrastructure",
-    criticality: "High",
+    assetName: "ERP system",
+    assetType: "Application",
+    criticality: { numeric: "5", label: "Very high", rag: "neg05" },
     vulnerabilities: 6,
-    findings: 3,
-    cyberRiskScore: "5 \u2013 Very high",
-    status: "At risk",
+    threats: 3,
+    cyberRiskScore: { numeric: "110", label: "Very high", rag: "neg05" },
   },
   {
     id: 3,
-    assetName: "Purchase order approval matrix",
-    assetType: "Infrastructure",
-    criticality: "High",
-    vulnerabilities: 1,
-    findings: 2,
-    cyberRiskScore: "5 \u2013 Very high",
-    status: "Remediation in progress",
+    assetName: "Inventory management database",
+    assetType: "Database",
+    criticality: { numeric: "5", label: "Very high", rag: "neg05" },
+    vulnerabilities: 2,
+    threats: 5,
+    cyberRiskScore: { numeric: "105", label: "Very high", rag: "neg05" },
   },
   {
     id: 4,
-    assetName: "Inventory management database",
-    assetType: "Database",
-    criticality: "Very high",
-    vulnerabilities: 2,
-    findings: 5,
-    cyberRiskScore: "5 \u2013 Very high",
-    status: "Remediation in progress",
+    assetName: "Payment gateway",
+    assetType: "Application",
+    criticality: { numeric: "5", label: "Very high", rag: "neg05" },
+    vulnerabilities: 1,
+    threats: 3,
+    cyberRiskScore: { numeric: "100", label: "High", rag: "neg03" },
   },
   {
     id: 5,
-    assetName: "Payment gateway API",
-    assetType: "API",
-    criticality: "Very high",
+    assetName: "Vendor master database",
+    assetType: "Database",
+    criticality: { numeric: "4", label: "High", rag: "neg03" },
+    vulnerabilities: 3,
+    threats: 5,
+    cyberRiskScore: { numeric: "95", label: "High", rag: "neg03" },
+  },
+  {
+    id: 6,
+    assetName: "Active Directory server",
+    assetType: "Server",
+    criticality: { numeric: "5", label: "Very high", rag: "neg05" },
+    vulnerabilities: 5,
+    threats: 3,
+    cyberRiskScore: { numeric: "90", label: "High", rag: "neg03" },
+  },
+  {
+    id: 7,
+    assetName: "Email server",
+    assetType: "Server",
+    criticality: { numeric: "4", label: "High", rag: "neg03" },
+    vulnerabilities: 3,
+    threats: 4,
+    cyberRiskScore: { numeric: "80", label: "High", rag: "neg03" },
+  },
+  {
+    id: 8,
+    assetName: "Purchase order approval system",
+    assetType: "Application",
+    criticality: { numeric: "4", label: "High", rag: "neg03" },
     vulnerabilities: 1,
-    findings: 3,
-    cyberRiskScore: "5 \u2013 Very high",
-    status: "At risk",
+    threats: 2,
+    cyberRiskScore: { numeric: "72", label: "Medium", rag: "neu03" },
+  },
+  {
+    id: 9,
+    assetName: "Financial reporting platform",
+    assetType: "Application",
+    criticality: { numeric: "4", label: "High", rag: "neg03" },
+    vulnerabilities: 3,
+    threats: 4,
+    cyberRiskScore: { numeric: "68", label: "Medium", rag: "neu03" },
+  },
+  {
+    id: 10,
+    assetName: "Cloud storage service",
+    assetType: "Cloud service",
+    criticality: { numeric: "3", label: "Medium", rag: "neu03" },
+    vulnerabilities: 2,
+    threats: 2,
+    cyberRiskScore: { numeric: "55", label: "Medium", rag: "neu03" },
   },
 ];
 
@@ -406,57 +446,37 @@ function RiskTreatmentStatusCard() {
   );
 }
 
-function CriticalityCell({ value }: { value: CriticalAssetRow["criticality"] }) {
-  const { presets } = useTheme();
-  const StatusIndicator =
-    presets.StatusIndicatorPresets?.components.StatusIndicator;
-
+function ScoreChipCell({ value }: { value: ScoreChip }) {
   return (
-    <StatusIndicator
-      label={value}
-      customColor={() => ({
-        backgroundColor: value === "Very high" ? "#d32f2f" : "#ef6c00",
-        color: "#fff",
-      })}
-    />
+    <Stack direction="row" alignItems="center" gap={1} sx={{ height: 16 }}>
+      <Box
+        sx={({ tokens: t }) => ({
+          width: 16,
+          height: 16,
+          borderRadius: t.semantic.radius.sm.value,
+          flexShrink: 0,
+          bgcolor: ragDataVizColor(t, value.rag),
+        })}
+      />
+      <Typography
+        component="span"
+        sx={({ tokens: t }) => ({
+          fontSize: t.semantic.font.label.xs.fontSize.value,
+          lineHeight: t.semantic.font.label.xs.lineHeight.value,
+          letterSpacing: t.semantic.font.label.xs.letterSpacing.value,
+          fontFamily: t.semantic.font.label.xs.fontFamily.value,
+          fontWeight: t.semantic.font.label.xs.fontWeight.value,
+          color: t.semantic.color.type.default.value,
+          whiteSpace: "nowrap",
+        })}
+      >
+        {value.numeric} - {value.label}
+      </Typography>
+    </Stack>
   );
 }
 
-function CyberRiskScoreCell({ value }: { value: string }) {
-  const { presets } = useTheme();
-  const StatusIndicator =
-    presets.StatusIndicatorPresets?.components.StatusIndicator;
-
-  return (
-    <StatusIndicator
-      label={value}
-      customColor={() => ({
-        backgroundColor: "#d32f2f",
-        color: "#fff",
-      })}
-    />
-  );
-}
-
-function AssetStatusCell({ value }: { value: CriticalAssetRow["status"] }) {
-  const { presets } = useTheme();
-  const StatusIndicator =
-    presets.StatusIndicatorPresets?.components.StatusIndicator;
-
-  const isAtRisk = value === "At risk";
-
-  return (
-    <StatusIndicator
-      label={value}
-      customColor={() => ({
-        backgroundColor: isAtRisk ? "#d32f2f" : "#ef6c00",
-        color: "#fff",
-      })}
-    />
-  );
-}
-
-function TopCriticalAssetsTable() {
+function MostExposedAssetsTable() {
   const columns: GridColDef<CriticalAssetRow>[] = [
     {
       field: "assetName",
@@ -477,11 +497,10 @@ function TopCriticalAssetsTable() {
     {
       field: "criticality",
       headerName: "Criticality",
-      width: 130,
+      width: 160,
+      sortable: false,
       renderCell: (params: GridRenderCellParams<CriticalAssetRow>) => (
-        <CriticalityCell
-          value={params.value as CriticalAssetRow["criticality"]}
-        />
+        <ScoreChipCell value={params.row.criticality} />
       ),
     },
     {
@@ -491,27 +510,18 @@ function TopCriticalAssetsTable() {
       type: "number",
     },
     {
-      field: "findings",
-      headerName: "Findings",
+      field: "threats",
+      headerName: "Threats",
       width: 100,
       type: "number",
     },
     {
       field: "cyberRiskScore",
       headerName: "Cyber risk score",
-      width: 160,
+      width: 180,
+      sortable: false,
       renderCell: (params: GridRenderCellParams<CriticalAssetRow>) => (
-        <CyberRiskScoreCell value={params.value as string} />
-      ),
-    },
-    {
-      field: "status",
-      headerName: "Status",
-      width: 200,
-      renderCell: (params: GridRenderCellParams<CriticalAssetRow>) => (
-        <AssetStatusCell
-          value={params.value as CriticalAssetRow["status"]}
-        />
+        <ScoreChipCell value={params.row.cyberRiskScore} />
       ),
     },
   ];
@@ -519,7 +529,7 @@ function TopCriticalAssetsTable() {
   return (
     <Stack gap={2}>
       <Typography variant="h4" component="h2" fontWeight={600}>
-        Top 5 critical assets
+        Most exposed assets
       </Typography>
       <Box sx={{ width: "100%" }}>
         <DataGridPro
@@ -530,7 +540,7 @@ function TopCriticalAssetsTable() {
           slotProps={{
             main: {
               "aria-label":
-                "Top 5 critical assets table. Column headers contain action menus. Press CTRL + ENTER to open the action menu.",
+                "Most exposed assets table. Column headers contain action menus. Press CTRL + ENTER to open the action menu.",
             },
           }}
           sx={{ border: 0 }}
@@ -591,8 +601,8 @@ export default function CyberRiskOverviewPage() {
           <RiskTreatmentStatusCard />
         </Stack>
 
-        {/* Top 5 critical assets */}
-        <TopCriticalAssetsTable />
+        {/* Most exposed assets */}
+        <MostExposedAssetsTable />
       </Stack>
     </Container>
   );

@@ -21,13 +21,17 @@ import { useNavigate } from "react-router";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
-import CraScenarioEmphasisTitle from "../components/CraScenarioEmphasisTitle.js";
-import { CRA_SCORING_ROW_DEFINITIONS, type CraScoreValue } from "../data/craScoringScenarioLibrary.js";
-import { ragDataVizColor } from "../data/ragDataVisualization.js";
+import { cyberRisks } from "../data/cyberRisks.js";
+import { scenarios } from "../data/scenarios.js";
+import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
+import { fivePointLabelToRag, getLikelihoodLabel, getCyberRiskScoreLabel } from "../data/types.js";
+import type { FivePointScaleLabel } from "../data/types.js";
 
-type ScoreValue = CraScoreValue;
-
-type RagKey = NonNullable<NonNullable<ScoreValue>["rag"]>;
+type ScoreValue = {
+  numeric: string;
+  label: string;
+  rag: RagDataVizKey;
+} | null;
 
 type ScoringRow = {
   id: string;
@@ -94,48 +98,84 @@ function RiskLegendCell({ value }: { value: ScoreValue }) {
   );
 }
 
-const SCORING_ROWS: ScoringRow[] = CRA_SCORING_ROW_DEFINITIONS.map((def) => {
-  if (def.kind === "cyberRisk") {
-    return {
-      id: def.id,
-      kind: "cyberRisk" as const,
-      groupId: def.groupId,
-      tag: def.tag,
-      title: (
-        <Link
-          href="#"
-          onClick={(e) => e.preventDefault()}
-          underline="always"
-          sx={({ tokens: t }) => ({
-            fontSize: t.semantic.font.text.md.fontSize.value,
-            lineHeight: t.semantic.font.text.md.lineHeight.value,
-            letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-            fontWeight: 600,
-            color: t.semantic.color.type.default.value,
-          })}
-        >
-          {def.titleLinkText}
-        </Link>
-      ),
-      impact: def.impact,
-      threat: def.threat,
-      vulnerability: def.vulnerability,
-      likelihood: def.likelihood,
-      cyberRiskScore: def.cyberRiskScore,
-    };
-  }
-  return {
-    id: def.id,
-    kind: "scenario" as const,
-    groupId: def.groupId,
-    tag: def.tag,
-    title: <CraScenarioEmphasisTitle segments={def.titleSegments} />,
-    impact: def.impact,
-    threat: def.threat,
-    vulnerability: def.vulnerability,
-    likelihood: def.likelihood,
-    cyberRiskScore: def.cyberRiskScore,
+function toFivePointScore(value: number, label: FivePointScaleLabel): ScoreValue {
+  return { numeric: String(value), label, rag: fivePointLabelToRag(label) };
+}
+
+function toLikelihoodScore(value: number): ScoreValue {
+  const label = getLikelihoodLabel(value);
+  return { numeric: String(value), label, rag: fivePointLabelToRag(label) };
+}
+
+function toCyberRiskScoreValue(value: number): ScoreValue {
+  const label = getCyberRiskScoreLabel(value);
+  return { numeric: String(value), label, rag: fivePointLabelToRag(label) };
+}
+
+const SELECTED_RISKS = cyberRisks.slice(0, 3);
+
+const scenariosByRiskId = new Map(
+  SELECTED_RISKS.map((cr) => [
+    cr.id,
+    scenarios.filter((s) => s.cyberRiskId === cr.id),
+  ]),
+);
+
+const SCORING_ROWS: ScoringRow[] = SELECTED_RISKS.flatMap((cr) => {
+  const riskRow: ScoringRow = {
+    id: cr.id,
+    kind: "cyberRisk",
+    groupId: cr.id,
+    tag: "Cyber risk",
+    title: (
+      <Link
+        href="#"
+        onClick={(e) => e.preventDefault()}
+        underline="always"
+        sx={({ tokens: t }) => ({
+          fontSize: t.semantic.font.text.md.fontSize.value,
+          lineHeight: t.semantic.font.text.md.lineHeight.value,
+          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+          fontWeight: 600,
+          color: t.semantic.color.type.default.value,
+        })}
+      >
+        {cr.name}
+      </Link>
+    ),
+    impact: null,
+    threat: null,
+    vulnerability: null,
+    likelihood: null,
+    cyberRiskScore: null,
   };
+
+  const relatedScenarios = scenariosByRiskId.get(cr.id) ?? [];
+  const scenarioRows: ScoringRow[] = relatedScenarios.map((s) => ({
+    id: s.id,
+    kind: "scenario" as const,
+    groupId: cr.id,
+    tag: "Scenario",
+    title: (
+      <Typography
+        sx={({ tokens: t }) => ({
+          fontSize: t.semantic.font.text.md.fontSize.value,
+          lineHeight: t.semantic.font.text.md.lineHeight.value,
+          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+          color: t.semantic.color.type.default.value,
+        })}
+      >
+        {s.name}
+      </Typography>
+    ),
+    impact: toFivePointScore(s.impact, s.impactLabel),
+    threat: toFivePointScore(s.threatSeverity, s.threatSeverityLabel),
+    vulnerability: toFivePointScore(s.vulnerabilitySeverity, s.vulnerabilitySeverityLabel),
+    likelihood: toLikelihoodScore(s.likelihood),
+    cyberRiskScore: toCyberRiskScoreValue(s.cyberRiskScore),
+  }));
+
+  return [riskRow, ...scenarioRows];
 });
 
 function parseScoreNumeric(value: ScoreValue): number | null {
@@ -305,12 +345,9 @@ export default function NewCyberRiskAssessmentScoringTab({
   const navigate = useNavigate();
   const aggregationLabelId = useId();
   const [aggregationMethod, setAggregationMethod] = useState<AggregationMethod | null>(null);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    rw: true,
-    ph: true,
-    dd: true,
-    ie: true,
-  });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(SELECTED_RISKS.map((cr) => [cr.id, true])),
+  );
 
   const goToScenario = useCallback(
     (scenarioId: string) => {

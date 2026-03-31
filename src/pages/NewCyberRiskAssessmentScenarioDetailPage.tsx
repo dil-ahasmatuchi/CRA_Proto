@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader, OverflowBreadcrumbs } from "@diligentcorp/atlas-react-bundle";
 import {
+  Alert,
+  AlertTitle,
   Box,
   Button,
   Container,
@@ -18,23 +20,28 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { visuallyHidden } from "@mui/utils";
 import { NavLink, useLocation, useNavigate, useParams } from "react-router";
 
+import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
 
 import AssessmentWysiwygEditor from "../components/AssessmentWysiwygEditor.js";
-import CraScenarioEmphasisTitle from "../components/CraScenarioEmphasisTitle.js";
-import {
-  type CraRagKey,
-  type CraScoreValue,
-  getCraScenarioById,
-} from "../data/craScoringScenarioLibrary.js";
-import { ragDataVizColor } from "../data/ragDataVisualization.js";
+import { getScenarioById } from "../data/scenarios.js";
+import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
+import { fivePointLabelToRag, getLikelihoodLabel, getLikelihoodRange, getCyberRiskScoreLabel, getCyberRiskScoreRange } from "../data/types.js";
+import type { FivePointScaleValue } from "../data/types.js";
 
 const NEW_CRA_PATH = "/cyber-risk/cyber-risk-assessments/new";
 const ASSESSMENTS_PATH = "/cyber-risk/cyber-risk-assessments";
 
-const SCORE_OPTIONS: NonNullable<CraScoreValue>[] = [
+type ScoreValue = {
+  numeric: string;
+  label: string;
+  rag: RagDataVizKey;
+} | null;
+
+const SCORE_OPTIONS: NonNullable<ScoreValue>[] = [
   { numeric: "1", label: "Very low", rag: "pos05" },
   { numeric: "2", label: "Low", rag: "pos04" },
   { numeric: "3", label: "Medium", rag: "neu03" },
@@ -42,7 +49,7 @@ const SCORE_OPTIONS: NonNullable<CraScoreValue>[] = [
   { numeric: "5", label: "Very high", rag: "neg05" },
 ];
 
-const LIKELIHOOD_OPTIONS: NonNullable<CraScoreValue>[] = [
+const LIKELIHOOD_OPTIONS: NonNullable<ScoreValue>[] = [
   { numeric: "1–5", label: "Very low", rag: "pos05" },
   { numeric: "6–10", label: "Low", rag: "pos04" },
   { numeric: "11–15", label: "Medium", rag: "neu03" },
@@ -50,7 +57,7 @@ const LIKELIHOOD_OPTIONS: NonNullable<CraScoreValue>[] = [
   { numeric: "21–25", label: "Very high", rag: "neg05" },
 ];
 
-const CYBER_RISK_SCORE_OPTIONS: NonNullable<CraScoreValue>[] = [
+const CYBER_RISK_SCORE_OPTIONS: NonNullable<ScoreValue>[] = [
   { numeric: "1–25", label: "Very low", rag: "pos05" },
   { numeric: "26–50", label: "Low", rag: "pos04" },
   { numeric: "51–75", label: "Medium", rag: "neu03" },
@@ -58,7 +65,7 @@ const CYBER_RISK_SCORE_OPTIONS: NonNullable<CraScoreValue>[] = [
   { numeric: "101–125", label: "Very high", rag: "neg05" },
 ];
 
-function likelihoodFromProduct(product: number): NonNullable<CraScoreValue> {
+function likelihoodFromProduct(product: number): NonNullable<ScoreValue> {
   if (product <= 5) return LIKELIHOOD_OPTIONS[0];
   if (product <= 10) return LIKELIHOOD_OPTIONS[1];
   if (product <= 15) return LIKELIHOOD_OPTIONS[2];
@@ -66,7 +73,7 @@ function likelihoodFromProduct(product: number): NonNullable<CraScoreValue> {
   return LIKELIHOOD_OPTIONS[4];
 }
 
-function cyberRiskFromProduct(product: number): NonNullable<CraScoreValue> {
+function cyberRiskFromProduct(product: number): NonNullable<ScoreValue> {
   if (product <= 25) return CYBER_RISK_SCORE_OPTIONS[0];
   if (product <= 50) return CYBER_RISK_SCORE_OPTIONS[1];
   if (product <= 75) return CYBER_RISK_SCORE_OPTIONS[2];
@@ -74,13 +81,13 @@ function cyberRiskFromProduct(product: number): NonNullable<CraScoreValue> {
   return CYBER_RISK_SCORE_OPTIONS[4];
 }
 
-function numericOf(v: CraScoreValue): number {
+function numericOf(v: ScoreValue): number {
   if (!v) return 0;
   const n = Number(v.numeric);
   return Number.isFinite(n) ? n : 0;
 }
 
-function rangeUpperBound(v: CraScoreValue): number {
+function rangeUpperBound(v: ScoreValue): number {
   if (!v) return 0;
   const dashIdx = v.numeric.indexOf("–");
   if (dashIdx >= 0) {
@@ -91,7 +98,7 @@ function rangeUpperBound(v: CraScoreValue): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function RagSwatch({ rag }: { rag: CraRagKey }) {
+function RagSwatch({ rag }: { rag: RagDataVizKey }) {
   return (
     <Box
       sx={({ tokens: t }) => ({
@@ -113,9 +120,9 @@ function ScoringMetricField({
   options = SCORE_OPTIONS,
 }: {
   label: string;
-  value: CraScoreValue;
-  onChange: (next: CraScoreValue) => void;
-  options?: NonNullable<CraScoreValue>[];
+  value: ScoreValue;
+  onChange: (next: ScoreValue) => void;
+  options?: NonNullable<ScoreValue>[];
 }) {
   const handleChange = useCallback(
     (e: SelectChangeEvent<string>) => {
@@ -191,8 +198,8 @@ function ScoringMetricField({
 type PendingOverride = {
   field: "likelihood" | "cyberRiskScore";
   fieldLabel: string;
-  calculatedValue: NonNullable<CraScoreValue>;
-  newValue: NonNullable<CraScoreValue>;
+  calculatedValue: NonNullable<ScoreValue>;
+  newValue: NonNullable<ScoreValue>;
 };
 
 function OverrideRationaleDialog({
@@ -282,20 +289,27 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
   const assessmentNameFromNav = (location.state as { assessmentName?: string } | null)
     ?.assessmentName;
 
-  const scenario = scenarioId ? getCraScenarioById(scenarioId) : undefined;
+  const scenario = scenarioId ? getScenarioById(scenarioId) : undefined;
   const assessmentTitle = (assessmentNameFromNav ?? "").trim() || "New cyber risk assessment";
 
-  const [impact, setImpact] = useState<CraScoreValue>(scenario?.impact ?? null);
-  const [threat, setThreat] = useState<CraScoreValue>(scenario?.threat ?? null);
-  const [vulnerability, setVulnerability] = useState<CraScoreValue>(
-    scenario?.vulnerability ?? null,
-  );
-  const [likelihood, setLikelihood] = useState<CraScoreValue>(scenario?.likelihood ?? null);
-  const [cyberRiskScore, setCyberRiskScore] = useState<CraScoreValue>(
-    scenario?.cyberRiskScore ?? null,
-  );
+  const initialScores = useMemo(() => {
+    if (!scenario) return { impact: null, threat: null, vulnerability: null, likelihood: null, cyberRiskScore: null } as Record<string, ScoreValue>;
+    return {
+      impact: SCORE_OPTIONS[scenario.impact - 1] ?? null,
+      threat: SCORE_OPTIONS[scenario.threatSeverity - 1] ?? null,
+      vulnerability: SCORE_OPTIONS[scenario.vulnerabilitySeverity - 1] ?? null,
+      likelihood: likelihoodFromProduct(scenario.likelihood),
+      cyberRiskScore: cyberRiskFromProduct(scenario.cyberRiskScore),
+    };
+  }, [scenario]);
 
-  const [scoringRationale, setScoringRationale] = useState(scenario?.rationale ?? "");
+  const [impact, setImpact] = useState<ScoreValue>(initialScores.impact);
+  const [threat, setThreat] = useState<ScoreValue>(initialScores.threat);
+  const [vulnerability, setVulnerability] = useState<ScoreValue>(initialScores.vulnerability);
+  const [likelihood, setLikelihood] = useState<ScoreValue>(initialScores.likelihood);
+  const [cyberRiskScore, setCyberRiskScore] = useState<ScoreValue>(initialScores.cyberRiskScore);
+
+  const [scoringRationale, setScoringRationale] = useState(scenario?.scoringRationale ?? "");
   const [likelihoodOverridden, setLikelihoodOverridden] = useState(false);
   const [cyberRiskOverridden, setCyberRiskOverridden] = useState(false);
   const [pendingOverride, setPendingOverride] = useState<PendingOverride | null>(null);
@@ -336,7 +350,7 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
   }, [calculatedCyberRisk, cyberRiskOverridden]);
 
   const handleLikelihoodChange = useCallback(
-    (next: CraScoreValue) => {
+    (next: ScoreValue) => {
       if (
         calculatedLikelihood &&
         next &&
@@ -357,7 +371,7 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
   );
 
   const handleCyberRiskChange = useCallback(
-    (next: CraScoreValue) => {
+    (next: ScoreValue) => {
       if (
         calculatedCyberRisk &&
         next &&
@@ -457,6 +471,22 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
         />
 
         <Stack gap={3} sx={{ pt: 3, pb: 6, width: "100%", maxWidth: "none" }}>
+          <Alert
+            severity="info"
+            icon={<AiSparkleIcon />}
+            aria-live={false}
+            role={undefined}
+            sx={{
+              backgroundColor: 'var(--lens-component-avatar-purple-background-color)',
+              color: 'var(--lens-component-accordion-active-color)',
+              py: 2,
+            }}
+          >
+            <Box sx={visuallyHidden}>AI</Box>
+            <AlertTitle>Generated by Diligent Scoring AI</AlertTitle>
+            The scoring and the rationale for this scenario were generated by the Diligent Scoring AI agent. Review the results and adjust as needed.
+          </Alert>
+
           <Typography
             component="h2"
             variant="h5"
@@ -466,12 +496,19 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
               color: t.semantic.color.type.default.value,
             })}
           >
-            {scenario.tag}
+            {scenario.id}
           </Typography>
 
-          <Box sx={{ "& p": { m: 0 } }}>
-            <CraScenarioEmphasisTitle segments={scenario.titleSegments} />
-          </Box>
+          <Typography
+            sx={({ tokens: t }) => ({
+              m: 0,
+              fontSize: t.semantic.font.text.md.fontSize.value,
+              lineHeight: t.semantic.font.text.md.lineHeight.value,
+              color: t.semantic.color.type.default.value,
+            })}
+          >
+            {scenario.name}
+          </Typography>
 
           <Box
             sx={({ tokens: t }) => ({

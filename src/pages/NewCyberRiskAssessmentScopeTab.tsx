@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Box,
   Button,
@@ -37,6 +37,11 @@ import HistoryIcon from "@diligentcorp/atlas-react-bundle/icons/History";
 import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
+import { assets } from "../data/assets.js";
+import { cyberRisks } from "../data/cyberRisks.js";
+import { threats } from "../data/threats.js";
+import { vulnerabilities } from "../data/vulnerabilities.js";
+import type { FivePointScaleValue } from "../data/types.js";
 
 export type ScopeSubView = "overview" | "assets";
 
@@ -50,169 +55,56 @@ export type ScopeAssetRow = {
   cyberRisks: number;
   threats: number;
   vulnerabilities: number;
-  criticality: 2 | 3 | 4 | 5;
+  criticality: FivePointScaleValue;
   objectives: number;
   processes: number;
 };
 
 const CRITICALITY_META: Record<
-  ScopeAssetRow["criticality"],
+  FivePointScaleValue,
   { label: string; rag: RagDataVizKey }
 > = {
   5: { label: "5 - Very high", rag: "neg05" },
   4: { label: "4 - High", rag: "neg03" },
   3: { label: "3 - Medium", rag: "neu03" },
   2: { label: "2 - Low", rag: "pos04" },
+  1: { label: "1 - Very low", rag: "pos05" },
 };
 
-const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
-  {
-    included: false,
-    assetName: "Vendor master database",
-    assetType: "Database",
-    cyberRisks: 5,
-    threats: 4,
-    vulnerabilities: 6,
-    criticality: 5,
-    objectives: 4,
-    processes: 20,
-  },
-  {
-    included: false,
-    assetName: "Payment gateway API",
-    assetType: "API",
-    cyberRisks: 4,
-    threats: 3,
-    vulnerabilities: 5,
-    criticality: 4,
-    objectives: 8,
-    processes: 14,
-  },
-  {
-    included: false,
-    assetName: "Customer database",
-    assetType: "Data",
-    cyberRisks: 3,
-    threats: 2,
-    vulnerabilities: 4,
-    criticality: 5,
-    objectives: 12,
-    processes: 16,
-  },
-  {
-    included: false,
-    assetName: "HR employee portal",
-    assetType: "Software",
-    cyberRisks: 2,
-    threats: 2,
-    vulnerabilities: 3,
-    criticality: 3,
-    objectives: 6,
-    processes: 9,
-  },
-  {
-    included: false,
-    assetName: "Email security gateway",
-    assetType: "Infrastructure",
-    cyberRisks: 6,
-    threats: 5,
-    vulnerabilities: 7,
-    criticality: 4,
-    objectives: 3,
-    processes: 11,
-  },
-  {
-    included: false,
-    assetName: "Backup storage cluster",
-    assetType: "Data",
-    cyberRisks: 1,
-    threats: 1,
-    vulnerabilities: 2,
-    criticality: 3,
-    objectives: 2,
-    processes: 5,
-  },
-  {
-    included: false,
-    assetName: "Identity provider service",
-    assetType: "API",
-    cyberRisks: 7,
-    threats: 6,
-    vulnerabilities: 8,
-    criticality: 5,
-    objectives: 9,
-    processes: 18,
-  },
-  {
-    included: false,
-    assetName: "Main data center servers",
-    assetType: "Infrastructure",
-    cyberRisks: 2,
-    threats: 2,
-    vulnerabilities: 2,
-    criticality: 2,
-    objectives: 2,
-    processes: 2,
-  },
-  {
-    included: false,
-    assetName: "Claims processing system",
-    assetType: "Software",
-    cyberRisks: 4,
-    threats: 3,
-    vulnerabilities: 5,
-    criticality: 4,
-    objectives: 7,
-    processes: 13,
-  },
-  {
-    included: false,
-    assetName: "Document management store",
-    assetType: "Database",
-    cyberRisks: 3,
-    threats: 2,
-    vulnerabilities: 4,
-    criticality: 3,
-    objectives: 5,
-    processes: 8,
-  },
-];
-
-/** Backfill counts when row state predates threats/vulnerabilities fields (e.g. Fast Refresh). */
-function withScopeCountFields(row: ScopeAssetRow): ScopeAssetRow {
-  const threats = typeof row.threats === "number" ? row.threats : (row.id % 7) + 1;
-  const vulnerabilities =
-    typeof row.vulnerabilities === "number" ? row.vulnerabilities : (row.id % 9) + 1;
-  return { ...row, threats, vulnerabilities };
-}
-
 function buildScopeRows(): ScopeAssetRow[] {
-  const types: ScopeAssetRow["assetType"][] = [
-    "Database",
-    "API",
-    "Data",
-    "Software",
-    "Infrastructure",
-  ];
-  const criticalities: ScopeAssetRow["criticality"][] = [2, 3, 4, 5];
-  const rows: ScopeAssetRow[] = SEED_ROWS.map((r, i) => ({ ...r, id: i + 1 }));
-
-  for (let i = SEED_ROWS.length; i < 436; i++) {
-    const id = i + 1;
-    rows.push({
-      id,
-      included: false,
-      assetName: `Asset service ${id}`,
-      assetType: types[id % types.length],
-      cyberRisks: (id % 8) + 1,
-      threats: (id % 7) + 1,
-      vulnerabilities: (id % 9) + 1,
-      criticality: criticalities[id % criticalities.length],
-      objectives: (id % 15) + 1,
-      processes: (id % 22) + 1,
-    });
+  const crCountByAsset = new Map<string, number>();
+  for (const cr of cyberRisks) {
+    for (const aid of cr.assetIds) {
+      crCountByAsset.set(aid, (crCountByAsset.get(aid) ?? 0) + 1);
+    }
   }
-  return rows;
+
+  const threatCountByAsset = new Map<string, number>();
+  for (const t of threats) {
+    for (const aid of t.assetIds) {
+      threatCountByAsset.set(aid, (threatCountByAsset.get(aid) ?? 0) + 1);
+    }
+  }
+
+  const vulnCountByAsset = new Map<string, number>();
+  for (const v of vulnerabilities) {
+    for (const aid of v.assetIds) {
+      vulnCountByAsset.set(aid, (vulnCountByAsset.get(aid) ?? 0) + 1);
+    }
+  }
+
+  return assets.map((a, i) => ({
+    id: i + 1,
+    included: false,
+    assetName: a.name,
+    assetType: a.assetType,
+    cyberRisks: crCountByAsset.get(a.id) ?? 0,
+    threats: threatCountByAsset.get(a.id) ?? 0,
+    vulnerabilities: vulnCountByAsset.get(a.id) ?? 0,
+    criticality: a.criticality,
+    objectives: ((i + 3) % 12) + 1,
+    processes: ((i + 5) % 20) + 1,
+  }));
 }
 
 function ScopeToolbar({
@@ -300,7 +192,7 @@ function ScopeToolbar({
   );
 }
 
-function CriticalityCell({ level }: { level: ScopeAssetRow["criticality"] }) {
+function CriticalityCell({ level }: { level: FivePointScaleValue }) {
   const meta = CRITICALITY_META[level];
   return (
     <Stack direction="row" alignItems="center" gap={1}>
@@ -823,16 +715,12 @@ function ScopeAssetsDataGrid({
         type: "number",
         align: "left",
         headerAlign: "left",
-        valueGetter: (_value, row) => withScopeCountFields(row).threats,
-        renderCell: (params: GridRenderCellParams<ScopeAssetRow>) => {
-          const n = withScopeCountFields(params.row).threats;
-          return (
-            <NumericLink
-              value={n}
-              ariaLabel={`Threats for ${params.row.assetName}: ${n}`}
-            />
-          );
-        },
+        renderCell: (params: GridRenderCellParams<ScopeAssetRow>) => (
+          <NumericLink
+            value={params.value as number}
+            ariaLabel={`Threats for ${params.row.assetName}: ${params.value}`}
+          />
+        ),
       },
       {
         field: "vulnerabilities",
@@ -841,16 +729,12 @@ function ScopeAssetsDataGrid({
         type: "number",
         align: "left",
         headerAlign: "left",
-        valueGetter: (_value, row) => withScopeCountFields(row).vulnerabilities,
-        renderCell: (params: GridRenderCellParams<ScopeAssetRow>) => {
-          const n = withScopeCountFields(params.row).vulnerabilities;
-          return (
-            <NumericLink
-              value={n}
-              ariaLabel={`Vulnerabilities for ${params.row.assetName}: ${n}`}
-            />
-          );
-        },
+        renderCell: (params: GridRenderCellParams<ScopeAssetRow>) => (
+          <NumericLink
+            value={params.value as number}
+            ariaLabel={`Vulnerabilities for ${params.row.assetName}: ${params.value}`}
+          />
+        ),
       },
       {
         field: "criticality",
@@ -966,16 +850,7 @@ export default function NewCyberRiskAssessmentScopeTab({
   scopeSubView,
   onScopeSubViewChange,
 }: NewCyberRiskAssessmentScopeTabProps) {
-  const [rows, setRows] = useState<ScopeAssetRow[]>(() => buildScopeRows().map(withScopeCountFields));
-
-  useEffect(() => {
-    setRows((prev) => {
-      if (!prev.some((r) => typeof r.threats !== "number" || typeof r.vulnerabilities !== "number")) {
-        return prev;
-      }
-      return prev.map(withScopeCountFields);
-    });
-  }, []);
+  const [rows, setRows] = useState<ScopeAssetRow[]>(buildScopeRows);
 
   const includedCount = useMemo(() => rows.filter((r) => r.included).length, [rows]);
 

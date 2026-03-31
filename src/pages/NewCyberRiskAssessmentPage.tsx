@@ -267,31 +267,52 @@ export default function NewCyberRiskAssessmentPage() {
           ? "Approve assessment"
           : "Done";
 
-  const defaultMoreButton = (
-    <Button
-      variant="contained"
-      size="medium"
-      onClick={() => {
-        if (assessmentPhase === "draft") {
-          setAssessmentPhase("scoping");
-          setActiveTab(SCOPE_TAB_INDEX);
-          return;
-        }
-        if (assessmentPhase === "scoping") {
-          setAssessmentPhase("inProgress");
-          setActiveTab(SCORING_TAB_INDEX);
-          return;
-        }
-        if (assessmentPhase === "inProgress") {
-          setAssessmentPhase("assessmentApproved");
-          return;
-        }
-        navigate(assessmentsUrl);
-      }}
-    >
-      {ctaLabel}
-    </Button>
-  );
+  const defaultMoreButton =
+    assessmentPhase === "assessmentApproved" ? (
+      <Stack direction="row" alignItems="center" gap={1}>
+        <Button
+          variant="text"
+          size="medium"
+          onClick={() => {
+            setAssessmentPhase("inProgress");
+            setActiveTab(SCORING_TAB_INDEX);
+          }}
+        >
+          Back to scoring
+        </Button>
+        <Button
+          variant="contained"
+          size="medium"
+          onClick={() => navigate(assessmentsUrl)}
+        >
+          Done
+        </Button>
+      </Stack>
+    ) : (
+      <Button
+        variant="contained"
+        size="medium"
+        onClick={() => {
+          if (assessmentPhase === "draft") {
+            setAssessmentPhase("scoping");
+            setActiveTab(SCOPE_TAB_INDEX);
+            return;
+          }
+          if (assessmentPhase === "scoping") {
+            setAssessmentPhase("inProgress");
+            setActiveTab(SCORING_TAB_INDEX);
+            return;
+          }
+          if (assessmentPhase === "inProgress") {
+            setAssessmentPhase("assessmentApproved");
+            setActiveTab(RESULTS_TAB_INDEX);
+            return;
+          }
+        }}
+      >
+        {ctaLabel}
+      </Button>
+    );
 
   return (
     <Container maxWidth="xl" sx={{ py: 2 }}>

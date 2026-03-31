@@ -18,6 +18,7 @@ import CyberRiskOverviewPage from "./pages/CyberRiskOverviewPage.js";
 import ControlsPage from "./pages/ControlsPage.js";
 import CyberRisksPage from "./pages/CyberRisksPage.js";
 import MitigationPlansPage from "./pages/MitigationPlansPage.js";
+import VulnerabilitiesPage from "./pages/VulnerabilitiesPage.js";
 
 export default function App() {
   return (
@@ -106,12 +107,7 @@ export default function App() {
         />
         <Route
           path="cyber-risk/vulnerabilities"
-          element={
-            <GenericPage
-              title="Vulnerabilities"
-              breadcrumbParent="Cyber risk management"
-            />
-          }
+          element={<VulnerabilitiesPage />}
         />
         <Route
           path="cyber-risk/cyber-risk-assessments"
