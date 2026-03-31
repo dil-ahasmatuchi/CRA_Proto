@@ -29,8 +29,7 @@ import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
 import AssessmentWysiwygEditor from "../components/AssessmentWysiwygEditor.js";
 import { getScenarioById } from "../data/scenarios.js";
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
-import { fivePointLabelToRag, getLikelihoodLabel, getLikelihoodRange, getCyberRiskScoreLabel, getCyberRiskScoreRange } from "../data/types.js";
-import type { FivePointScaleValue } from "../data/types.js";
+
 
 const NEW_CRA_PATH = "/cyber-risk/cyber-risk-assessments/new";
 const ASSESSMENTS_PATH = "/cyber-risk/cyber-risk-assessments";
@@ -474,7 +473,7 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
           <Alert
             severity="info"
             icon={<AiSparkleIcon />}
-            aria-live={false}
+            aria-live="off"
             role={undefined}
             sx={{
               backgroundColor: 'var(--lens-component-avatar-purple-background-color)',

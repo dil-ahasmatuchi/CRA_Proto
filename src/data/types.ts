@@ -18,6 +18,7 @@ export type FivePointScaleLabel =
 // ---------------------------------------------------------------------------
 
 export type CyberRiskStatus =
+  | "Draft"
   | "Identification"
   | "Assessment"
   | "Mitigation"
