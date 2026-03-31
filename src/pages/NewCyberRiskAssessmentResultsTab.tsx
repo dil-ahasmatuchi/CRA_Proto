@@ -1,15 +1,20 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
-import { SectionHeader } from "@diligentcorp/atlas-react-bundle";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { SectionHeader, Footer } from "@diligentcorp/atlas-react-bundle";
 import {
   Box,
   Button,
   Card,
   CardContent,
+  Drawer,
+  FormControl,
+  FormLabel,
   IconButton,
   Link,
   ListItemText,
   Menu,
   MenuItem,
+  Select,
+  type SelectChangeEvent,
   Stack,
   Table,
   TableBody,
@@ -17,7 +22,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
+  useTheme,
   useTheme as useMuiTheme,
 } from "@mui/material";
 import {
@@ -25,77 +32,27 @@ import {
   type GridColDef,
   type GridRenderCellParams,
 } from "@mui/x-data-grid-pro";
-import { Chart as ChartJS, ArcElement, Legend, Tooltip } from "chart.js";
+import { Chart as ChartJS, ArcElement, Legend as ChartLegend, Tooltip } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
+import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+import { type CraRagKey } from "../data/craScoringScenarioLibrary.js";
+import {
+  RAG_DATA_VIZ_CANVAS_FALLBACK,
+  RAG_FIVE_POINT_BAND_KEYS,
+  ragDataVizColor,
+  resolveColorForCanvas,
+} from "../data/ragDataVisualization.js";
 
-type RagKey = "neg05" | "neg04" | "neg03" | "neu03" | "pos04";
-
-type RagPalette = {
-  negative: Record<"03" | "04" | "05", { value: string }>;
-  neutral: Record<"03", { value: string }>;
-  positive: Record<"04", { value: string }>;
-};
-
-function ragColor(tokens: { semantic: { color: { dataVisualization: { rag: RagPalette } } } }, rag: RagKey) {
-  const { rag: r } = tokens.semantic.color.dataVisualization;
-  switch (rag) {
-    case "neg05":
-      return r.negative["05"].value;
-    case "neg04":
-      return r.negative["04"].value;
-    case "neg03":
-      return r.negative["03"].value;
-    case "neu03":
-      return r.neutral["03"].value;
-    case "pos04":
-      return r.positive["04"].value;
-    default:
-      return r.neutral["03"].value;
-  }
-}
-
-/** Chart.js canvas cannot parse CSS variables — use literal color or computed RGB. */
-const RAG_COLOR_CANVAS_FALLBACK: Record<RagKey, string> = {
-  neg05: "#a01516",
-  neg04: "#c92624",
-  neg03: "#ea580c",
-  neu03: "#ffbf00",
-  pos04: "#26c926",
-};
+ChartJS.register(ArcElement, Tooltip, ChartLegend);
 
 /** Solid white gaps between arcs; theme tokens can resolve to hues that read as yellow on canvas. */
 const DONUT_SEGMENT_BORDER = "#ffffff";
 
-function resolveColorForCanvas(cssColor: string, fallbackHex: string): string {
-  const trimmed = (cssColor ?? "").trim();
-  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) {
-    return trimmed;
-  }
-  if (/^rgba?\(/i.test(trimmed)) {
-    return trimmed;
-  }
-  if (typeof document === "undefined") {
-    return fallbackHex;
-  }
-  const el = document.createElement("div");
-  el.style.cssText =
-    "position:absolute;clip:rect(0,0,0,0);pointer-events:none;left:0;top:0;width:1px;height:1px;background-color:" +
-    trimmed;
-  document.body.appendChild(el);
-  const resolved = getComputedStyle(el).backgroundColor;
-  document.body.removeChild(el);
-  if (!resolved || resolved === "rgba(0, 0, 0, 0)" || resolved === "transparent") {
-    return fallbackHex;
-  }
-  return resolved;
-}
-
-type ScoreChip = { numeric: string; label: string; rag: RagKey };
+type ScoreChip = { numeric: string; label: string; rag: CraRagKey };
 
 function ResultsRiskChip({ value }: { value: ScoreChip }) {
   return (
@@ -106,7 +63,7 @@ function ResultsRiskChip({ value }: { value: ScoreChip }) {
           height: 16,
           borderRadius: t.semantic.radius.sm.value,
           flexShrink: 0,
-          bgcolor: ragColor(t, value.rag),
+          bgcolor: ragDataVizColor(t, value.rag),
         })}
       />
       <Typography
@@ -127,7 +84,7 @@ function ResultsRiskChip({ value }: { value: ScoreChip }) {
 }
 
 /** Heatmap band 0 = very low … 4 = very high */
-const HEATMAP_BAND_COLORS: RagKey[] = ["pos04", "pos04", "neu03", "neg03", "neg05"];
+const HEATMAP_BAND_COLORS = RAG_FIVE_POINT_BAND_KEYS;
 
 type HeatCell = { band: number; count: number | null };
 
@@ -171,19 +128,19 @@ const HEATMAP_DATA: HeatCell[][] = [
 ];
 
 const HEATMAP_LEGEND = [
-  { range: "100 - 125", label: "Very high", count: 1, rag: "neg05" as RagKey },
-  { range: "75 - 99", label: "High", count: 1, rag: "neg03" as RagKey },
-  { range: "45 - 74", label: "Medium", count: null, rag: "neu03" as RagKey },
-  { range: "26 - 44", label: "Low", count: null, rag: "pos04" as RagKey },
-  { range: "1 - 25", label: "Very low", count: null, rag: "pos04" as RagKey },
+  { range: "100 - 125", label: "Very high", count: 1, rag: "neg05" as CraRagKey },
+  { range: "75 - 99", label: "High", count: 1, rag: "neg03" as CraRagKey },
+  { range: "45 - 74", label: "Medium", count: null, rag: "neu03" as CraRagKey },
+  { range: "26 - 44", label: "Low", count: null, rag: "pos04" as CraRagKey },
+  { range: "1 - 25", label: "Very low", count: null, rag: "pos05" as CraRagKey },
 ];
 
 const DONUT_SEGMENTS = [
-  { range: "21 - 25", label: "Very high", count: 2, colorKey: "neg05" as RagKey },
-  { range: "12 - 20", label: "High", count: 1, colorKey: "neg04" as RagKey },
-  { range: "8 - 11", label: "Medium", count: 1, colorKey: "neu03" as RagKey },
-  { range: "6 - 10", label: "Low", count: null, colorKey: "pos04" as RagKey },
-  { range: "1 - 5", label: "Very low", count: null, colorKey: "pos04" as RagKey },
+  { range: "21 - 25", label: "Very high", count: 2, colorKey: "neg05" as CraRagKey },
+  { range: "12 - 20", label: "High", count: 1, colorKey: "neg03" as CraRagKey },
+  { range: "8 - 11", label: "Medium", count: 1, colorKey: "neu03" as CraRagKey },
+  { range: "6 - 10", label: "Low", count: null, colorKey: "pos04" as CraRagKey },
+  { range: "1 - 5", label: "Very low", count: null, colorKey: "pos05" as CraRagKey },
 ];
 
 type CyberRowKind = "cyberRisk" | "scenario";
@@ -221,7 +178,7 @@ const CYBER_RESULTS_ROWS: CyberResultsRow[] = [
     threat: { numeric: "3", label: "Medium", rag: "neu03" },
     vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
     likelihood: { numeric: "15", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "80", label: "High", rag: "neg04" },
+    cyberRiskScore: { numeric: "80", label: "High", rag: "neg03" },
   },
   {
     id: "rw-s2",
@@ -265,7 +222,7 @@ const CYBER_RESULTS_ROWS: CyberResultsRow[] = [
     threat: { numeric: "5", label: "Very high", rag: "neg05" },
     vulnerability: { numeric: "4", label: "High", rag: "neg03" },
     likelihood: { numeric: "15", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "75", label: "High", rag: "neg04" },
+    cyberRiskScore: { numeric: "75", label: "High", rag: "neg03" },
   },
 ];
 
@@ -285,7 +242,7 @@ const ASSET_RESULT_ROWS: AssetResultRow[] = [
     id: "1",
     name: "Payment gateway API",
     assetId: "AST-1020",
-    cyberRiskScore: { numeric: "16", label: "High", rag: "neg04" },
+    cyberRiskScore: { numeric: "16", label: "High", rag: "neg03" },
     criticality: { numeric: "4", label: "High", rag: "neg03" },
     confidentiality: { numeric: "5", label: "Very high", rag: "neg05" },
     integrity: { numeric: "3", label: "Medium", rag: "neu03" },
@@ -370,14 +327,309 @@ function ResultsNameCell({
   );
 }
 
+const ISSUE_TYPE_OPTIONS = ["Issue", "Risk", "Control gap", "Finding"];
+const SEVERITY_OPTIONS = ["Very low", "Low", "Medium", "High", "Very high"];
+const ORG_UNIT_OPTIONS = [
+  "Chicago - Operations division - Incident response implementation",
+  "New York - IT division - Security operations",
+  "London - Engineering - Cloud infrastructure",
+];
+
+function PlaceholderText({ text = "Choose an option" }: { text?: string }) {
+  const {
+    tokens: {
+      component: { input },
+    },
+  } = useTheme();
+  return (
+    <Box
+      component="span"
+      sx={{ color: input.outlined.default.placeholder.color.value, pointerEvents: "none" }}
+    >
+      {text}
+    </Box>
+  );
+}
+
+function MitigationPlanSideSheet({
+  open,
+  onClose,
+  cyberRiskName,
+}: {
+  open: boolean;
+  onClose: () => void;
+  cyberRiskName: string;
+}) {
+  const { presets } = useTheme();
+  const { SideSheetPresets } = presets;
+  const { size, components } = SideSheetPresets;
+  const { Header, Content } = components;
+
+  const [name, setName] = useState("");
+  const [issueType, setIssueType] = useState("");
+  const [severity, setSeverity] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [owners, setOwners] = useState("");
+  const [orgUnit, setOrgUnit] = useState("");
+  const [actionPlan, setActionPlan] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleClose = useCallback(() => {
+    setName("");
+    setIssueType("");
+    setSeverity("");
+    setDueDate("");
+    setOwners("");
+    setOrgUnit("");
+    setActionPlan("");
+    onClose();
+  }, [onClose]);
+
+  return (
+    <Drawer
+      anchor="right"
+      open={open}
+      onClose={handleClose}
+      sx={{ ...size.large.sx }}
+      slotProps={{
+        paper: {
+          role: "dialog",
+          "aria-labelledby": "mitigation-side-sheet-title",
+        },
+      }}
+    >
+      <Header
+        variant="default"
+        onClose={handleClose}
+        title="Add issue ticket"
+        componentProps={{
+          closeButton: { "aria-label": "Close side sheet" },
+          title: { component: "h2", id: "mitigation-side-sheet-title" },
+        }}
+      >
+        <Typography
+          sx={({ tokens: t }) => ({
+            fontSize: t.semantic.font.text.md.fontSize.value,
+            lineHeight: t.semantic.font.text.md.lineHeight.value,
+            letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+            color: t.semantic.color.type.default.value,
+          })}
+        >
+          {cyberRiskName}
+        </Typography>
+      </Header>
+
+      <Content ariaLabel="Mitigation plan form">
+        <Stack gap={3}>
+          {/* Row 1: Name + Issue type */}
+          <Stack direction="row" gap={3}>
+            <FormControl sx={{ flex: 7 }}>
+              <FormLabel htmlFor="mp-name">Name</FormLabel>
+              <TextField
+                placeholder="Enter issue name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                slotProps={{ input: { id: "mp-name" } }}
+              />
+            </FormControl>
+            <FormControl sx={{ flex: 5 }}>
+              <FormLabel id="mp-issue-type-label">Issue type</FormLabel>
+              <Select
+                displayEmpty
+                value={issueType}
+                onChange={(e: SelectChangeEvent) => setIssueType(e.target.value)}
+                labelId="mp-issue-type-label"
+                renderValue={(selected) => {
+                  if (!selected) return <PlaceholderText />;
+                  return selected;
+                }}
+              >
+                {ISSUE_TYPE_OPTIONS.map((opt) => (
+                  <MenuItem key={opt} value={opt}>
+                    {opt}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
+
+          {/* Row 2: Severity + Due date */}
+          <Stack direction="row" gap={3}>
+            <FormControl sx={{ flex: 7 }}>
+              <FormLabel id="mp-severity-label">Severity</FormLabel>
+              <Select
+                displayEmpty
+                value={severity}
+                onChange={(e: SelectChangeEvent) => setSeverity(e.target.value)}
+                labelId="mp-severity-label"
+                renderValue={(selected) => {
+                  if (!selected) return <PlaceholderText />;
+                  return selected;
+                }}
+              >
+                {SEVERITY_OPTIONS.map((opt) => (
+                  <MenuItem key={opt} value={opt}>
+                    {opt}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl sx={{ flex: 5 }}>
+              <FormLabel htmlFor="mp-due-date">Due date</FormLabel>
+              <TextField
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                slotProps={{ input: { id: "mp-due-date" } }}
+              />
+            </FormControl>
+          </Stack>
+
+          {/* Row 3: Owner(s) */}
+          <FormControl fullWidth>
+            <FormLabel htmlFor="mp-owners">Owner(s)</FormLabel>
+            <TextField
+              placeholder="Search for owners"
+              value={owners}
+              onChange={(e) => setOwners(e.target.value)}
+              slotProps={{ input: { id: "mp-owners" } }}
+            />
+          </FormControl>
+
+          {/* Row 4: Related Org. unit */}
+          <FormControl fullWidth>
+            <FormLabel id="mp-org-unit-label">Related Org. unit</FormLabel>
+            <Select
+              displayEmpty
+              value={orgUnit}
+              onChange={(e: SelectChangeEvent) => setOrgUnit(e.target.value)}
+              labelId="mp-org-unit-label"
+              renderValue={(selected) => {
+                if (!selected) return <PlaceholderText />;
+                return selected;
+              }}
+            >
+              {ORG_UNIT_OPTIONS.map((opt) => (
+                <MenuItem key={opt} value={opt}>
+                  {opt}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Row 5: Action plan */}
+          <FormControl fullWidth>
+            <FormLabel htmlFor="mp-action-plan">Action plan</FormLabel>
+            <TextField
+              multiline
+              minRows={3}
+              placeholder="Describe the action plan"
+              value={actionPlan}
+              onChange={(e) => setActionPlan(e.target.value)}
+              slotProps={{ input: { id: "mp-action-plan" } }}
+            />
+          </FormControl>
+
+          {/* Row 6: File uploader */}
+          <Box>
+            <input
+              ref={fileInputRef}
+              type="file"
+              hidden
+              multiple
+              accept=".jpg,.jpeg,.pdf,.xls,.xlsx"
+            />
+            <Box
+              onClick={() => fileInputRef.current?.click()}
+              sx={({ tokens: t }) => ({
+                borderStyle: "dashed",
+                borderWidth: t.semantic.borderWidth.thin.value,
+                borderColor: t.semantic.color.outline.default.value,
+                borderRadius: t.semantic.radius.lg.value,
+                px: 3,
+                py: 3,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 1,
+                cursor: "pointer",
+                "&:hover": {
+                  borderColor: t.semantic.color.outline.hover.value,
+                  backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
+                },
+              })}
+            >
+              <Stack direction="row" alignItems="center" gap={1}>
+                <UploadIcon aria-hidden />
+                <Typography
+                  sx={({ tokens: t }) => ({
+                    fontSize: t.semantic.font.text.md.fontSize.value,
+                    lineHeight: t.semantic.font.text.md.lineHeight.value,
+                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                    color: t.semantic.color.type.default.value,
+                  })}
+                >
+                  Drag files here or{" "}
+                  <Link component="span" underline="always" sx={{ fontWeight: 600, cursor: "pointer" }}>
+                    select files to upload
+                  </Link>
+                </Typography>
+              </Stack>
+              <Stack direction="row" gap={2}>
+                <Typography
+                  sx={({ tokens: t }) => ({
+                    fontSize: t.semantic.font.text.sm.fontSize.value,
+                    lineHeight: t.semantic.font.text.sm.lineHeight.value,
+                    letterSpacing: t.semantic.font.text.sm.letterSpacing.value,
+                    color: t.semantic.color.type.muted.value,
+                  })}
+                >
+                  Formats: JPG, PDF, XLS
+                </Typography>
+                <Typography
+                  sx={({ tokens: t }) => ({
+                    fontSize: t.semantic.font.text.sm.fontSize.value,
+                    lineHeight: t.semantic.font.text.sm.lineHeight.value,
+                    letterSpacing: t.semantic.font.text.sm.letterSpacing.value,
+                    color: t.semantic.color.type.muted.value,
+                  })}
+                >
+                  Max. file size: 5 MB
+                </Typography>
+              </Stack>
+            </Box>
+          </Box>
+        </Stack>
+      </Content>
+
+      <Footer
+        horizontalPadding="medium"
+        secondaryAction={<span />}
+        tertiaryAction={
+          <Button variant="text" onClick={handleClose}>
+            Discard
+          </Button>
+        }
+        primaryAction={
+          <Button variant="contained" onClick={handleClose}>
+            Add issue
+          </Button>
+        }
+      />
+    </Drawer>
+  );
+}
+
 function CyberRisksResultsTable({
   visibleRows,
   expanded,
   onToggleGroup,
+  onOpenMitigationPlan,
 }: {
   visibleRows: CyberResultsRow[];
   expanded: Record<string, boolean>;
   onToggleGroup: (groupId: string) => void;
+  onOpenMitigationPlan: (row: CyberResultsRow) => void;
 }) {
   return (
     <TableContainer
@@ -485,10 +737,9 @@ function CyberRisksResultsTable({
               <TableCell sx={{ px: 2, py: 0, verticalAlign: "middle" }}>
                 {row.kind === "cyberRisk" ? (
                   <Button
-                    href="#"
-                    onClick={(e) => e.preventDefault()}
                     size="small"
                     variant="text"
+                    onClick={() => onOpenMitigationPlan(row)}
                     sx={({ tokens: t }) => ({
                       fontWeight: 600,
                       textTransform: "none",
@@ -517,13 +768,13 @@ function AssetsRiskDonut() {
   );
 
   const [arcCanvasColors, setArcCanvasColors] = useState(() =>
-    ASSETS_DONUT_ACTIVE_SEGMENTS.map((s) => RAG_COLOR_CANVAS_FALLBACK[s.colorKey]),
+    ASSETS_DONUT_ACTIVE_SEGMENTS.map((s) => RAG_DATA_VIZ_CANVAS_FALLBACK[s.colorKey]),
   );
 
   useLayoutEffect(() => {
     setArcCanvasColors(
       ASSETS_DONUT_ACTIVE_SEGMENTS.map((s) =>
-        resolveColorForCanvas(ragColor(t, s.colorKey), RAG_COLOR_CANVAS_FALLBACK[s.colorKey]),
+        resolveColorForCanvas(ragDataVizColor(t, s.colorKey), RAG_DATA_VIZ_CANVAS_FALLBACK[s.colorKey]),
       ),
     );
   }, [t]);
@@ -735,6 +986,14 @@ export default function NewCyberRiskAssessmentResultsTab() {
     ph: false,
   });
 
+  const [sideSheetOpen, setSideSheetOpen] = useState(false);
+  const [sideSheetCyberRiskName, setSideSheetCyberRiskName] = useState("");
+
+  const handleOpenMitigationPlan = useCallback((row: CyberResultsRow) => {
+    setSideSheetCyberRiskName(row.name);
+    setSideSheetOpen(true);
+  }, []);
+
   const toggleGroup = useCallback((groupId: string) => {
     setExpandedGroups((prev) => ({ ...prev, [groupId]: !(prev[groupId] !== false) }));
   }, []);
@@ -900,7 +1159,7 @@ export default function NewCyberRiskAssessmentResultsTab() {
                               gridColumn: ci + 1,
                               gridRow: ri + 1,
                               borderRadius: th.semantic.radius.sm.value,
-                              bgcolor: ragColor(th, HEATMAP_BAND_COLORS[cell.band] ?? "neu03"),
+                              bgcolor: ragDataVizColor(th, HEATMAP_BAND_COLORS[cell.band] ?? "neu03"),
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
@@ -952,7 +1211,7 @@ export default function NewCyberRiskAssessmentResultsTab() {
                             height: 16,
                             borderRadius: t.semantic.radius.sm.value,
                             flexShrink: 0,
-                            bgcolor: ragColor(t, item.rag),
+                            bgcolor: ragDataVizColor(t, item.rag),
                           })}
                         />
                         <Typography
@@ -1063,7 +1322,7 @@ export default function NewCyberRiskAssessmentResultsTab() {
                             height: 16,
                             borderRadius: t.semantic.radius.sm.value,
                             flexShrink: 0,
-                            bgcolor: ragColor(t, item.colorKey),
+                            bgcolor: ragDataVizColor(t, item.colorKey),
                           })}
                         />
                         <Typography
@@ -1130,6 +1389,7 @@ export default function NewCyberRiskAssessmentResultsTab() {
             visibleRows={visibleCyberRows}
             expanded={expandedGroups}
             onToggleGroup={toggleGroup}
+            onOpenMitigationPlan={handleOpenMitigationPlan}
           />
         ) : null}
       </SectionHeader>
@@ -1145,6 +1405,12 @@ export default function NewCyberRiskAssessmentResultsTab() {
       >
         {assetsSectionExpanded ? <AssetsResultsGrid /> : null}
       </SectionHeader>
+
+      <MitigationPlanSideSheet
+        open={sideSheetOpen}
+        onClose={() => setSideSheetOpen(false)}
+        cyberRiskName={sideSheetCyberRiskName}
+      />
     </Stack>
   );
 }

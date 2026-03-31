@@ -14,6 +14,7 @@ import ThreatsPage from "./pages/ThreatsPage.js";
 import CyberRiskAssessmentsPage from "./pages/CyberRiskAssessmentsPage.js";
 import NewCyberRiskAssessmentPage from "./pages/NewCyberRiskAssessmentPage.js";
 import NewCyberRiskAssessmentScenarioDetailPage from "./pages/NewCyberRiskAssessmentScenarioDetailPage.js";
+import CyberRiskOverviewPage from "./pages/CyberRiskOverviewPage.js";
 
 export default function App() {
   return (
@@ -80,6 +81,10 @@ export default function App() {
           }
         />
 
+        <Route
+          path="cyber-risk/overview"
+          element={<CyberRiskOverviewPage />}
+        />
         <Route
           path="cyber-risk/cyber-risks"
           element={

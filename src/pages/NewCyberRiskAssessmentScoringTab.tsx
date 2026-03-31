@@ -23,6 +23,7 @@ import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
 import CraScenarioEmphasisTitle from "../components/CraScenarioEmphasisTitle.js";
 import { CRA_SCORING_ROW_DEFINITIONS, type CraScoreValue } from "../data/craScoringScenarioLibrary.js";
+import { ragDataVizColor } from "../data/ragDataVisualization.js";
 
 type ScoreValue = CraScoreValue;
 
@@ -45,31 +46,6 @@ type ScoringRow = {
 type AggregationMethod = "highest" | "average" | "weightedAverage";
 
 const SCENARIO_DETAIL_PATH = "/cyber-risk/cyber-risk-assessments/new/scenario";
-
-/** Minimal token shape for RAG paths (avoids coupling to full LensThemeTokens). */
-type RagPalette = {
-  negative: Record<"03" | "04" | "05", { value: string }>;
-  neutral: Record<"03", { value: string }>;
-  positive: Record<"04", { value: string }>;
-};
-
-function ragSwatchColor(tokens: { semantic: { color: { dataVisualization: { rag: RagPalette } } } }, rag: RagKey) {
-  const { rag: r } = tokens.semantic.color.dataVisualization;
-  switch (rag) {
-    case "neg05":
-      return r.negative["05"].value;
-    case "neg04":
-      return r.negative["04"].value;
-    case "neg03":
-      return r.negative["03"].value;
-    case "neu03":
-      return r.neutral["03"].value;
-    case "pos04":
-      return r.positive["04"].value;
-    default:
-      return r.neutral["03"].value;
-  }
-}
 
 function RiskLegendCell({ value }: { value: ScoreValue }) {
   return (
@@ -95,7 +71,7 @@ function RiskLegendCell({ value }: { value: ScoreValue }) {
               height: 16,
               borderRadius: t.semantic.radius.sm.value,
               flexShrink: 0,
-              bgcolor: ragSwatchColor(t, value.rag),
+              bgcolor: ragDataVizColor(t, value.rag),
             })}
           />
           <Typography
@@ -590,6 +566,12 @@ export default function NewCyberRiskAssessmentScoringTab({
                       isScenario
                         ? ({ tokens: t }) => ({
                             cursor: "pointer",
+                            "&.MuiTableRow-hover:hover": {
+                              backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
+                            },
+                            "&.MuiTableRow-hover:hover .MuiTableCell-root": {
+                              backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
+                            },
                             "&:focus-visible": {
                               outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
                               outlineOffset: -2,
@@ -599,18 +581,18 @@ export default function NewCyberRiskAssessmentScoringTab({
                     }
                   >
                     <TableCell
-                      sx={{
+                      sx={({ tokens: t }) => ({
                         position: "sticky",
                         left: 0,
                         zIndex: 2,
-                        bgcolor: "inherit",
+                        bgcolor: t.semantic.color.background.base.value,
                         width: 420,
                         minWidth: 320,
                         maxWidth: 420,
                         whiteSpace: "normal",
                         wordBreak: "break-word",
                         overflowWrap: "break-word",
-                      }}
+                      })}
                     >
                       <NameCell
                         row={row}
@@ -675,13 +657,13 @@ export default function NewCyberRiskAssessmentScoringTab({
                     </TableCell>
                     <TableCell
                       align="right"
-                      sx={{
+                      sx={({ tokens: t }) => ({
                         position: "sticky",
                         right: 0,
                         zIndex: 2,
-                        bgcolor: "inherit",
+                        bgcolor: t.semantic.color.background.base.value,
                         verticalAlign: "middle",
-                      }}
+                      })}
                     >
                       <IconButton
                         size="small"

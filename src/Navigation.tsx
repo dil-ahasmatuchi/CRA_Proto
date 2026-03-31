@@ -69,6 +69,7 @@ export default function Navigation() {
         onClose={() => setCyberRiskOpen(false)}
       >
         <CertCyberRiskStrategyIcon slot="icon" />
+        <RoutedNavLink to="/cyber-risk/overview" label="Overview" />
         <RoutedNavLink to="/cyber-risk/cyber-risk-assessments" label="Cyber risk assessments" />
         <RoutedNavLink to="/cyber-risk/cyber-risks" label="Cyber risks" />
         <RoutedNavLink to="/cyber-risk/controls" label="Controls" />

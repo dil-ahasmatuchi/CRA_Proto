@@ -27,7 +27,10 @@ import {
   QuickFilterControl,
   Toolbar,
 } from "@mui/x-data-grid-pro";
+import { useMemo } from "react";
 import { NavLink } from "react-router";
+
+import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import { Doughnut, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -182,25 +185,21 @@ const barChartData = {
   ],
 };
 
-const SEVERITY_COLORS = {
-  low: "#26c926",
-  medium: "#ffbf00",
-  high: "#c92624",
-  veryHigh: "#a01516",
-};
+const THREAT_SEVERITY_CHART_RAG: RagDataVizKey[] = ["pos04", "neu03", "neg03", "neg05"];
 
 function ThreatsBySeverityCard() {
+  const { tokens } = useTheme();
+  const chartBackgroundColors = useMemo(
+    () => THREAT_SEVERITY_CHART_RAG.map((key) => ragDataVizColor(tokens, key)),
+    [tokens],
+  );
+
   const chartData = {
     labels: ["Low", "Medium", "High", "Very high"],
     datasets: [
       {
         data: [severityData.low, severityData.medium, severityData.high, severityData.veryHigh],
-        backgroundColor: [
-          SEVERITY_COLORS.low,
-          SEVERITY_COLORS.medium,
-          SEVERITY_COLORS.high,
-          SEVERITY_COLORS.veryHigh,
-        ],
+        backgroundColor: chartBackgroundColors,
         borderWidth: 0,
         cutout: "72%",
       },
@@ -208,10 +207,10 @@ function ThreatsBySeverityCard() {
   };
 
   const legendItems = [
-    { label: "Low", value: 26, color: SEVERITY_COLORS.low },
-    { label: "Medium", value: 46, color: SEVERITY_COLORS.medium },
-    { label: "High", value: 106, color: SEVERITY_COLORS.high },
-    { label: "Very high", value: 38, color: SEVERITY_COLORS.veryHigh },
+    { label: "Low", value: 26, rag: "pos04" as const },
+    { label: "Medium", value: 46, rag: "neu03" as const },
+    { label: "High", value: 106, rag: "neg03" as const },
+    { label: "Very high", value: 38, rag: "neg05" as const },
   ];
 
   return (
@@ -291,13 +290,13 @@ function ThreatsBySeverityCard() {
             <Stack key={item.label} gap={0}>
               <Stack direction="row" alignItems="center" gap={1}>
                 <Box
-                  sx={{
+                  sx={({ tokens: t }) => ({
                     width: 16,
                     height: 16,
                     borderRadius: 0.5,
-                    backgroundColor: item.color,
+                    backgroundColor: ragDataVizColor(t, item.rag),
                     flexShrink: 0,
-                  }}
+                  })}
                 />
                 <Typography
                   variant="textSm"

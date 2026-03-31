@@ -36,6 +36,8 @@ import FolderIcon from "@diligentcorp/atlas-react-bundle/icons/Folder";
 import HistoryIcon from "@diligentcorp/atlas-react-bundle/icons/History";
 import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 
+import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
+
 export type ScopeSubView = "overview" | "assets";
 
 type ScopeViewFilter = "all" | "included" | "excluded";
@@ -55,12 +57,12 @@ export type ScopeAssetRow = {
 
 const CRITICALITY_META: Record<
   ScopeAssetRow["criticality"],
-  { label: string; color: string }
+  { label: string; rag: RagDataVizKey }
 > = {
-  5: { label: "5 - Very high", color: "#7a1214" },
-  4: { label: "4 - High", color: "#d3222a" },
-  3: { label: "3 - Medium", color: "#e8a317" },
-  2: { label: "2 - Low", color: "#26c926" },
+  5: { label: "5 - Very high", rag: "neg05" },
+  4: { label: "4 - High", rag: "neg03" },
+  3: { label: "3 - Medium", rag: "neu03" },
+  2: { label: "2 - Low", rag: "pos04" },
 };
 
 const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
@@ -303,13 +305,13 @@ function CriticalityCell({ level }: { level: ScopeAssetRow["criticality"] }) {
   return (
     <Stack direction="row" alignItems="center" gap={1}>
       <Box
-        sx={{
+        sx={({ tokens: t }) => ({
           width: 14,
           height: 14,
           flexShrink: 0,
-          bgcolor: meta.color,
+          bgcolor: ragDataVizColor(t, meta.rag),
           borderRadius: 0.5,
-        }}
+        })}
         aria-hidden
       />
       <Typography variant="body1" component="span" sx={{ fontSize: 14, lineHeight: "20px" }}>

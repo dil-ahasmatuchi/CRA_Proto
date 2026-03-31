@@ -1,4 +1,4 @@
-export type CraRagKey = "neg05" | "neg04" | "neg03" | "neu03" | "pos04";
+export type CraRagKey = "neg05" | "neg03" | "neu03" | "pos04" | "pos05";
 
 export type CraScoreValue = {
   numeric: string;
@@ -70,8 +70,8 @@ export const CRA_SCORING_ROW_DEFINITIONS: CraScoringRowDefinition[] = [
     impact: { numeric: "4", label: "High", rag: "neg03" },
     threat: { numeric: "3", label: "Medium", rag: "neu03" },
     vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
-    likelihood: { numeric: "15", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "60", label: "Medium", rag: "neu03" },
+    likelihood: { numeric: "11–15", label: "Medium", rag: "neu03" },
+    cyberRiskScore: { numeric: "51–75", label: "Medium", rag: "neu03" },
     rationale: `Update: Scores reflect the latest assessment pass for this scenario.
 
 Threat — Ransomware attack (severity: Medium): Ransomware is treated as a credible threat against revenue systems when delivery paths exist. The Medium rating reflects that execution still depends on user action or exposed services, not an always-on automated path.
@@ -106,8 +106,8 @@ Risk calculation: Together, elevated likelihood and high impact produce a Medium
     impact: { numeric: "5", label: "Very high", rag: "neg05" },
     threat: { numeric: "4", label: "High", rag: "neg03" },
     vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "100", label: "Very high", rag: "neg05" },
+    likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
+    cyberRiskScore: { numeric: "76–100", label: "High", rag: "neg03" },
     rationale: `Update: This scenario carries the highest composite score in the ransomware branch because both impact and exploitability are at the top of the scale.
 
 Threat — Ransomware attack (severity: High): Ransomware against customer data stores is a High-severity threat given common double-extortion tactics and the speed at which operators move laterally after first access.
@@ -133,8 +133,8 @@ Risk calculation: The model therefore surfaces a Very high cyber risk score. Rem
     impact: null,
     threat: null,
     vulnerability: null,
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "16", label: "High", rag: "neg03" },
+    likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
+    cyberRiskScore: { numeric: "76–100", label: "High", rag: "neg03" },
     rationale: `Update: Several factor scores are not populated yet; the row still shows a High likelihood from phishing prevalence and a High cyber risk score driven by the available inputs.
 
 Threat — Phishing (severity: not scored in this row): Phishing is a common initial access vector. Once full threat scoring is completed, we expect at least a Medium to High rating based on campaign volume against your industry.
@@ -169,8 +169,8 @@ Risk calculation: With likelihood High and incomplete impact data, the displayed
     impact: { numeric: "4", label: "High", rag: "neg03" },
     threat: { numeric: "4", label: "High", rag: "neg03" },
     vulnerability: { numeric: "4", label: "High", rag: "neg03" },
-    likelihood: { numeric: "16", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "60", label: "Medium", rag: "neu03" },
+    likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
+    cyberRiskScore: { numeric: "51–75", label: "Medium", rag: "neu03" },
     rationale: `Update: All four factor inputs are aligned around High, which moderates to a Medium composite in this assessment methodology.
 
 Threat — Ransomware attack (severity: High): Social and marketing endpoints can be leveraged for credential theft that later maps to corporate SSO. The threat remains High even though the first hop is a social platform.
@@ -217,8 +217,8 @@ Risk calculation: The blended outcome is a Medium cyber risk score. Next steps: 
     impact: { numeric: "5", label: "Very high", rag: "neg05" },
     threat: { numeric: "4", label: "High", rag: "neg03" },
     vulnerability: { numeric: "3", label: "Medium", rag: "neu03" },
-    likelihood: { numeric: "12", label: "Medium", rag: "neu03" },
-    cyberRiskScore: { numeric: "60", label: "Medium", rag: "neu03" },
+    likelihood: { numeric: "11–15", label: "Medium", rag: "neu03" },
+    cyberRiskScore: { numeric: "51–75", label: "Medium", rag: "neu03" },
     rationale: `Update: Scores emphasize very high business impact if an injected social integration reaches internal APIs.
 
 Threat — Phishing attack (severity: High): Targeted phishing against operators of social properties is a High threat because it pairs social engineering with technical follow-through.
@@ -244,8 +244,8 @@ Risk calculation: Net outcome is Medium cyber risk pending code fixes. Prioritiz
     impact: { numeric: "3", label: "Medium", rag: "neu03" },
     threat: { numeric: "3", label: "Medium", rag: "neu03" },
     vulnerability: { numeric: "2", label: "Low", rag: "pos04" },
-    likelihood: { numeric: "25", label: "Very high", rag: "neg05" },
-    cyberRiskScore: { numeric: "48", label: "Medium", rag: "neu03" },
+    likelihood: { numeric: "6–10", label: "Low", rag: "pos04" },
+    cyberRiskScore: { numeric: "1–25", label: "Very low", rag: "pos05" },
     rationale: `Update: Very high likelihood is driven by phishing volume even though single-account impact is only Medium today.
 
 Threat — Phishing email (severity: Medium): Generic phishing is Medium severity relative to targeted APT activity, but still sufficient to capture credentials at scale.
@@ -280,8 +280,8 @@ Risk calculation: Overall Medium cyber risk suggests continuous training, report
     impact: { numeric: "4", label: "High", rag: "neg03" },
     threat: { numeric: "4", label: "High", rag: "neg03" },
     vulnerability: { numeric: "3", label: "Medium", rag: "neu03" },
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "75", label: "High", rag: "neg03" },
+    likelihood: { numeric: "11–15", label: "Medium", rag: "neu03" },
+    cyberRiskScore: { numeric: "26–50", label: "Low", rag: "pos04" },
     rationale: `Update: Compared with the first phishing + SQL scenario, likelihood is now High, pushing the composite toward High cyber risk.
 
 Threat — Phishing attack (severity: High): Higher reported click rates or successful tests justify raising phishing from Medium to High.
@@ -315,8 +315,8 @@ Risk calculation: Cyber risk score is High. Response: emergency code review, WAF
     impact: { numeric: "5", label: "Very high", rag: "neg05" },
     threat: { numeric: "5", label: "Very high", rag: "neg05" },
     vulnerability: { numeric: "4", label: "High", rag: "neg03" },
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "100", label: "Very high", rag: "neg05" },
+    likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
+    cyberRiskScore: { numeric: "76–100", label: "High", rag: "neg03" },
     rationale: `Update: This is the maximum-severity phishing variant because it ends on the customer database with Very high threat and impact.
 
 Threat — Phishing attack (severity: Very high): Very high reflects credible, targeted lures against staff who can reach database tooling or VPNs that expose SQL services.
