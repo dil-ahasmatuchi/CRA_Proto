@@ -30,7 +30,12 @@ import {
 import { useMemo } from "react";
 import { NavLink } from "react-router";
 
-import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
+import {
+  ragDataVizColor,
+  resolveColorForCanvas,
+  RAG_DATA_VIZ_CANVAS_FALLBACK,
+  type RagDataVizKey,
+} from "../data/ragDataVisualization.js";
 import { Doughnut, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -168,6 +173,7 @@ const threatRows: ThreatRow[] = [
 ];
 
 const severityData = {
+  veryLow: 4,
   low: 26,
   medium: 46,
   high: 210,
@@ -185,20 +191,31 @@ const barChartData = {
   ],
 };
 
-const THREAT_SEVERITY_CHART_RAG: RagDataVizKey[] = ["pos04", "neu03", "neg03", "neg05"];
+const THREAT_SEVERITY_CHART_RAG: RagDataVizKey[] = ["pos05", "pos04", "neu03", "neg03", "neg05"];
 
 function ThreatsBySeverityCard() {
   const { tokens } = useTheme();
   const chartBackgroundColors = useMemo(
-    () => THREAT_SEVERITY_CHART_RAG.map((key) => ragDataVizColor(tokens, key)),
+    () =>
+      THREAT_SEVERITY_CHART_RAG.map((key) =>
+        resolveColorForCanvas(ragDataVizColor(tokens, key), RAG_DATA_VIZ_CANVAS_FALLBACK[key]),
+      ),
     [tokens],
   );
 
+  const severityTotal = Object.values(severityData).reduce((sum, v) => sum + v, 0);
+
   const chartData = {
-    labels: ["Low", "Medium", "High", "Very high"],
+    labels: ["Very low", "Low", "Medium", "High", "Very high"],
     datasets: [
       {
-        data: [severityData.low, severityData.medium, severityData.high, severityData.veryHigh],
+        data: [
+          severityData.veryLow,
+          severityData.low,
+          severityData.medium,
+          severityData.high,
+          severityData.veryHigh,
+        ],
         backgroundColor: chartBackgroundColors,
         borderWidth: 0,
         cutout: "72%",
@@ -207,14 +224,15 @@ function ThreatsBySeverityCard() {
   };
 
   const legendItems = [
-    { label: "Low", value: 26, rag: "pos04" as const },
-    { label: "Medium", value: 46, rag: "neu03" as const },
-    { label: "High", value: 106, rag: "neg03" as const },
-    { label: "Very high", value: 38, rag: "neg05" as const },
+    { label: "Very low", value: severityData.veryLow, rag: "pos05" as const },
+    { label: "Low", value: severityData.low, rag: "pos04" as const },
+    { label: "Medium", value: severityData.medium, rag: "neu03" as const },
+    { label: "High", value: severityData.high, rag: "neg03" as const },
+    { label: "Very high", value: severityData.veryHigh, rag: "neg05" as const },
   ];
 
   return (
-    <Card sx={{ flex: "0 1 360px", minWidth: 280 }}>
+    <Card sx={{ flex: "0 1 360px", minWidth: 280, border: "none" }}>
       <CardHeader
         title={
           <Typography variant="h4" component="h3" fontWeight="600">
@@ -226,6 +244,7 @@ function ThreatsBySeverityCard() {
             <MoreIcon aria-hidden />
           </Button>
         }
+        sx={{ display: "flex" }}
       />
       <CardContent
         sx={{
@@ -233,10 +252,21 @@ function ThreatsBySeverityCard() {
           flexDirection: "column",
           alignItems: "center",
           gap: 1.5,
+          height: "100%",
           pt: 0,
         }}
       >
-        <Box sx={{ position: "relative", width: 220, height: 220 }}>
+        <Box
+          sx={{
+            position: "relative",
+            width: 220,
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "flex-start",
+          }}
+        >
           <Doughnut
             data={chartData}
             options={{
@@ -265,7 +295,7 @@ function ThreatsBySeverityCard() {
                 fontWeight: 400,
               })}
             >
-              320
+              {severityTotal}
             </Typography>
             <Typography
               variant="body1"
@@ -281,7 +311,8 @@ function ThreatsBySeverityCard() {
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateRows: "repeat(2, 1fr)",
             gap: 2,
             width: "100%",
           }}
@@ -342,7 +373,7 @@ function Top5ThreatDomainsCard() {
   };
 
   return (
-    <Card sx={{ flex: 1, minWidth: 0 }}>
+    <Card sx={{ flex: 1, minWidth: 0, border: "none" }}>
       <CardHeader
         title={
           <Typography variant="h4" component="h3" fontWeight="600">
@@ -354,6 +385,7 @@ function Top5ThreatDomainsCard() {
             <MoreIcon aria-hidden />
           </Button>
         }
+        sx={{ display: "flex" }}
       />
       <CardContent sx={{ pt: 0, display: "flex", flexDirection: "column", gap: 1 }}>
         <Box sx={{ height: 280 }}>
@@ -559,7 +591,6 @@ function CustomToolbar() {
               {...other}
               inputRef={ref}
               value={value ?? ""}
-              label="Search by"
               placeholder="Search by"
               size="small"
               slotProps={{
@@ -612,23 +643,6 @@ function ThreatsDataGrid() {
       field: "threatId",
       headerName: "ID",
       width: 100,
-    },
-    {
-      field: "threatIntel",
-      headerName: "Threat intel",
-      width: 100,
-      type: "number",
-      renderCell: (params: GridRenderCellParams<ThreatRow>) => (
-        <Typography variant="textMd" sx={{ fontWeight: 600 }}>
-          {params.value}
-        </Typography>
-      ),
-    },
-    {
-      field: "assessments",
-      headerName: "Assessments",
-      width: 110,
-      type: "number",
     },
     {
       field: "aggregatedAssets",
