@@ -36,6 +36,10 @@ import {
   RAG_DATA_VIZ_CANVAS_FALLBACK,
   type RagDataVizKey,
 } from "../data/ragDataVisualization.js";
+import { threats } from "../data/threats.js";
+import { getAssetById } from "../data/assets.js";
+import { getUserById } from "../data/users.js";
+import type { FivePointScaleLabel, ThreatSource } from "../data/types.js";
 import { Doughnut, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -54,16 +58,75 @@ import ColumnsIcon from "@diligentcorp/atlas-react-bundle/icons/Columns";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
-interface ThreatRow {
-  id: number;
-  name: string;
-  threatId: string;
-  threatIntel: number;
-  assessments: number;
-  aggregatedAssets: number;
+function seededRandom(seed: number) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+const SOURCE_LABEL: Record<ThreatSource, string> = {
+  Deliberate: "Deliberate",
+  Accidental: "Accidental",
+  Environmental: "Environmental",
+};
+
+interface AssetCriticalityCounts {
   veryHigh: number;
   high: number;
   medium: number;
+  low: number;
+  veryLow: number;
+}
+
+const CRITICALITY_LEVELS: { key: keyof AssetCriticalityCounts; label: FivePointScaleLabel }[] = [
+  { key: "veryHigh", label: "Very high" },
+  { key: "high", label: "High" },
+  { key: "medium", label: "Medium" },
+  { key: "low", label: "Low" },
+  { key: "veryLow", label: "Very low" },
+];
+
+function countLinkedAssetsByCriticality(assetIds: string[]): AssetCriticalityCounts {
+  const counts: AssetCriticalityCounts = {
+    veryHigh: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    veryLow: 0,
+  };
+  for (const aid of assetIds) {
+    const asset = getAssetById(aid);
+    if (!asset) continue;
+    switch (asset.criticality) {
+      case 5:
+        counts.veryHigh += 1;
+        break;
+      case 4:
+        counts.high += 1;
+        break;
+      case 3:
+        counts.medium += 1;
+        break;
+      case 2:
+        counts.low += 1;
+        break;
+      case 1:
+        counts.veryLow += 1;
+        break;
+      default:
+        break;
+    }
+  }
+  return counts;
+}
+
+interface ThreatRow {
+  id: string;
+  name: string;
+  threatId: string;
+  criticality: number;
+  assessments: number;
+  aggregatedAssets: number;
+  assetsByCriticality: AssetCriticalityCounts;
   vulnerabilities: number;
   threatDomain: string;
   created: string;
@@ -74,127 +137,67 @@ interface ThreatRow {
   lastUpdatedByInitials: string;
 }
 
-const threatRows: ThreatRow[] = [
-  {
-    id: 1,
-    name: "Theft of digital identity or credentials",
-    threatId: "THR-001",
-    threatIntel: 522,
-    assessments: 2,
-    aggregatedAssets: 492,
-    veryHigh: 160,
-    high: 240,
-    medium: 92,
-    vulnerabilities: 57,
-    threatDomain: "Human actions",
-    created: "23 Jan 2025",
-    createdBy: "User name",
-    createdByInitials: "AB",
-    lastUpdated: "23 Jan 2025",
-    lastUpdatedBy: "User name",
-    lastUpdatedByInitials: "AB",
-  },
-  {
-    id: 2,
-    name: "Social Engineering",
-    threatId: "THR-001",
-    threatIntel: 483,
-    assessments: 4,
-    aggregatedAssets: 357,
-    veryHigh: 100,
-    high: 220,
-    medium: 37,
-    vulnerabilities: 63,
-    threatDomain: "Human actions",
-    created: "23 Jan 2025",
-    createdBy: "User name",
-    createdByInitials: "AB",
-    lastUpdated: "23 Jan 2025",
-    lastUpdatedBy: "User name",
-    lastUpdatedByInitials: "AB",
-  },
-  {
-    id: 3,
-    name: "Interception of radiation of a device",
-    threatId: "THR-001",
-    threatIntel: 591,
-    assessments: 5,
-    aggregatedAssets: 429,
-    veryHigh: 201,
-    high: 208,
-    medium: 20,
-    vulnerabilities: 28,
-    threatDomain: "Human actions",
-    created: "23 Jan 2025",
-    createdBy: "User name",
-    createdByInitials: "AB",
-    lastUpdated: "23 Jan 2025",
-    lastUpdatedBy: "User name",
-    lastUpdatedByInitials: "AB",
-  },
-  {
-    id: 4,
-    name: "Remote spying",
-    threatId: "THR-001",
-    threatIntel: 333,
-    assessments: 1,
-    aggregatedAssets: 299,
-    veryHigh: 50,
-    high: 150,
-    medium: 99,
-    vulnerabilities: 75,
-    threatDomain: "Human actions",
-    created: "23 Jan 2025",
-    createdBy: "User name",
-    createdByInitials: "AB",
-    lastUpdated: "23 Jan 2025",
-    lastUpdatedBy: "User name",
-    lastUpdatedByInitials: "AB",
-  },
-  {
-    id: 5,
-    name: "Theft of media or documents",
-    threatId: "THR-001",
-    threatIntel: 507,
-    assessments: 2,
-    aggregatedAssets: 388,
-    veryHigh: 208,
-    high: 80,
-    medium: 100,
-    vulnerabilities: 49,
-    threatDomain: "Human actions",
-    created: "23 Jan 2025",
-    createdBy: "User name",
-    createdByInitials: "AB",
-    lastUpdated: "23 Jan 2025",
-    lastUpdatedBy: "User name",
-    lastUpdatedByInitials: "AB",
-  },
-];
+const threatRows: ThreatRow[] = threats.map((t, i) => {
+  const owner = getUserById(t.ownerId);
+  const seed = i + 1;
+  const assessments = Math.floor(seededRandom(seed * 19) * 8) + 1;
+  const assetsByCriticality = countLinkedAssetsByCriticality(t.assetIds);
 
-const severityData = {
-  veryLow: 4,
-  low: 26,
-  medium: 46,
-  high: 210,
-  veryHigh: 38,
-};
+  return {
+    id: t.id,
+    name: t.name,
+    threatId: t.id,
+    criticality: 0,
+    assessments,
+    aggregatedAssets: t.assetIds.length,
+    assetsByCriticality,
+    vulnerabilities: t.vulnerabilityIds.length,
+    threatDomain: SOURCE_LABEL[t.source],
+    created: "23 Jan 2025",
+    createdBy: owner?.fullName ?? "Unassigned",
+    createdByInitials: owner?.initials ?? "",
+    lastUpdated: "23 Jan 2025",
+    lastUpdatedBy: owner?.fullName ?? "Unassigned",
+    lastUpdatedByInitials: owner?.initials ?? "",
+  };
+});
 
-const barChartData = {
-  labels: ["1", "2", "3", "4", "5"],
-  domains: [
-    { label: "Human actions", value: 350 },
-    { label: "Compromise of functions or services", value: 325 },
-    { label: "Physical threats", value: 290 },
-    { label: "Organizational threats", value: 240 },
-    { label: "Infrastructure failures", value: 165 },
-  ],
-};
+function aggregateSeverityFromThreats(): {
+  veryLow: number;
+  low: number;
+  medium: number;
+  high: number;
+  veryHigh: number;
+} {
+  const buckets = { veryLow: 0, low: 0, medium: 0, high: 0, veryHigh: 0 };
+  threats.forEach((_, i) => {
+    const score = Math.floor(seededRandom((i + 1) * 41) * 5) + 1;
+    if (score === 1) buckets.veryLow += 1;
+    else if (score === 2) buckets.low += 1;
+    else if (score === 3) buckets.medium += 1;
+    else if (score === 4) buckets.high += 1;
+    else buckets.veryHigh += 1;
+  });
+  return buckets;
+}
+
+function aggregateSourcesFromThreats(): { label: string; value: number }[] {
+  const counts: Record<string, number> = {};
+  for (const t of threats) {
+    const label = SOURCE_LABEL[t.source];
+    counts[label] = (counts[label] ?? 0) + 1;
+  }
+  return Object.entries(counts)
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+}
 
 const THREAT_SEVERITY_CHART_RAG: RagDataVizKey[] = ["pos05", "pos04", "neu03", "neg03", "neg05"];
 
 function ThreatsBySeverityCard() {
   const { tokens } = useTheme();
+  const severityData = useMemo(() => aggregateSeverityFromThreats(), []);
+
   const chartBackgroundColors = useMemo(
     () =>
       THREAT_SEVERITY_CHART_RAG.map((key) =>
@@ -356,15 +359,21 @@ function ThreatsBySeverityCard() {
 
 function Top5ThreatDomainsCard() {
   const { tokens } = useTheme();
+  const sourceBars = useMemo(() => aggregateSourcesFromThreats(), []);
+  const maxValue = useMemo(
+    () => (sourceBars.length > 0 ? Math.max(...sourceBars.map((d) => d.value)) : 1),
+    [sourceBars],
+  );
+  const yMax = Math.max(10, Math.ceil(maxValue / 10) * 10);
 
   const barColors = ["#e22e33", "#dc5731", "#d4732e", "#cb8b2b", "#bfa126"];
 
   const chartData = {
-    labels: barChartData.labels,
+    labels: sourceBars.map((_, i) => String(i + 1)),
     datasets: [
       {
-        data: barChartData.domains.map((d) => d.value),
-        backgroundColor: barColors,
+        data: sourceBars.map((d) => d.value),
+        backgroundColor: sourceBars.map((_, i) => barColors[i % barColors.length]),
         borderWidth: 0,
         borderRadius: 4,
         maxBarThickness: 64,
@@ -377,11 +386,11 @@ function Top5ThreatDomainsCard() {
       <CardHeader
         title={
           <Typography variant="h4" component="h3" fontWeight="600">
-            Top 5 threat domains by no. of threats
+            Threats by source
           </Typography>
         }
         action={
-          <Button variant="text" size="small" aria-label="More options for top 5 threat domains">
+          <Button variant="text" size="small" aria-label="More options for threats by source chart">
             <MoreIcon aria-hidden />
           </Button>
         }
@@ -401,9 +410,9 @@ function Top5ThreatDomainsCard() {
               scales: {
                 y: {
                   beginAtZero: true,
-                  max: 400,
+                  max: yMax,
                   ticks: {
-                    stepSize: 50,
+                    stepSize: Math.max(1, Math.ceil(yMax / 8)),
                     color: tokens.semantic.color.type.muted.value,
                     font: { size: 11 },
                   },
@@ -432,139 +441,66 @@ function Top5ThreatDomainsCard() {
         </Box>
 
         <Stack gap={1}>
-          <Stack direction="row" gap={2}>
-            <Stack direction="row" gap={0.5} flex={1} alignItems="baseline">
+          {sourceBars.map((d, i) => (
+            <Stack key={d.label} direction="row" gap={0.5} alignItems="baseline">
+              <Typography
+                variant="labelXs"
+                sx={({ tokens: t }) => ({
+                  color: t.semantic.color.type.muted.value,
+                  minWidth: 12,
+                })}
+              >
+                {i + 1}
+              </Typography>
+              <Typography variant="labelXs" sx={{ fontWeight: 600 }}>
+                <Link href="#" underline="hover">
+                  {d.label}
+                </Link>
+              </Typography>
               <Typography
                 variant="labelXs"
                 sx={({ tokens: t }) => ({
                   color: t.semantic.color.type.muted.value,
                 })}
               >
-                1
-              </Typography>
-              <Typography variant="labelXs" sx={{ fontWeight: 600 }}>
-                <Link href="#" underline="hover">
-                  {barChartData.domains[0].label}
-                </Link>
+                ({d.value})
               </Typography>
             </Stack>
-            <Stack direction="row" gap={0.5} flex={1} alignItems="baseline">
-              <Typography
-                variant="labelXs"
-                sx={({ tokens: t }) => ({
-                  color: t.semantic.color.type.muted.value,
-                })}
-              >
-                4
-              </Typography>
-              <Typography variant="labelXs" sx={{ fontWeight: 600 }}>
-                <Link href="#" underline="hover">
-                  {barChartData.domains[3].label}
-                </Link>
-              </Typography>
-            </Stack>
-          </Stack>
-          <Stack direction="row" gap={2}>
-            <Stack direction="row" gap={0.5} flex={1} alignItems="baseline">
-              <Typography
-                variant="labelXs"
-                sx={({ tokens: t }) => ({
-                  color: t.semantic.color.type.muted.value,
-                })}
-              >
-                2
-              </Typography>
-              <Typography variant="labelXs" sx={{ fontWeight: 600 }}>
-                <Link href="#" underline="hover">
-                  {barChartData.domains[1].label}
-                </Link>
-              </Typography>
-            </Stack>
-            <Stack direction="row" gap={0.5} flex={1} alignItems="baseline">
-              <Typography
-                variant="labelXs"
-                sx={({ tokens: t }) => ({
-                  color: t.semantic.color.type.muted.value,
-                })}
-              >
-                5
-              </Typography>
-              <Typography variant="labelXs" sx={{ fontWeight: 600 }}>
-                <Link href="#" underline="hover">
-                  {barChartData.domains[4].label}
-                </Link>
-              </Typography>
-            </Stack>
-          </Stack>
-          <Stack direction="row" gap={2}>
-            <Stack direction="row" gap={0.5} flex={1} alignItems="baseline">
-              <Typography
-                variant="labelXs"
-                sx={({ tokens: t }) => ({
-                  color: t.semantic.color.type.muted.value,
-                })}
-              >
-                3
-              </Typography>
-              <Typography variant="labelXs" sx={{ fontWeight: 600 }}>
-                <Link href="#" underline="hover">
-                  {barChartData.domains[2].label}
-                </Link>
-              </Typography>
-            </Stack>
-            <Box flex={1} />
-          </Stack>
+          ))}
         </Stack>
       </CardContent>
     </Card>
   );
 }
 
-function CriticalityTags({ veryHigh, high, medium }: { veryHigh: number; high: number; medium: number }) {
+function AssetsByCriticalityTags({ counts }: { counts: AssetCriticalityCounts }) {
   return (
-    <Stack direction="row" gap={0.5} flexWrap="wrap">
-      <Box
-        sx={({ tokens: t }) => ({
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.5,
-          px: 0.5,
-          py: 0.25,
-          borderRadius: 0.5,
-          backgroundColor: t.semantic.color.background.container.value,
-        })}
-      >
-        <Typography variant="textSm" sx={{ fontSize: 11 }}>Very high</Typography>
-        <Typography variant="textSm" sx={{ fontSize: 11, fontWeight: 600 }}>{veryHigh}</Typography>
-      </Box>
-      <Box
-        sx={({ tokens: t }) => ({
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.5,
-          px: 0.5,
-          py: 0.25,
-          borderRadius: 0.5,
-          backgroundColor: t.semantic.color.background.container.value,
-        })}
-      >
-        <Typography variant="textSm" sx={{ fontSize: 11 }}>High</Typography>
-        <Typography variant="textSm" sx={{ fontSize: 11, fontWeight: 600 }}>{high}</Typography>
-      </Box>
-      <Box
-        sx={({ tokens: t }) => ({
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.5,
-          px: 0.5,
-          py: 0.25,
-          borderRadius: 0.5,
-          backgroundColor: t.semantic.color.background.container.value,
-        })}
-      >
-        <Typography variant="textSm" sx={{ fontSize: 11 }}>Medium</Typography>
-        <Typography variant="textSm" sx={{ fontSize: 11, fontWeight: 600 }}>{medium}</Typography>
-      </Box>
+    <Stack direction="row" gap={0.5} flexWrap="wrap" useFlexGap>
+      {CRITICALITY_LEVELS.map(({ key, label }) => {
+        const n = counts[key];
+        if (n === 0) return null;
+        return (
+          <Box
+            key={key}
+            sx={({ tokens: t }) => ({
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 0.5,
+              px: 0.5,
+              py: 0.25,
+              borderRadius: 0.5,
+              backgroundColor: t.semantic.color.background.container.value,
+            })}
+          >
+            <Typography variant="textSm" sx={{ fontSize: 11 }}>
+              {label}
+            </Typography>
+            <Typography variant="textSm" sx={{ fontSize: 11, fontWeight: 600 }}>
+              {n}
+            </Typography>
+          </Box>
+        );
+      })}
     </Stack>
   );
 }
@@ -646,7 +582,7 @@ function ThreatsDataGrid() {
     },
     {
       field: "aggregatedAssets",
-      headerName: "Aggregated assets",
+      headerName: "Assets",
       width: 140,
       type: "number",
       renderCell: (params: GridRenderCellParams<ThreatRow>) => (
@@ -657,16 +593,13 @@ function ThreatsDataGrid() {
     },
     {
       field: "criticality",
-      headerName: "Aggregated assets by criticality",
-      width: 220,
+      headerName: "Assets by criticality",
+      flex: 1,
+      minWidth: 260,
       sortable: false,
       filterable: false,
       renderCell: (params: GridRenderCellParams<ThreatRow>) => (
-        <CriticalityTags
-          veryHigh={params.row.veryHigh}
-          high={params.row.high}
-          medium={params.row.medium}
-        />
+        <AssetsByCriticalityTags counts={params.row.assetsByCriticality} />
       ),
     },
     {
@@ -682,7 +615,7 @@ function ThreatsDataGrid() {
     },
     {
       field: "threatDomain",
-      headerName: "Threat domain",
+      headerName: "Source",
       width: 140,
     },
     {
@@ -718,6 +651,7 @@ function ThreatsDataGrid() {
       <DataGridPro
         rows={threatRows}
         columns={columns}
+        getRowId={(row) => row.id}
         pagination
         pageSizeOptions={[5, 10, 25]}
         initialState={{

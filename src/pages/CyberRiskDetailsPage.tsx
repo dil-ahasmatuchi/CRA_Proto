@@ -42,8 +42,8 @@ const scopeData: ScopeCategory[] = [
     title: "Threats",
     count: 5,
     items: [
-      { id: "t1", title: "Ransomware attack on critical infrastructure", url: "#" },
-      { id: "t2", title: "Phishing campaign targeting executive accounts", url: "#" },
+      { id: "t1", title: "Ransomware deployment on critical infrastructure", url: "#" },
+      { id: "t2", title: "Phishing targeting executive accounts", url: "#" },
       { id: "t3", title: "Supply chain compromise via third-party vendor", url: "#" },
       { id: "t4", title: "Insider threat from privileged access misuse", url: "#" },
       { id: "t5", title: "Distributed denial-of-service (DDoS) attack", url: "#" },

@@ -31,6 +31,7 @@ import {
 import { useMemo, useState } from "react";
 import { NavLink } from "react-router";
 
+import "../data/threats.js";
 import { vulnerabilities } from "../data/vulnerabilities.js";
 import { getUserById } from "../data/users.js";
 import {

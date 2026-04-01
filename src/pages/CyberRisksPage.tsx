@@ -42,6 +42,9 @@ import {
   ragDataVizColor,
   RISK_HEATMAP_LEVEL_TO_RAG,
 } from "../data/ragDataVisualization.js";
+import { cyberRisks } from "../data/cyberRisks.js";
+import { getUserById } from "../data/users.js";
+import type { CyberRiskStatus, FivePointScaleLabel } from "../data/types.js";
 import ResidualRisksMatrix from "../components/ResidualRisksMatrix.js";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -94,14 +97,10 @@ const heatmapLegend: {
 // Cyber risks table data
 // ---------------------------------------------------------------------------
 
-type WorkflowStatus =
-  | "Identification"
-  | "Assessment"
-  | "Mitigation"
-  | "Monitoring";
+type WorkflowStatus = CyberRiskStatus;
 
 interface CyberRiskRow {
-  id: number;
+  id: string;
   name: string;
   riskId: string;
   cyberRiskScore: string;
@@ -114,118 +113,28 @@ interface CyberRiskRow {
 
 const AVATAR_COLORS = ["red", "blue", "green", "purple", "yellow"] as const;
 
-const cyberRiskRows: CyberRiskRow[] = [
-  {
-    id: 1,
-    name: "Compliance with data protection",
-    riskId: "RSK-1020",
-    cyberRiskScore: "3 - Medium",
-    riskLevel: "medium",
-    ownerName: "June Toy",
-    ownerInitials: "JT",
-    assets: 1,
-    workflowStatus: "Assessment",
-  },
-  {
-    id: 2,
-    name: "Phishing Attacks and Email Spoofing",
-    riskId: "RSK-1005",
-    cyberRiskScore: "5 - Very high",
-    riskLevel: "veryHigh",
-    ownerName: "Levi Leffler",
-    ownerInitials: "LL",
-    assets: 2,
-    workflowStatus: "Mitigation",
-  },
-  {
-    id: 3,
-    name: "Data Breaches and Information Leaks",
-    riskId: "RSK-045",
-    cyberRiskScore: "-",
-    riskLevel: null,
-    ownerName: "Geneva Bergstrom",
-    ownerInitials: "GB",
-    assets: 0,
-    workflowStatus: "Identification",
-  },
-  {
-    id: 4,
-    name: "Cloud Computing Security Vulnerabilities",
-    riskId: "RSK-056",
-    cyberRiskScore: "3 - Medium",
-    riskLevel: "medium",
-    ownerName: "Clark Hagenes",
-    ownerInitials: "CH",
-    assets: 4,
-    workflowStatus: "Mitigation",
-  },
-  {
-    id: 5,
-    name: "Ransomware Attacks on Critical Systems",
-    riskId: "RSK-007",
-    cyberRiskScore: "4 - High",
-    riskLevel: "high",
-    ownerName: "Jeanette Turcotte",
-    ownerInitials: "JT",
-    assets: 1,
-    workflowStatus: "Assessment",
-  },
-  {
-    id: 6,
-    name: "Insider Threats and Data Exfiltration",
-    riskId: "RSK-1001",
-    cyberRiskScore: "4 - High",
-    riskLevel: "high",
-    ownerName: "Jeremy Gleason",
-    ownerInitials: "JG",
-    assets: 2,
-    workflowStatus: "Monitoring",
-  },
-  {
-    id: 7,
-    name: "Denial of Service Attacks on Servers",
-    riskId: "RSK-210",
-    cyberRiskScore: "5 - Very high",
-    riskLevel: "veryHigh",
-    ownerName: "Barbara Kessler",
-    ownerInitials: "BK",
-    assets: 3,
-    workflowStatus: "Mitigation",
-  },
-  {
-    id: 8,
-    name: "Compromised Network Infrastructure Sec\u2026",
-    riskId: "RSK-1002",
-    cyberRiskScore: "2 - Low",
-    riskLevel: "low",
-    ownerName: "Emanuel Bednar",
-    ownerInitials: "EB",
-    assets: 5,
-    workflowStatus: "Assessment",
-  },
-  {
-    id: 9,
-    name: "Compromised data integrity",
-    riskId: "RSK-090",
-    cyberRiskScore: "4 - High",
-    riskLevel: "high",
-    ownerName: "Pearl Lemke",
-    ownerInitials: "PL",
-    assets: 4,
-    workflowStatus: "Mitigation",
-  },
-  {
-    id: 10,
-    name: "Unsecured Wireless Network Vulnerabilities",
-    riskId: "RSK-003",
-    cyberRiskScore: "-",
-    riskLevel: null,
-    ownerName: "Darrin Klein",
-    ownerInitials: "DK",
-    assets: 0,
-    workflowStatus: "Identification",
-  },
-];
+const SCORE_LABEL_TO_HEATMAP: Record<FivePointScaleLabel, RiskHeatmapLevel> = {
+  "Very low": "veryLow",
+  Low: "low",
+  Medium: "medium",
+  High: "high",
+  "Very high": "veryHigh",
+};
+
+const cyberRiskRows: CyberRiskRow[] = cyberRisks.map((r) => {
+  const owner = getUserById(r.ownerId);
+  return {
+    id: r.id,
+    name: r.name,
+    riskId: r.id,
+    cyberRiskScore: `${r.cyberRiskScore} - ${r.cyberRiskScoreLabel}`,
+    riskLevel: SCORE_LABEL_TO_HEATMAP[r.cyberRiskScoreLabel],
+    ownerName: owner?.fullName ?? "Unassigned",
+    ownerInitials: owner?.initials ?? "",
+    assets: r.assetIds.length,
+    workflowStatus: r.status,
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Workflow status badge color mapping
@@ -239,6 +148,7 @@ const WORKFLOW_STATUS_COLOR: Record<
   Mitigation: "information",
   Identification: "generic",
   Monitoring: "success",
+  Draft: "generic",
 };
 
 // ---------------------------------------------------------------------------
@@ -561,6 +471,7 @@ function CyberRisksDataGrid() {
       <DataGridPro
         rows={cyberRiskRows}
         columns={columns}
+        getRowId={(row) => row.id}
         pagination
         pageSizeOptions={[10, 25, 50]}
         initialState={{

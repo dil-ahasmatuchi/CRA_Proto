@@ -10,68 +10,10 @@ import { assets } from "./assets.js";
 import { threats as allThreats } from "./threats.js";
 import { vulnerabilities as allVulnerabilities } from "./vulnerabilities.js";
 
-type ScenarioRow = [
-  crIdx: number,
-  astIdx: number,
-  threatSev: FivePointScaleValue,
-  vulnSev: FivePointScaleValue,
-  ownerIdx: number,
-  thrIdxs: number[],
-  vulnIdxs: number[],
-];
-
-const raw: ScenarioRow[] = [
-  [1, 1, 4, 5, 7, [1], [1]],
-  [1, 2, 4, 5, 7, [1], [10]],
-  [2, 3, 3, 4, 9, [2], [35]],
-  [2, 43, 4, 4, 9, [10], [35]],
-  [3, 1, 5, 4, 15, [4], [6]],
-  [3, 11, 4, 3, 15, [4], [11]],
-  [4, 2, 4, 4, 20, [5], [7]],
-  [4, 17, 3, 4, 20, [5], [36]],
-  [5, 3, 4, 5, 7, [22], [35]],
-  [5, 16, 4, 4, 7, [22], [35]],
-  [7, 24, 3, 4, 9, [9], [43]],
-  [7, 29, 3, 3, 9, [9], [19]],
-  [8, 13, 4, 4, 14, [3], [3]],
-  [8, 2, 5, 5, 14, [3], [47]],
-  [9, 3, 3, 3, 39, [12], [12]],
-  [9, 39, 2, 3, 39, [12], [37]],
-  [10, 43, 3, 3, 36, [10], [35]],
-  [10, 21, 2, 3, 36, [38], [44]],
-  [11, 8, 3, 4, 29, [23], [32]],
-  [11, 29, 3, 3, 29, [23], [48]],
-  [12, 2, 5, 5, 14, [13], [8]],
-  [12, 28, 5, 4, 14, [13], [9]],
-  [13, 9, 5, 4, 14, [8], [19]],
-  [13, 28, 4, 4, 14, [8], [37]],
-  [14, 6, 3, 3, 6, [6], [5]],
-  [14, 13, 3, 4, 6, [6], [17]],
-  [15, 29, 2, 3, 15, [20], [46]],
-  [16, 7, 4, 4, 7, [7], [2]],
-  [16, 14, 4, 4, 7, [11], [30]],
-  [17, 2, 4, 3, 5, [5], [7]],
-  [19, 9, 5, 4, 14, [8], [19]],
-  [19, 36, 4, 4, 14, [25], [37]],
-  [20, 13, 3, 4, 13, [24], [13]],
-  [20, 18, 3, 3, 13, [47], [23]],
-  [22, 39, 3, 3, 39, [12], [37]],
-  [23, 24, 4, 3, 9, [36], [43]],
-  [23, 4, 3, 4, 9, [36], [19]],
-  [24, 21, 2, 3, 27, [15], [21]],
-  [25, 8, 3, 4, 29, [23], [32]],
-  [25, 29, 4, 4, 29, [23], [48]],
-  [26, 2, 5, 5, 7, [1], [1]],
-  [26, 40, 4, 5, 7, [49], [40]],
-  [27, 50, 3, 3, 10, [30], [14]],
-  [28, 7, 4, 4, 7, [16], [8]],
-  [29, 28, 5, 4, 14, [13], [8]],
-  [30, 2, 5, 4, 33, [2], [35]],
-  [32, 1, 3, 4, 9, [17], [20]],
-  [33, 2, 5, 5, 7, [1], [3]],
-  [33, 26, 4, 3, 7, [2], [35]],
-  [34, 10, 3, 3, 20, [30], [14]],
-];
+/**
+ * One scenario per (cyber risk × threat × asset row) for threats in that risk.
+ * Name: "{threat} on {asset}"; vulnerabilityIds = that threat’s vulns on the asset.
+ */
 
 const vulnsByAssetId = new Map<string, typeof allVulnerabilities>();
 for (const v of allVulnerabilities) {
@@ -84,6 +26,8 @@ for (const v of allVulnerabilities) {
 
 const threatById = new Map(allThreats.map((t) => [t.id, t]));
 const vulnById = new Map(allVulnerabilities.map((v) => [v.id, v]));
+const assetById = new Map(assets.map((a) => [a.id, a]));
+const riskById = new Map(cyberRisks.map((r) => [r.id, r]));
 
 const IMPACT_CONSEQUENCE: Record<FivePointScaleLabel, string> = {
   "Very high": "severe and far-reaching",
@@ -93,8 +37,26 @@ const IMPACT_CONSEQUENCE: Record<FivePointScaleLabel, string> = {
   "Very low": "minimal",
 };
 
+function formatThreatPhrase(names: string[]): string {
+  const n = names.filter(Boolean);
+  if (n.length === 0) return "";
+  if (n.length === 1) return n[0]!;
+  if (n.length === 2) return `${n[0]!} and ${n[1]!}`;
+  return `${n.slice(0, -1).join(", ")}, and ${n[n.length - 1]!}`;
+}
+
+function buildScenarioName(
+  cyberRiskName: string,
+  threatPhrase: string,
+  assetName: string,
+): string {
+  if (threatPhrase) return `${threatPhrase} on ${assetName}`;
+  return `${cyberRiskName} on ${assetName}`;
+}
+
 function buildScoringRationale(
-  riskName: string,
+  cyberRiskName: string,
+  scenarioThreatPhrase: string,
   assetName: string,
   assetType: string,
   impactLabel: FivePointScaleLabel,
@@ -106,92 +68,178 @@ function buildScoringRationale(
   scenarioVulnIds: string[],
   assetId: string,
 ): string {
-  const threatNames = scenarioThreatIds
+  const threatNamesList = scenarioThreatIds
     .map((id) => threatById.get(id)?.name)
-    .filter(Boolean)
-    .join(", ");
+    .filter(Boolean) as string[];
 
-  const vulnNames = scenarioVulnIds
-    .map((id) => vulnById.get(id)?.name)
-    .filter(Boolean)
-    .join(", ");
+  const vulnDetails = scenarioVulnIds
+    .map((id) => vulnById.get(id))
+    .filter((v): v is NonNullable<typeof v> => v != null);
+
+  const vulnNamesSentence = vulnDetails.map((v) => v.name).join("; ") || "N/A";
 
   const assetVulns = vulnsByAssetId.get(assetId) ?? [];
   const vulnBullets = assetVulns
     .map((v) => `• ${v.name} (${v.domain}, ${v.primaryCIAImpact})`)
     .join("\n");
 
+  const threatFocus =
+    scenarioThreatPhrase ||
+    (threatNamesList.length ? formatThreatPhrase(threatNamesList) : "the modeled threat");
+
   const sections: string[] = [
-    `Threat — ${riskName} (severity: ${threatSevLabel}): The ${riskName.toLowerCase()} threat targeting ${assetType.toLowerCase()} assets represents a ${threatSevLabel.toLowerCase()} severity concern. The primary threat vectors are: ${threatNames || "N/A"}.`,
+    `Cyber risk (library) — ${cyberRiskName}: This scenario sits under the ${cyberRiskName} cyber risk in the library. Here we assess ${threatFocus} against ${assetName} (${assetType.toLowerCase()}).`,
 
-    `Vulnerability assessment (severity: ${vulnSevLabel}): The vulnerability exposure is rated ${vulnSevLabel.toLowerCase()}. The vulnerabilities directly associated with this scenario are: ${vulnNames || "N/A"}.`,
+    `Threat level (${threatSevLabel}): The threat severity is ${threatSevLabel.toLowerCase()} for this scenario’s threat vector${threatNamesList.length ? ` (${formatThreatPhrase(threatNamesList)})` : ""}.`,
 
-    `Asset — ${assetName} (criticality: ${impactLabel}): ${assetName} is classified as a ${impactLabel.toLowerCase()} criticality ${assetType.toLowerCase()} asset. Compromise or disruption would have ${IMPACT_CONSEQUENCE[impactLabel]} consequences for the organization.`,
+    `Vulnerability level (${vulnSevLabel}): The vulnerability severity is ${vulnSevLabel.toLowerCase()}. All vulnerabilities scoped to this scenario were evaluated together; the rating reflects their combined exposure. Contributing items: ${vulnNamesSentence}.`,
 
-    `Likelihood: ${likelihoodLabel} — A ${threatSevLabel.toLowerCase()} threat severity combined with ${vulnSevLabel.toLowerCase()} vulnerability severity results in a ${likelihoodLabel.toLowerCase()} likelihood of exploitation.`,
+    `Impact (${impactLabel}): ${assetName} is ${impactLabel.toLowerCase()}-criticality. Compromise or disruption would have ${IMPACT_CONSEQUENCE[impactLabel]} consequences for the organization.`,
 
-    `Cyber risk score: ${cyberRiskScoreLabel} — With ${impactLabel.toLowerCase()} asset criticality and ${likelihoodLabel.toLowerCase()} likelihood, the overall cyber risk score is ${cyberRiskScoreLabel.toLowerCase()}.`,
+    `Likelihood (${likelihoodLabel}): ${threatSevLabel} threat severity together with ${vulnSevLabel} vulnerability severity yields ${likelihoodLabel.toLowerCase()} likelihood of this scenario materializing.`,
+
+    `Cyber risk score (${cyberRiskScoreLabel}): Given ${impactLabel.toLowerCase()} impact and ${likelihoodLabel.toLowerCase()} likelihood, the scenario cyber risk score is ${cyberRiskScoreLabel.toLowerCase()}.`,
   ];
 
   if (assetVulns.length > 0) {
     sections.push(
-      `Related vulnerabilities on ${assetName}:\n${vulnBullets}`,
+      `Other vulnerabilities recorded on ${assetName} (context):\n${vulnBullets}`,
     );
   }
 
   return sections.join("\n\n");
 }
 
-export const scenarios: MockScenario[] = raw.map(
-  ([crIdx, astIdx, threatSeverity, vulnerabilitySeverity, ownerIdx, thrIdxs, vulnIdxs], i) => {
-    const risk = cyberRisks[crIdx - 1];
-    const asset = assets[astIdx - 1];
-    const impact = asset.criticality;
-    const likelihood = threatSeverity * vulnerabilitySeverity;
-    const cyberRiskScore = impact * likelihood;
-    const impactLabel = getFivePointLabel(impact);
-    const threatSeverityLabel = getFivePointLabel(threatSeverity);
-    const vulnerabilitySeverityLabel = getFivePointLabel(vulnerabilitySeverity);
-    const likelihoodLabel = getLikelihoodLabel(likelihood);
-    const cyberRiskScoreLabel = getCyberRiskScoreLabel(cyberRiskScore);
-    const scenarioThreatIds = thrIdxs.map((n) => padId("THR", n));
-    const scenarioVulnIds = vulnIdxs.map((n) => padId("VUL", n));
-    const assetId = padId("AST", astIdx);
+function scenarioSeverityValues(seq: number): {
+  threatSeverity: FivePointScaleValue;
+  vulnerabilitySeverity: FivePointScaleValue;
+} {
+  const threatSeverity = ((seq % 4) + 2) as FivePointScaleValue;
+  const vulnerabilitySeverity = (((seq * 7) % 4) + 2) as FivePointScaleValue;
+  return { threatSeverity, vulnerabilitySeverity };
+}
 
-    return {
-      id: padId("SC", i + 1),
-      name: `${risk.name} on ${asset.name}`,
-      ownerId: padId("USR", ownerIdx),
-      cyberRiskId: padId("CR", crIdx),
-      assetId,
-      impact,
-      impactLabel,
-      threatSeverity,
-      threatSeverityLabel,
-      vulnerabilitySeverity,
-      vulnerabilitySeverityLabel,
-      likelihood,
-      likelihoodLabel,
-      cyberRiskScore,
-      cyberRiskScoreLabel,
-      threatIds: scenarioThreatIds,
-      vulnerabilityIds: scenarioVulnIds,
-      scoringRationale: buildScoringRationale(
-        risk.name,
-        asset.name,
-        asset.assetType,
-        impactLabel,
-        threatSeverityLabel,
-        vulnerabilitySeverityLabel,
-        likelihoodLabel,
-        cyberRiskScoreLabel,
-        scenarioThreatIds,
-        scenarioVulnIds,
-        assetId,
-      ),
-    };
-  },
-);
+function buildScenarios(): MockScenario[] {
+  const list: MockScenario[] = [];
+  let seq = 0;
+
+  for (const risk of cyberRisks) {
+    for (const tid of risk.threatIds) {
+      const threat = threatById.get(tid);
+      if (!threat) continue;
+
+      for (const assetId of threat.assetIds) {
+        const asset = assetById.get(assetId);
+        if (!asset) continue;
+
+        seq += 1;
+        const scenarioThreatIds = [tid];
+        const scenarioVulnIds = threat.vulnerabilityIds.filter((vid) => {
+          const v = vulnById.get(vid);
+          return v?.relationships.assetId === assetId;
+        });
+
+        const { threatSeverity, vulnerabilitySeverity } = scenarioSeverityValues(seq);
+        const impact = asset.criticality;
+        const likelihood = threatSeverity * vulnerabilitySeverity;
+        const cyberRiskScore = impact * likelihood;
+        const impactLabel = getFivePointLabel(impact);
+        const threatSeverityLabel = getFivePointLabel(threatSeverity);
+        const vulnerabilitySeverityLabel = getFivePointLabel(vulnerabilitySeverity);
+        const likelihoodLabel = getLikelihoodLabel(likelihood);
+        const cyberRiskScoreLabel = getCyberRiskScoreLabel(cyberRiskScore);
+
+        const threatNamesForTitle = scenarioThreatIds
+          .map((id) => threatById.get(id)?.name)
+          .filter(Boolean) as string[];
+        const scenarioThreatPhrase = formatThreatPhrase(threatNamesForTitle);
+
+        list.push({
+          id: padId("SC", seq),
+          name: buildScenarioName(risk.name, scenarioThreatPhrase, asset.name),
+          ownerId: asset.ownerId,
+          cyberRiskId: risk.id,
+          assetId,
+          impact,
+          impactLabel,
+          threatSeverity,
+          threatSeverityLabel,
+          vulnerabilitySeverity,
+          vulnerabilitySeverityLabel,
+          likelihood,
+          likelihoodLabel,
+          cyberRiskScore,
+          cyberRiskScoreLabel,
+          threatIds: scenarioThreatIds,
+          vulnerabilityIds: scenarioVulnIds,
+          scoringRationale: buildScoringRationale(
+            risk.name,
+            scenarioThreatPhrase,
+            asset.name,
+            asset.assetType,
+            impactLabel,
+            threatSeverityLabel,
+            vulnerabilitySeverityLabel,
+            likelihoodLabel,
+            cyberRiskScoreLabel,
+            scenarioThreatIds,
+            scenarioVulnIds,
+            assetId,
+          ),
+          relationships: {
+            cyberRiskId: risk.id,
+            assetId,
+            threatIds: scenarioThreatIds,
+            vulnerabilityIds: scenarioVulnIds,
+            controlIds: risk.controlIds,
+            mitigationPlanIds: risk.mitigationPlanIds,
+          },
+        });
+      }
+    }
+  }
+
+  return list;
+}
+
+function dedupePush(arr: string[], id: string): void {
+  if (!arr.includes(id)) arr.push(id);
+}
+
+/** Wire scenario ids into cyber risks, threats, vulnerabilities, and assets (relationship mirrors). */
+function applyScenarioEntityLinks(scenarioList: MockScenario[]): void {
+  for (const r of cyberRisks) {
+    r.scenarioIds.length = 0;
+  }
+  for (const t of allThreats) {
+    t.relationships.scenarioIds.length = 0;
+  }
+  for (const v of allVulnerabilities) {
+    v.relationships.scenarioIds.length = 0;
+  }
+  for (const a of assets) {
+    a.relationships.scenarioIds.length = 0;
+  }
+
+  for (const s of scenarioList) {
+    const risk = riskById.get(s.cyberRiskId);
+    if (risk) dedupePush(risk.scenarioIds, s.id);
+
+    for (const tid of s.threatIds) {
+      const t = threatById.get(tid);
+      if (t) dedupePush(t.relationships.scenarioIds, s.id);
+    }
+    for (const vid of s.vulnerabilityIds) {
+      const v = vulnById.get(vid);
+      if (v) dedupePush(v.relationships.scenarioIds, s.id);
+    }
+    const a = assetById.get(s.assetId);
+    if (a) dedupePush(a.relationships.scenarioIds, s.id);
+  }
+}
+
+export const scenarios: MockScenario[] = buildScenarios();
+applyScenarioEntityLinks(scenarios);
 
 const scenarioById = new Map(scenarios.map((s) => [s.id, s]));
 

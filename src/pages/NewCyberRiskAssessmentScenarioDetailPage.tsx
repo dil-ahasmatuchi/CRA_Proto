@@ -195,8 +195,10 @@ function ScoringMetricField({
 }
 
 type PendingOverride = {
-  field: "likelihood" | "cyberRiskScore";
+  field: "impact" | "threat" | "vulnerability" | "likelihood" | "cyberRiskScore";
   fieldLabel: string;
+  /** Formula-derived vs prior selection on this page */
+  baselineKind: "calculated" | "current";
   calculatedValue: NonNullable<ScoreValue>;
   newValue: NonNullable<ScoreValue>;
 };
@@ -230,10 +232,21 @@ function OverrideRationaleDialog({
       <DialogTitle component="div">
         <h2 id="override-dialog-title">Override {pending.fieldLabel.toLowerCase()}</h2>
         <p id="override-dialog-description">
-          The calculated value is{" "}
-          <strong>
-            {pending.calculatedValue.numeric} - {pending.calculatedValue.label}
-          </strong>
+          {pending.baselineKind === "calculated" ? (
+            <>
+              The calculated value is{" "}
+              <strong>
+                {pending.calculatedValue.numeric} - {pending.calculatedValue.label}
+              </strong>
+            </>
+          ) : (
+            <>
+              The current value is{" "}
+              <strong>
+                {pending.calculatedValue.numeric} - {pending.calculatedValue.label}
+              </strong>
+            </>
+          )}
           . Provide a rationale for changing it to{" "}
           <strong>
             {pending.newValue.numeric} - {pending.newValue.label}
@@ -251,8 +264,9 @@ function OverrideRationaleDialog({
       </DialogTitle>
       <DialogContent>
         <DialogContentText sx={{ mb: 2 }}>
-          Explain why the manually selected score better reflects the assessment than the
-          calculated value.
+          {pending.baselineKind === "calculated"
+            ? "Explain why the manually selected score better reflects the assessment than the calculated value."
+            : "Explain why the new score better reflects the assessment."}
         </DialogContentText>
         <TextField
           autoFocus
@@ -348,6 +362,72 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
     }
   }, [calculatedCyberRisk, cyberRiskOverridden]);
 
+  const handleImpactChange = useCallback(
+    (next: ScoreValue) => {
+      if (!next) {
+        setImpact(null);
+        return;
+      }
+      const from = impact;
+      if (from && next.numeric !== from.numeric) {
+        setPendingOverride({
+          field: "impact",
+          fieldLabel: "Asset criticality",
+          baselineKind: "current",
+          calculatedValue: from,
+          newValue: next,
+        });
+        return;
+      }
+      setImpact(next);
+    },
+    [impact],
+  );
+
+  const handleThreatChange = useCallback(
+    (next: ScoreValue) => {
+      if (!next) {
+        setThreat(null);
+        return;
+      }
+      const from = threat;
+      if (from && next.numeric !== from.numeric) {
+        setPendingOverride({
+          field: "threat",
+          fieldLabel: "Threat severity",
+          baselineKind: "current",
+          calculatedValue: from,
+          newValue: next,
+        });
+        return;
+      }
+      setThreat(next);
+    },
+    [threat],
+  );
+
+  const handleVulnerabilityChange = useCallback(
+    (next: ScoreValue) => {
+      if (!next) {
+        setVulnerability(null);
+        return;
+      }
+      const from = vulnerability;
+      if (from && next.numeric !== from.numeric) {
+        setPendingOverride({
+          field: "vulnerability",
+          fieldLabel: "Vulnerability severity",
+          baselineKind: "current",
+          calculatedValue: from,
+          newValue: next,
+        });
+        return;
+      }
+      setVulnerability(next);
+    },
+    [vulnerability],
+  );
+
   const handleLikelihoodChange = useCallback(
     (next: ScoreValue) => {
       if (
@@ -358,6 +438,7 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
         setPendingOverride({
           field: "likelihood",
           fieldLabel: "Likelihood",
+          baselineKind: "calculated",
           calculatedValue: calculatedLikelihood,
           newValue: next,
         });
@@ -379,6 +460,7 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
         setPendingOverride({
           field: "cyberRiskScore",
           fieldLabel: "Cyber risk score",
+          baselineKind: "calculated",
           calculatedValue: calculatedCyberRisk,
           newValue: next,
         });
@@ -393,11 +475,18 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
   const handleOverrideConfirm = useCallback(
     (rationale: string) => {
       if (!pendingOverride) return;
-      if (pendingOverride.field === "likelihood") {
-        setLikelihood(pendingOverride.newValue);
+      const { field, newValue } = pendingOverride;
+      if (field === "impact") {
+        setImpact(newValue);
+      } else if (field === "threat") {
+        setThreat(newValue);
+      } else if (field === "vulnerability") {
+        setVulnerability(newValue);
+      } else if (field === "likelihood") {
+        setLikelihood(newValue);
         setLikelihoodOverridden(true);
       } else {
-        setCyberRiskScore(pendingOverride.newValue);
+        setCyberRiskScore(newValue);
         setCyberRiskOverridden(true);
       }
       setScoringRationale((prev) => {
@@ -522,17 +611,17 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
               <ScoringMetricField
                 label="Asset criticality"
                 value={impact}
-                onChange={setImpact}
+                onChange={handleImpactChange}
               />
               <ScoringMetricField
                 label="Threat severity"
                 value={threat}
-                onChange={setThreat}
+                onChange={handleThreatChange}
               />
               <ScoringMetricField
                 label="Vulnerability severity"
                 value={vulnerability}
-                onChange={setVulnerability}
+                onChange={handleVulnerabilityChange}
               />
               <ScoringMetricField
                 label="Likelihood"

@@ -86,6 +86,14 @@ export interface MockBusinessUnit {
   name: string;
 }
 
+/** Cross-entity links; filled when threats, cyber risks, and scenarios are loaded. */
+export interface MockAssetRelationships {
+  vulnerabilityIds: string[];
+  threatIds: string[];
+  cyberRiskIds: string[];
+  scenarioIds: string[];
+}
+
 export interface MockAsset {
   id: string;
   name: string;
@@ -95,6 +103,19 @@ export interface MockAsset {
   criticalityLabel: FivePointScaleLabel;
   businessUnitId: string;
   status: AssetStatus;
+  vulnerabilityIds: string[];
+  threatIds: string[];
+  relationships: MockAssetRelationships;
+}
+
+/** cyberRisk / control / mitigation / scenario links are placeholders until those catalogs are regenerated. */
+export interface MockThreatRelationships {
+  assetIds: string[];
+  vulnerabilityIds: string[];
+  cyberRiskIds: string[];
+  controlIds: string[];
+  mitigationPlanIds: string[];
+  scenarioIds: string[];
 }
 
 export interface MockThreat {
@@ -107,6 +128,17 @@ export interface MockThreat {
   cyberRiskIds: string[];
   assetIds: string[];
   vulnerabilityIds: string[];
+  relationships: MockThreatRelationships;
+}
+
+/** Cross-entity links; non-asset fields start empty until mock data rewrite catches up. */
+export interface MockVulnerabilityRelationships {
+  assetId: string;
+  cyberRiskIds: string[];
+  threatIds: string[];
+  controlIds: string[];
+  mitigationPlanIds: string[];
+  scenarioIds: string[];
 }
 
 export interface MockVulnerability {
@@ -117,8 +149,10 @@ export interface MockVulnerability {
   status: VulnerabilityStatus;
   primaryCIAImpact: CIAImpact;
   cyberRiskIds: string[];
+  /** Single asset per row; mirrors `relationships.assetId`. */
   assetIds: string[];
   threatIds: string[];
+  relationships: MockVulnerabilityRelationships;
 }
 
 export interface MockControl {
@@ -130,6 +164,16 @@ export interface MockControl {
   keyControl: boolean;
   controlFrequency: ControlFrequency;
   cyberRiskIds: string[];
+}
+
+export interface MockCyberRiskRelationships {
+  assetIds: string[];
+  threatIds: string[];
+  vulnerabilityIds: string[];
+  scenarioIds: string[];
+  controlIds: string[];
+  mitigationPlanIds: string[];
+  assessmentIds: string[];
 }
 
 export interface MockCyberRisk {
@@ -148,6 +192,16 @@ export interface MockCyberRisk {
   threatIds: string[];
   vulnerabilityIds: string[];
   scenarioIds: string[];
+  controlIds: string[];
+  mitigationPlanIds: string[];
+  relationships: MockCyberRiskRelationships;
+}
+
+export interface MockScenarioRelationships {
+  cyberRiskId: string;
+  assetId: string;
+  threatIds: string[];
+  vulnerabilityIds: string[];
   controlIds: string[];
   mitigationPlanIds: string[];
 }
@@ -171,6 +225,7 @@ export interface MockScenario {
   threatIds: string[];
   vulnerabilityIds: string[];
   scoringRationale: string;
+  relationships: MockScenarioRelationships;
 }
 
 export interface MockCyberRiskAssessment {

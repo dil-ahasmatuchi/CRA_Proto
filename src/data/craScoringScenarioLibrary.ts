@@ -41,13 +41,13 @@ export type CraCyberRiskDefinition = {
 export type CraScoringRowDefinition = CraCyberRiskDefinition | ({ kind: "scenario" } & CraScenarioDefinition);
 
 export const CRA_SCORING_ROW_DEFINITIONS: CraScoringRowDefinition[] = [
-  // ── Cyber risk 1: Ransomware attack ─────────────────────────────────
+  // ── Cyber risk 1: Ransomware deployment ─────────────────────────────────
   {
     kind: "cyberRisk",
     id: "cr-rw",
     groupId: "rw",
     tag: "Cyber risk",
-    titleLinkText: "Ransomware attack",
+    titleLinkText: "Ransomware deployment",
     impact: null,
     threat: null,
     vulnerability: null,
@@ -60,9 +60,9 @@ export const CRA_SCORING_ROW_DEFINITIONS: CraScoringRowDefinition[] = [
     groupId: "rw",
     tag: "Scenario 1",
     titlePlain:
-      "Ransomware attack exploiting Unpatched web server on Payment gateway.",
+      "Ransomware deployment exploiting Unpatched web server on Payment gateway.",
     titleSegments: [
-      { text: "Ransomware attack", emphasize: true },
+      { text: "Ransomware deployment", emphasize: true },
       { text: " exploiting " },
       { text: "Unpatched web server", emphasize: true },
       { text: " on " },
@@ -74,7 +74,7 @@ export const CRA_SCORING_ROW_DEFINITIONS: CraScoringRowDefinition[] = [
     vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
     likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
     cyberRiskScore: { numeric: "76–100", label: "High", rag: "neg03" },
-    rationale: `Threat — Ransomware attack (severity: High): Ransomware operators actively target internet-facing payment infrastructure. The High rating reflects documented toolkits and initial-access brokers selling footholds in financial-services networks.
+    rationale: `Threat — Ransomware deployment (severity: High): Ransomware operators actively target internet-facing payment infrastructure. The High rating reflects documented toolkits and initial-access brokers selling footholds in financial-services networks.
 
 Vulnerability — Unpatched web server (severity: Very high): Missing patches on the web tier provide a well-documented entry point. Exploitation is often automated and scannable, making the window between disclosure and compromise short.
 
@@ -92,9 +92,9 @@ Risk calculation: The resulting High cyber risk score warrants priority remediat
     groupId: "rw",
     tag: "Scenario 2",
     titlePlain:
-      "Ransomware attack exploiting Lack of network segmentation on Customer database.",
+      "Ransomware deployment exploiting Lack of network segmentation on Customer database.",
     titleSegments: [
-      { text: "Ransomware attack", emphasize: true },
+      { text: "Ransomware deployment", emphasize: true },
       { text: " exploiting " },
       { text: "Lack of network segmentation", emphasize: true },
       { text: " on " },
@@ -106,7 +106,7 @@ Risk calculation: The resulting High cyber risk score warrants priority remediat
     vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
     likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
     cyberRiskScore: { numeric: "76–100", label: "High", rag: "neg03" },
-    rationale: `Threat — Ransomware attack (severity: High): Ransomware against customer data stores is a High-severity threat given common double-extortion tactics and the speed at which operators move laterally after first access.
+    rationale: `Threat — Ransomware deployment (severity: High): Ransomware against customer data stores is a High-severity threat given common double-extortion tactics and the speed at which operators move laterally after first access.
 
 Vulnerability — Lack of network segmentation (severity: Very high): Flat network architecture allows an attacker who gains any foothold to reach the customer database without additional barriers, making lateral movement trivial.
 
@@ -119,13 +119,13 @@ Impact determination: Very high criticality ensures any successful attack has se
 Risk calculation: High cyber risk score. Remediation should prioritize network segmentation, micro-segmentation around the database tier, privilege access management, and tested offline backups.`,
   },
 
-  // ── Cyber risk 2: Phishing campaign ─────────────────────────────────
+  // ── Cyber risk 2: Phishing ─────────────────────────────────
   {
     kind: "cyberRisk",
     id: "cr-ph",
     groupId: "ph",
     tag: "Cyber risk",
-    titleLinkText: "Phishing campaign",
+    titleLinkText: "Phishing",
     impact: null,
     threat: null,
     vulnerability: null,
@@ -138,9 +138,9 @@ Risk calculation: High cyber risk score. Remediation should prioritize network s
     groupId: "ph",
     tag: "Scenario 1",
     titlePlain:
-      "Phishing campaign exploiting Insufficient employee security training on Email server.",
+      "Phishing exploiting Insufficient employee security training on Email server.",
     titleSegments: [
-      { text: "Phishing campaign", emphasize: true },
+      { text: "Phishing", emphasize: true },
       { text: " exploiting " },
       { text: "Insufficient employee security training", emphasize: true },
       { text: " on " },
@@ -152,7 +152,7 @@ Risk calculation: High cyber risk score. Remediation should prioritize network s
     vulnerability: { numeric: "4", label: "High", rag: "neg03" },
     likelihood: { numeric: "11–15", label: "Medium", rag: "neu03" },
     cyberRiskScore: { numeric: "26–50", label: "Low", rag: "pos04" },
-    rationale: `Threat — Phishing campaign (severity: Medium): Broad phishing campaigns are a common initial access vector. The Medium rating reflects that execution still depends on user interaction and the campaign is not narrowly targeted.
+    rationale: `Threat — Phishing (severity: Medium): Broad phishing campaigns are a common initial access vector. The Medium rating reflects that execution still depends on user interaction and the campaign is not narrowly targeted.
 
 Vulnerability — Insufficient employee security training (severity: High): Gaps in security awareness training leave employees susceptible to credential harvesting and malicious attachments, increasing the odds of successful initial compromise.
 
@@ -170,9 +170,9 @@ Risk calculation: Low cyber risk score reflects moderate likelihood against a hi
     groupId: "ph",
     tag: "Scenario 2",
     titlePlain:
-      "Phishing campaign exploiting Insufficient employee security training on Social media accounts.",
+      "Phishing exploiting Insufficient employee security training on Social media accounts.",
     titleSegments: [
-      { text: "Phishing campaign", emphasize: true },
+      { text: "Phishing", emphasize: true },
       { text: " exploiting " },
       { text: "Insufficient employee security training", emphasize: true },
       { text: " on " },
@@ -184,7 +184,7 @@ Risk calculation: Low cyber risk score reflects moderate likelihood against a hi
     vulnerability: { numeric: "4", label: "High", rag: "neg03" },
     likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
     cyberRiskScore: { numeric: "26–50", label: "Low", rag: "pos04" },
-    rationale: `Threat — Phishing campaign (severity: High): Targeted phishing against social media operators is High severity because compromised brand accounts can be weaponized to distribute malware or fraudulent content to followers.
+    rationale: `Threat — Phishing (severity: High): Targeted phishing against social media operators is High severity because compromised brand accounts can be weaponized to distribute malware or fraudulent content to followers.
 
 Vulnerability — Insufficient employee security training (severity: High): Marketing and social media staff without adequate training are prime targets for credential harvesting through impersonation of platform support or partner accounts.
 

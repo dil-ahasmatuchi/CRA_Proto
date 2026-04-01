@@ -63,6 +63,15 @@ const raw: AssetRow[] = [
   ["Disaster recovery environment", "Cloud service", 5, 50, 4, "Active"],
 ];
 
+function emptyAssetRelationships(): MockAsset["relationships"] {
+  return {
+    vulnerabilityIds: [],
+    threatIds: [],
+    cyberRiskIds: [],
+    scenarioIds: [],
+  };
+}
+
 export const assets: MockAsset[] = raw.map(
   ([name, assetType, criticality, ownerIdx, buIdx, status], i) => ({
     id: padId("AST", i + 1),
@@ -73,6 +82,9 @@ export const assets: MockAsset[] = raw.map(
     criticalityLabel: getFivePointLabel(criticality),
     businessUnitId: padId("BU", buIdx),
     status,
+    vulnerabilityIds: [],
+    threatIds: [],
+    relationships: emptyAssetRelationships(),
   }),
 );
 
