@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   PageHeader,
   OverflowBreadcrumbs,
@@ -133,6 +133,31 @@ export default function NewCyberRiskAssessmentPage() {
     initialDraft?.scopeSubView ?? "overview",
   );
 
+  const [includedScopeAssetIds, setIncludedScopeAssetIds] = useState<Set<string>>(() => {
+    const d = loadCraNewAssessmentDraft();
+    return new Set(d?.includedScopeAssetIds ?? []);
+  });
+
+  const toggleAssetIncluded = useCallback((assetId: string, included: boolean) => {
+    setIncludedScopeAssetIds((prev) => {
+      const next = new Set(prev);
+      if (included) next.add(assetId);
+      else next.delete(assetId);
+      return next;
+    });
+  }, []);
+
+  const bulkSetAssetsIncluded = useCallback((assetIds: string[], included: boolean) => {
+    setIncludedScopeAssetIds((prev) => {
+      const next = new Set(prev);
+      for (const id of assetIds) {
+        if (included) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     saveCraNewAssessmentDraft({
       activeTab,
@@ -143,6 +168,7 @@ export default function NewCyberRiskAssessmentPage() {
       startDate,
       dueDate,
       scopeSubView,
+      includedScopeAssetIds: [...includedScopeAssetIds],
     });
   }, [
     activeTab,
@@ -153,6 +179,7 @@ export default function NewCyberRiskAssessmentPage() {
     startDate,
     dueDate,
     scopeSubView,
+    includedScopeAssetIds,
   ]);
 
   useEffect(() => {
@@ -616,13 +643,19 @@ export default function NewCyberRiskAssessmentPage() {
           <NewCyberRiskAssessmentScopeTab
             scopeSubView={scopeSubView}
             onScopeSubViewChange={setScopeSubView}
+            includedAssetIds={includedScopeAssetIds}
+            onToggleAssetIncluded={toggleAssetIncluded}
+            onBulkAssetIdsIncluded={bulkSetAssetsIncluded}
           />
         </TabPanel>
         <TabPanel value={activeTab} index={2}>
-          <NewCyberRiskAssessmentScoringTab assessmentName={name} />
+          <NewCyberRiskAssessmentScoringTab
+            assessmentName={name}
+            includedAssetIds={includedScopeAssetIds}
+          />
         </TabPanel>
         <TabPanel value={activeTab} index={3}>
-          <NewCyberRiskAssessmentResultsTab />
+          <NewCyberRiskAssessmentResultsTab includedAssetIds={includedScopeAssetIds} />
         </TabPanel>
       </Stack>
     </Container>

@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SectionHeader, Footer } from "@diligentcorp/atlas-react-bundle";
 import {
   Box,
@@ -46,16 +46,20 @@ import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
 
-import { type CraRagKey } from "../data/craScoringScenarioLibrary.js";
 import { assets } from "../data/assets.js";
+import { type CraRagKey } from "../data/craScoringScenarioLibrary.js";
+import {
+  buildAssetResultRowsForScope,
+  buildCyberResultsRowsForScope,
+  type AssessmentAssetResultRow,
+  type AssessmentCyberResultsRow,
+} from "./craAssessmentScopeRows.js";
 import {
   RAG_DATA_VIZ_CANVAS_FALLBACK,
   RAG_FIVE_POINT_BAND_KEYS,
   ragDataVizColor,
   resolveColorForCanvas,
 } from "../data/ragDataVisualization.js";
-
-const RELATED_ASSET_OPTIONS = assets.map((a) => a.name);
 
 ChartJS.register(ArcElement, Tooltip, ChartLegend);
 
@@ -153,185 +157,8 @@ const DONUT_SEGMENTS = [
   { range: "1 - 25", label: "Very low", count: null, colorKey: "pos05" as CraRagKey },
 ];
 
-type CyberRowKind = "cyberRisk" | "scenario";
-
-type CyberResultsRow = {
-  id: string;
-  kind: CyberRowKind;
-  groupId: string;
-  name: string;
-  impact: ScoreChip;
-  threat: ScoreChip;
-  vulnerability: ScoreChip;
-  likelihood: ScoreChip;
-  cyberRiskScore: ScoreChip;
-};
-
-const CYBER_RESULTS_ROWS: CyberResultsRow[] = [
-  {
-    id: "CR-001",
-    kind: "cyberRisk",
-    groupId: "CR-001",
-    name: "Ransomware deployment",
-    impact: { numeric: "5", label: "Very high", rag: "neg05" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
-    likelihood: { numeric: "22", label: "Very high", rag: "neg05" },
-    cyberRiskScore: { numeric: "110", label: "Very high", rag: "neg05" },
-  },
-  {
-    id: "SC-001",
-    kind: "scenario",
-    groupId: "CR-001",
-    name: "Ransomware deployment on Payment gateway",
-    impact: { numeric: "5", label: "Very high", rag: "neg05" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "100", label: "High", rag: "neg03" },
-  },
-  {
-    id: "SC-002",
-    kind: "scenario",
-    groupId: "CR-001",
-    name: "Ransomware deployment on Customer database",
-    impact: { numeric: "5", label: "Very high", rag: "neg05" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "100", label: "High", rag: "neg03" },
-  },
-  {
-    id: "CR-002",
-    kind: "cyberRisk",
-    groupId: "CR-002",
-    name: "Phishing",
-    impact: { numeric: "4", label: "High", rag: "neg03" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
-    likelihood: { numeric: "16", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "64", label: "Medium", rag: "neu03" },
-  },
-  {
-    id: "SC-003",
-    kind: "scenario",
-    groupId: "CR-002",
-    name: "Phishing on Email server",
-    impact: { numeric: "4", label: "High", rag: "neg03" },
-    threat: { numeric: "3", label: "Medium", rag: "neu03" },
-    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
-    likelihood: { numeric: "12", label: "Medium", rag: "neu03" },
-    cyberRiskScore: { numeric: "48", label: "Low", rag: "pos04" },
-  },
-  {
-    id: "SC-004",
-    kind: "scenario",
-    groupId: "CR-002",
-    name: "Phishing on Social media accounts",
-    impact: { numeric: "3", label: "Medium", rag: "neu03" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
-    likelihood: { numeric: "16", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "48", label: "Low", rag: "pos04" },
-  },
-  {
-    id: "CR-003",
-    kind: "cyberRisk",
-    groupId: "CR-003",
-    name: "DDoS attack",
-    impact: { numeric: "5", label: "Very high", rag: "neg05" },
-    threat: { numeric: "5", label: "Very high", rag: "neg05" },
-    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "100", label: "High", rag: "neg03" },
-  },
-  {
-    id: "SC-005",
-    kind: "scenario",
-    groupId: "CR-003",
-    name: "DDoS attack on Payment gateway",
-    impact: { numeric: "5", label: "Very high", rag: "neg05" },
-    threat: { numeric: "5", label: "Very high", rag: "neg05" },
-    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "100", label: "High", rag: "neg03" },
-  },
-  {
-    id: "SC-006",
-    kind: "scenario",
-    groupId: "CR-003",
-    name: "DDoS attack on DNS server",
-    impact: { numeric: "5", label: "Very high", rag: "neg05" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "3", label: "Medium", rag: "neu03" },
-    likelihood: { numeric: "12", label: "Medium", rag: "neu03" },
-    cyberRiskScore: { numeric: "60", label: "Medium", rag: "neu03" },
-  },
-];
-
-type AssetResultRow = {
-  id: string;
-  name: string;
-  assetId: string;
-  cyberRiskScore: ScoreChip;
-  criticality: ScoreChip;
-  confidentiality: ScoreChip;
-  integrity: ScoreChip;
-  availability: ScoreChip;
-};
-
-const ASSET_RESULT_ROWS: AssetResultRow[] = [
-  {
-    id: "1",
-    name: "Payment gateway",
-    assetId: "AST-001",
-    cyberRiskScore: { numeric: "100", label: "High", rag: "neg03" },
-    criticality: { numeric: "5", label: "Very high", rag: "neg05" },
-    confidentiality: { numeric: "5", label: "Very high", rag: "neg05" },
-    integrity: { numeric: "4", label: "High", rag: "neg03" },
-    availability: { numeric: "5", label: "Very high", rag: "neg05" },
-  },
-  {
-    id: "2",
-    name: "Customer database",
-    assetId: "AST-002",
-    cyberRiskScore: { numeric: "100", label: "High", rag: "neg03" },
-    criticality: { numeric: "5", label: "Very high", rag: "neg05" },
-    confidentiality: { numeric: "5", label: "Very high", rag: "neg05" },
-    integrity: { numeric: "5", label: "Very high", rag: "neg05" },
-    availability: { numeric: "4", label: "High", rag: "neg03" },
-  },
-  {
-    id: "3",
-    name: "Email server",
-    assetId: "AST-003",
-    cyberRiskScore: { numeric: "48", label: "Low", rag: "pos04" },
-    criticality: { numeric: "4", label: "High", rag: "neg03" },
-    confidentiality: { numeric: "3", label: "Medium", rag: "neu03" },
-    integrity: { numeric: "3", label: "Medium", rag: "neu03" },
-    availability: { numeric: "4", label: "High", rag: "neg03" },
-  },
-  {
-    id: "4",
-    name: "Social media accounts",
-    assetId: "AST-043",
-    cyberRiskScore: { numeric: "48", label: "Low", rag: "pos04" },
-    criticality: { numeric: "3", label: "Medium", rag: "neu03" },
-    confidentiality: { numeric: "3", label: "Medium", rag: "neu03" },
-    integrity: { numeric: "2", label: "Low", rag: "pos04" },
-    availability: { numeric: "2", label: "Low", rag: "pos04" },
-  },
-  {
-    id: "5",
-    name: "DNS server",
-    assetId: "AST-011",
-    cyberRiskScore: { numeric: "60", label: "Medium", rag: "neu03" },
-    criticality: { numeric: "5", label: "Very high", rag: "neg05" },
-    confidentiality: { numeric: "4", label: "High", rag: "neg03" },
-    integrity: { numeric: "5", label: "Very high", rag: "neg05" },
-    availability: { numeric: "5", label: "Very high", rag: "neg05" },
-  },
-];
+type CyberResultsRow = AssessmentCyberResultsRow;
+type AssetResultRow = AssessmentAssetResultRow;
 
 function ResultsNameCell({
   row,
@@ -436,10 +263,12 @@ function MitigationPlanSideSheet({
   open,
   onClose,
   cyberRiskName,
+  relatedAssetNames,
 }: {
   open: boolean;
   onClose: () => void;
   cyberRiskName: string;
+  relatedAssetNames: string[];
 }) {
   const { presets } = useTheme();
   const { SideSheetPresets } = presets;
@@ -693,7 +522,7 @@ function MitigationPlanSideSheet({
                 },
               }}
             >
-              {RELATED_ASSET_OPTIONS.map((opt) => (
+              {relatedAssetNames.map((opt) => (
                 <MenuItem key={opt} value={opt}>
                   <Checkbox checked={relatedAssets.includes(opt)} />
                   <ListItemText primary={opt} />
@@ -1101,7 +930,7 @@ function AssetsRiskDonut() {
   );
 }
 
-function AssetsResultsGrid() {
+function AssetsResultsGrid({ rows }: { rows: AssetResultRow[] }) {
   const columns: GridColDef<AssetResultRow>[] = useMemo(
     () => [
       {
@@ -1181,7 +1010,7 @@ function AssetsResultsGrid() {
   return (
     <Box sx={{ width: "100%", maxWidth: 1280 }}>
       <DataGridPro
-        rows={ASSET_RESULT_ROWS}
+        rows={rows}
         columns={columns}
         autoHeight
         disableRowSelectionOnClick
@@ -1223,20 +1052,38 @@ const OVERVIEW_SCOPE_OPTIONS: { value: OverviewScope; label: string }[] = [
   { value: "riskScenarios", label: "Risk scenarios" },
 ];
 
-export default function NewCyberRiskAssessmentResultsTab() {
+export default function NewCyberRiskAssessmentResultsTab({
+  includedAssetIds,
+}: {
+  includedAssetIds: Set<string>;
+}) {
   const [overviewScope, setOverviewScope] = useState<OverviewScope>("cyberRisks");
   const [overviewMenuAnchor, setOverviewMenuAnchor] = useState<null | HTMLElement>(null);
   const overviewMenuOpen = Boolean(overviewMenuAnchor);
   const overviewScopeLabel =
     OVERVIEW_SCOPE_OPTIONS.find((o) => o.value === overviewScope)?.label ?? "Cyber risks";
 
+  const cyberResultRows = useMemo(
+    () => buildCyberResultsRowsForScope(includedAssetIds),
+    [includedAssetIds],
+  );
+  const assetResultRows = useMemo(
+    () => buildAssetResultRowsForScope(includedAssetIds),
+    [includedAssetIds],
+  );
+  const relatedAssetNames = useMemo(
+    () => assets.filter((a) => includedAssetIds.has(a.id)).map((a) => a.name),
+    [includedAssetIds],
+  );
+
   const [cyberSectionExpanded, setCyberSectionExpanded] = useState(true);
   const [assetsSectionExpanded, setAssetsSectionExpanded] = useState(true);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    "CR-001": true,
-    "CR-002": false,
-    "CR-003": false,
-  });
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const riskIds = cyberResultRows.filter((r) => r.kind === "cyberRisk").map((r) => r.id);
+    setExpandedGroups(Object.fromEntries(riskIds.map((id) => [id, true])));
+  }, [cyberResultRows]);
 
   const [sideSheetOpen, setSideSheetOpen] = useState(false);
   const [sideSheetCyberRiskName, setSideSheetCyberRiskName] = useState("");
@@ -1254,7 +1101,7 @@ export default function NewCyberRiskAssessmentResultsTab() {
     const out: CyberResultsRow[] = [];
     let currentGroup = "";
     let groupOpen = true;
-    for (const row of CYBER_RESULTS_ROWS) {
+    for (const row of cyberResultRows) {
       if (row.kind === "cyberRisk") {
         currentGroup = row.groupId;
         groupOpen = expandedGroups[row.groupId] !== false;
@@ -1266,7 +1113,7 @@ export default function NewCyberRiskAssessmentResultsTab() {
       }
     }
     return out;
-  }, [expandedGroups]);
+  }, [expandedGroups, cyberResultRows]);
 
   return (
     <Stack gap={6} sx={{ pt: 3, pb: 4, maxWidth: 1280 }}>
@@ -1655,13 +1502,14 @@ export default function NewCyberRiskAssessmentResultsTab() {
         onExpand={() => setAssetsSectionExpanded(true)}
         onCollapse={() => setAssetsSectionExpanded(false)}
       >
-        {assetsSectionExpanded ? <AssetsResultsGrid /> : null}
+        {assetsSectionExpanded ? <AssetsResultsGrid rows={assetResultRows} /> : null}
       </SectionHeader>
 
       <MitigationPlanSideSheet
         open={sideSheetOpen}
         onClose={() => setSideSheetOpen(false)}
         cyberRiskName={sideSheetCyberRiskName}
+        relatedAssetNames={relatedAssetNames}
       />
     </Stack>
   );

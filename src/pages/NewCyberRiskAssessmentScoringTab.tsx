@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   Box,
   FormControl,
@@ -21,11 +21,10 @@ import { useNavigate } from "react-router";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
-import { cyberRisks } from "../data/cyberRisks.js";
-import { scenarios } from "../data/scenarios.js";
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import { fivePointLabelToRag, getLikelihoodLabel, getCyberRiskScoreLabel } from "../data/types.js";
 import type { FivePointScaleLabel } from "../data/types.js";
+import { scopedCyberRisks, scopedScenarios } from "./scopeAssessmentRollup.js";
 
 type ScoreValue = {
   numeric: string;
@@ -112,71 +111,74 @@ function toCyberRiskScoreValue(value: number): ScoreValue {
   return { numeric: String(value), label, rag: fivePointLabelToRag(label) };
 }
 
-const SELECTED_RISKS = cyberRisks.slice(0, 3);
+function buildScoringRowsForScope(includedAssetIds: Set<string>): ScoringRow[] {
+  if (includedAssetIds.size === 0) return [];
+  const risks = scopedCyberRisks(includedAssetIds);
+  const scenarioList = scopedScenarios(includedAssetIds);
+  const byRisk = new Map<string, (typeof scenarioList)[number][]>();
+  for (const s of scenarioList) {
+    const list = byRisk.get(s.cyberRiskId) ?? [];
+    list.push(s);
+    byRisk.set(s.cyberRiskId, list);
+  }
 
-const scenariosByRiskId = new Map(
-  SELECTED_RISKS.map((cr) => [
-    cr.id,
-    scenarios.filter((s) => s.cyberRiskId === cr.id),
-  ]),
-);
+  return risks.flatMap((cr) => {
+    const riskRow: ScoringRow = {
+      id: cr.id,
+      kind: "cyberRisk",
+      groupId: cr.id,
+      tag: "Cyber risk",
+      title: (
+        <Link
+          href="#"
+          onClick={(e) => e.preventDefault()}
+          underline="always"
+          sx={({ tokens: t }) => ({
+            fontSize: t.semantic.font.text.md.fontSize.value,
+            lineHeight: t.semantic.font.text.md.lineHeight.value,
+            letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+            fontWeight: 600,
+            color: t.semantic.color.type.default.value,
+          })}
+        >
+          {cr.name}
+        </Link>
+      ),
+      impact: null,
+      threat: null,
+      vulnerability: null,
+      likelihood: null,
+      cyberRiskScore: null,
+    };
 
-const SCORING_ROWS: ScoringRow[] = SELECTED_RISKS.flatMap((cr) => {
-  const riskRow: ScoringRow = {
-    id: cr.id,
-    kind: "cyberRisk",
-    groupId: cr.id,
-    tag: "Cyber risk",
-    title: (
-      <Link
-        href="#"
-        onClick={(e) => e.preventDefault()}
-        underline="always"
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          fontWeight: 600,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        {cr.name}
-      </Link>
-    ),
-    impact: null,
-    threat: null,
-    vulnerability: null,
-    likelihood: null,
-    cyberRiskScore: null,
-  };
+    const relatedScenarios = byRisk.get(cr.id) ?? [];
+    const scenarioRows: ScoringRow[] = relatedScenarios.map((s) => ({
+      id: s.id,
+      kind: "scenario" as const,
+      groupId: cr.id,
+      tag: "Scenario",
+      title: (
+        <Typography
+          sx={({ tokens: t }) => ({
+            fontSize: t.semantic.font.text.md.fontSize.value,
+            lineHeight: t.semantic.font.text.md.lineHeight.value,
+            letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+            color: t.semantic.color.type.default.value,
+          })}
+        >
+          {s.name}
+        </Typography>
+      ),
+      impact: toFivePointScore(s.impact, s.impactLabel),
+      threat: toFivePointScore(s.threatSeverity, s.threatSeverityLabel),
+      vulnerability: toFivePointScore(s.vulnerabilitySeverity, s.vulnerabilitySeverityLabel),
+      likelihood: toLikelihoodScore(s.likelihood),
+      cyberRiskScore: toCyberRiskScoreValue(s.cyberRiskScore),
+    }));
 
-  const relatedScenarios = scenariosByRiskId.get(cr.id) ?? [];
-  const scenarioRows: ScoringRow[] = relatedScenarios.map((s) => ({
-    id: s.id,
-    kind: "scenario" as const,
-    groupId: cr.id,
-    tag: "Scenario",
-    title: (
-      <Typography
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        {s.name}
-      </Typography>
-    ),
-    impact: toFivePointScore(s.impact, s.impactLabel),
-    threat: toFivePointScore(s.threatSeverity, s.threatSeverityLabel),
-    vulnerability: toFivePointScore(s.vulnerabilitySeverity, s.vulnerabilitySeverityLabel),
-    likelihood: toLikelihoodScore(s.likelihood),
-    cyberRiskScore: toCyberRiskScoreValue(s.cyberRiskScore),
-  }));
-
-  return [riskRow, ...scenarioRows];
-});
+    return [riskRow, ...scenarioRows];
+  });
+}
 
 function parseScoreNumeric(value: ScoreValue): number | null {
   if (value == null) return null;
@@ -337,17 +339,26 @@ function NameCell({
 type NewCyberRiskAssessmentScoringTabProps = {
   /** Passed to the scenario detail page for breadcrumbs. */
   assessmentName?: string;
+  includedAssetIds: Set<string>;
 };
 
 export default function NewCyberRiskAssessmentScoringTab({
   assessmentName = "",
+  includedAssetIds,
 }: NewCyberRiskAssessmentScoringTabProps) {
   const navigate = useNavigate();
   const aggregationLabelId = useId();
   const [aggregationMethod, setAggregationMethod] = useState<AggregationMethod | null>(null);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(SELECTED_RISKS.map((cr) => [cr.id, true])),
+  const scoringRows = useMemo(
+    () => buildScoringRowsForScope(includedAssetIds),
+    [includedAssetIds],
   );
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const riskIds = scoringRows.filter((r) => r.kind === "cyberRisk").map((r) => r.id);
+    setExpanded(Object.fromEntries(riskIds.map((id) => [id, true])));
+  }, [scoringRows]);
 
   const goToScenario = useCallback(
     (scenarioId: string) => {
@@ -364,14 +375,14 @@ export default function NewCyberRiskAssessmentScoringTab({
 
   const scenariosByGroupId = useMemo(() => {
     const m = new Map<string, ScoringRow[]>();
-    for (const row of SCORING_ROWS) {
+    for (const row of scoringRows) {
       if (row.kind !== "scenario") continue;
       const list = m.get(row.groupId) ?? [];
       list.push(row);
       m.set(row.groupId, list);
     }
     return m;
-  }, []);
+  }, [scoringRows]);
 
   const aggregatedByGroupId = useMemo(() => {
     const metrics: MetricKey[] = ["impact", "threat", "vulnerability", "likelihood", "cyberRiskScore"];
@@ -391,7 +402,7 @@ export default function NewCyberRiskAssessmentScoringTab({
     const out: ScoringRow[] = [];
     let currentGroup = "";
     let groupOpen = true;
-    for (const row of SCORING_ROWS) {
+    for (const row of scoringRows) {
       if (row.kind === "cyberRisk") {
         currentGroup = row.groupId;
         groupOpen = expanded[row.groupId] !== false;
@@ -403,7 +414,7 @@ export default function NewCyberRiskAssessmentScoringTab({
       }
     }
     return out;
-  }, [expanded]);
+  }, [expanded, scoringRows]);
 
   const handleAggregationChange = useCallback((_event: React.ChangeEvent<HTMLInputElement>, value: string) => {
     if (value === "highest" || value === "average") {
@@ -413,6 +424,14 @@ export default function NewCyberRiskAssessmentScoringTab({
 
   return (
     <Stack gap={3} sx={{ pt: 3, pb: 4 }}>
+      {scoringRows.length === 0 ? (
+        <Typography
+          variant="body1"
+          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value, maxWidth: 1280 })}
+        >
+          Include assets in the Scope tab to see cyber risks and scenarios for this assessment.
+        </Typography>
+      ) : null}
       <Stack gap={1.5} sx={{ maxWidth: 1280, width: "100%" }}>
         <Typography
           id={aggregationLabelId}
@@ -471,6 +490,7 @@ export default function NewCyberRiskAssessmentScoringTab({
         </FormControl>
       </Stack>
 
+      {scoringRows.length === 0 ? null : (
       <Box
         sx={({ tokens: t }) => ({
           borderRadius: t.semantic.radius.md.value,
@@ -704,6 +724,7 @@ export default function NewCyberRiskAssessmentScoringTab({
           </Table>
         </TableContainer>
       </Box>
+      )}
     </Stack>
   );
 }

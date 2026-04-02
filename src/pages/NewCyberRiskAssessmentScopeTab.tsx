@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -50,7 +50,6 @@ import type {
   MockVulnerability,
 } from "../data/types.js";
 import {
-  includedAssetIdSet,
   scopedCyberRisks,
   scopedThreats,
   scopedVulnerabilities,
@@ -305,10 +304,10 @@ function NumericLink({ value, ariaLabel }: { value: number; ariaLabel: string })
 /** Uses grid state so “this page” = same rows as on screen (sort, filter, pagination). */
 function ScopeIncludedColumnHeader({
   rows,
-  setRows,
+  onBulkRowIdsIncluded,
 }: {
   rows: ScopeAssetRow[];
-  setRows: Dispatch<SetStateAction<ScopeAssetRow[]>>;
+  onBulkRowIdsIncluded: (dataGridRowIds: number[], included: boolean) => void;
 }) {
   const apiRef = useGridApiContext();
   const rowIdsOnPage = useGridSelector(apiRef, gridPaginatedVisibleSortedGridRowIdsSelector);
@@ -337,17 +336,12 @@ function ScopeIncludedColumnHeader({
       typeof id === "number" ? id : Number(id),
     );
     if (ids.length === 0) return;
-    setRows((prev) => {
-      const idSet = new Set(ids);
-      const everyOnPageIncluded = ids.every(
-        (id) => prev.find((r) => r.id === id)?.included === true,
-      );
-      const nextIncluded = !everyOnPageIncluded;
-      return prev.map((r) =>
-        idSet.has(r.id) ? { ...r, included: nextIncluded } : { ...r },
-      );
-    });
-  }, [apiRef, setRows]);
+    const everyOnPageIncluded = ids.every(
+      (id) => rows.find((r) => r.id === id)?.included === true,
+    );
+    const nextIncluded = !everyOnPageIncluded;
+    onBulkRowIdsIncluded(ids, nextIncluded);
+  }, [apiRef, rows, onBulkRowIdsIncluded]);
 
   const headerAriaLabel = headerIncludeIntermediate
     ? "Some assets on this page are in scope. Click to include all on this page."
@@ -678,10 +672,12 @@ function ScopeOverviewCards({
 
 function ScopeAssetsDataGrid({
   rows,
-  setRows,
+  onToggleAssetIncluded,
+  onBulkRowIdsIncluded,
 }: {
   rows: ScopeAssetRow[];
-  setRows: Dispatch<SetStateAction<ScopeAssetRow[]>>;
+  onToggleAssetIncluded: (assetId: string, included: boolean) => void;
+  onBulkRowIdsIncluded: (dataGridRowIds: number[], included: boolean) => void;
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
@@ -694,11 +690,13 @@ function ScopeAssetsDataGrid({
     return rows;
   }, [rows, view]);
 
-  const setIncluded = useCallback((id: number, included: boolean) => {
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, included } : { ...r })),
-    );
-  }, [setRows]);
+  const setIncluded = useCallback(
+    (id: number, included: boolean) => {
+      const row = rows.find((r) => r.id === id);
+      if (row) onToggleAssetIncluded(row.assetId, included);
+    },
+    [rows, onToggleAssetIncluded],
+  );
 
   const handleViewChange = useCallback(
     (_e: React.MouseEvent<HTMLElement>, v: ScopeViewFilter | null) => {
@@ -721,7 +719,7 @@ function ScopeAssetsDataGrid({
         disableColumnMenu: true,
         editable: false,
         renderHeader: () => (
-          <ScopeIncludedColumnHeader rows={rows} setRows={setRows} />
+          <ScopeIncludedColumnHeader rows={rows} onBulkRowIdsIncluded={onBulkRowIdsIncluded} />
         ),
         renderCell: (params: GridRenderCellParams<ScopeAssetRow>) => {
           const included = params.row.included;
@@ -878,7 +876,7 @@ function ScopeAssetsDataGrid({
         ),
       },
     ],
-    [rows, setRows, setIncluded],
+    [rows, onBulkRowIdsIncluded, setIncluded],
   );
 
   return (
@@ -992,7 +990,7 @@ function ScopeScopedCyberRisksGrid({
     <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
       {rows.length === 0 ? (
         <Typography
-          variant="body2"
+          variant="body1"
           sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
         >
           {hasIncludedAssets
@@ -1094,7 +1092,7 @@ function ScopeScopedThreatsGrid({
     <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
       {rows.length === 0 ? (
         <Typography
-          variant="body2"
+          variant="body1"
           sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
         >
           {hasIncludedAssets
@@ -1189,7 +1187,7 @@ function ScopeScopedVulnerabilitiesGrid({
     <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
       {rows.length === 0 ? (
         <Typography
-          variant="body2"
+          variant="body1"
           sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
         >
           {hasIncludedAssets
@@ -1249,17 +1247,38 @@ function ScopeScopedVulnerabilitiesGrid({
 type NewCyberRiskAssessmentScopeTabProps = {
   scopeSubView: ScopeSubView;
   onScopeSubViewChange: (view: ScopeSubView) => void;
+  includedAssetIds: Set<string>;
+  onToggleAssetIncluded: (assetId: string, included: boolean) => void;
+  onBulkAssetIdsIncluded: (assetIds: string[], included: boolean) => void;
 };
 
 export default function NewCyberRiskAssessmentScopeTab({
   scopeSubView,
   onScopeSubViewChange,
+  includedAssetIds,
+  onToggleAssetIncluded,
+  onBulkAssetIdsIncluded,
 }: NewCyberRiskAssessmentScopeTabProps) {
-  const [rows, setRows] = useState<ScopeAssetRow[]>(buildScopeRows);
+  const rows = useMemo(
+    () =>
+      buildScopeRows().map((r) => ({
+        ...r,
+        included: includedAssetIds.has(r.assetId),
+      })),
+    [includedAssetIds],
+  );
 
-  const includedCount = useMemo(() => rows.filter((r) => r.included).length, [rows]);
+  const includedCount = includedAssetIds.size;
 
-  const includedAssetIds = useMemo(() => includedAssetIdSet(rows), [rows]);
+  const handleBulkRowIdsIncluded = useCallback(
+    (rowIds: number[], included: boolean) => {
+      const assetIds = rowIds
+        .map((id) => rows.find((r) => r.id === id)?.assetId)
+        .filter((x): x is string => Boolean(x));
+      onBulkAssetIdsIncluded(assetIds, included);
+    },
+    [rows, onBulkAssetIdsIncluded],
+  );
 
   const scopedCrRows = useMemo(
     () => scopedCyberRisks(includedAssetIds),
@@ -1272,7 +1291,13 @@ export default function NewCyberRiskAssessmentScopeTab({
   );
 
   if (scopeSubView === "assets") {
-    return <ScopeAssetsDataGrid rows={rows} setRows={setRows} />;
+    return (
+      <ScopeAssetsDataGrid
+        rows={rows}
+        onToggleAssetIncluded={onToggleAssetIncluded}
+        onBulkRowIdsIncluded={handleBulkRowIdsIncluded}
+      />
+    );
   }
 
   if (scopeSubView === "scopedCyberRisks") {

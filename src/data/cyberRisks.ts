@@ -15,9 +15,14 @@ import { assets } from "./assets.js";
 
 const CONTROL_COUNT = 50;
 const MITIGATION_PLAN_COUNT = 50;
-const RISK_COUNT = 40;
 
 const OWNER_ROTATION = [7, 9, 14, 15, 20, 33, 39, 49, 1, 5] as const;
+
+function threatsForSingleAsset(assetId: string) {
+  return threats.filter(
+    (t) => t.assetIds.length === 1 && t.assetIds[0] === assetId,
+  );
+}
 
 /** Enterprise-style cyber risk statements (sentence case; acronyms kept uppercase). */
 const RISK_SEEDS: { name: string; status: CyberRiskStatus }[] = [
@@ -209,14 +214,6 @@ function linkCyberRiskToEntities(risk: MockCyberRisk): void {
 }
 
 function buildCyberRisks(): MockCyberRisk[] {
-  const threatCount = threats.length;
-  if (threatCount < 2) {
-    throw new Error(`Need at least 2 threats to build ${RISK_COUNT} cyber risks`);
-  }
-  if (RISK_SEEDS.length !== RISK_COUNT) {
-    throw new Error("RISK_SEEDS must match RISK_COUNT");
-  }
-
   for (const v of vulnerabilities) {
     v.cyberRiskIds.length = 0;
   }
@@ -228,74 +225,77 @@ function buildCyberRisks(): MockCyberRisk[] {
   }
 
   const out: MockCyberRisk[] = [];
+  const seedCount = RISK_SEEDS.length;
+  let crIndex = 0;
 
-  for (let i = 0; i < RISK_COUNT; i++) {
-    let i0 = (i * 2) % threatCount;
-    let i1 = (i * 2 + 1) % threatCount;
-    if (i1 === i0) {
-      i1 = (i1 + 1) % threatCount;
+  for (let ai = 0; ai < assets.length; ai++) {
+    const asset = assets[ai]!;
+    const tfa = threatsForSingleAsset(asset.id);
+    if (tfa.length === 0) {
+      throw new Error(`No threats for asset ${asset.id} (${asset.name})`);
     }
-    const t0 = threats[i0]!;
-    const t1 = threats[i1]!;
-    const seed = RISK_SEEDS[i]!;
 
-    const threatIds = [t0.id, t1.id];
-    const assetSet = new Set<string>([...t0.assetIds, ...t1.assetIds]);
-    const vulnSet = new Set<string>([...t0.vulnerabilityIds, ...t1.vulnerabilityIds]);
+    const risksForAsset = 1 + (ai % 3);
 
-    const assetIds = Array.from(assetSet);
-    const vulnerabilityIds = Array.from(vulnSet);
-    const scenarioIds: string[] = [];
+    for (let k = 0; k < risksForAsset; k++) {
+      crIndex += 1;
+      const i = crIndex - 1;
+      const seed = RISK_SEEDS[i % seedCount]!;
 
-    const primaryAssetId = assetIds[0]!;
-    const primaryAsset = assets.find((a) => a.id === primaryAssetId);
-    const buIdx = primaryAsset
-      ? Number(primaryAsset.businessUnitId.replace(/^BU-0*/, "") || "4")
-      : 4;
+      const n = tfa.length;
+      const t0 = tfa[k % n]!;
+      const t1 = n > 1 ? tfa[(k + 1) % n]! : t0;
+      const threatIds = t0.id === t1.id ? [t0.id] : [t0.id, t1.id];
+      const vulnSet = new Set<string>([...t0.vulnerabilityIds, ...t1.vulnerabilityIds]);
+      const vulnerabilityIds = Array.from(vulnSet);
+      const assetIds = [asset.id];
+      const scenarioIds: string[] = [];
 
-    const ownerIdx = OWNER_ROTATION[i % OWNER_ROTATION.length]!;
-    const impact = (2 + (i % 4)) as FivePointScaleValue;
-    const likelihood = 6 + ((i * 5) % 20);
-    const score = impact * likelihood;
+      const buIdx = Number(asset.businessUnitId.replace(/^BU-0*/, "") || "4");
+      const ownerIdx = OWNER_ROTATION[i % OWNER_ROTATION.length]!;
+      const impact = (2 + (i % 4)) as FivePointScaleValue;
+      const likelihood = 6 + ((i * 5) % 20);
+      const score = impact * likelihood;
 
-    const ctlA = 1 + (i % CONTROL_COUNT);
-    const ctlB = 1 + ((i + 11) % CONTROL_COUNT);
-    const mpA = 1 + (i % MITIGATION_PLAN_COUNT);
-    const mpB = 1 + ((i + 5) % MITIGATION_PLAN_COUNT);
-    const controlIds = [padId("CTL", ctlA), padId("CTL", ctlB)];
-    const mitigationPlanIds = [padId("MP", mpA), padId("MP", mpB)];
+      const ctlA = 1 + (i % CONTROL_COUNT);
+      const ctlB = 1 + ((i + 11) % CONTROL_COUNT);
+      const mpA = 1 + (i % MITIGATION_PLAN_COUNT);
+      const mpB = 1 + ((i + 5) % MITIGATION_PLAN_COUNT);
+      const controlIds = [padId("CTL", ctlA), padId("CTL", ctlB)];
+      const mitigationPlanIds = [padId("MP", mpA), padId("MP", mpB)];
 
-    const risk: MockCyberRisk = {
-      id: padId("CR", i + 1),
-      name: seed.name,
-      ownerId: padId("USR", ownerIdx),
-      status: seed.status,
-      businessUnitId: padId("BU", buIdx),
-      impact,
-      impactLabel: getFivePointLabel(impact),
-      likelihood,
-      likelihoodLabel: getLikelihoodLabel(likelihood),
-      cyberRiskScore: score,
-      cyberRiskScoreLabel: getCyberRiskScoreLabel(score),
-      assetIds,
-      threatIds,
-      vulnerabilityIds,
-      scenarioIds,
-      controlIds,
-      mitigationPlanIds,
-      relationships: {
+      const risk: MockCyberRisk = {
+        id: padId("CR", crIndex),
+        name: seed.name,
+        ownerId: padId("USR", ownerIdx),
+        status: seed.status,
+        businessUnitId: padId("BU", buIdx),
+        impact,
+        impactLabel: getFivePointLabel(impact),
+        likelihood,
+        likelihoodLabel: getLikelihoodLabel(likelihood),
+        cyberRiskScore: score,
+        cyberRiskScoreLabel: getCyberRiskScoreLabel(score),
         assetIds,
         threatIds,
         vulnerabilityIds,
         scenarioIds,
         controlIds,
         mitigationPlanIds,
-        assessmentIds: [],
-      },
-    };
+        relationships: {
+          assetIds,
+          threatIds,
+          vulnerabilityIds,
+          scenarioIds,
+          controlIds,
+          mitigationPlanIds,
+          assessmentIds: [],
+        },
+      };
 
-    linkCyberRiskToEntities(risk);
-    out.push(risk);
+      linkCyberRiskToEntities(risk);
+      out.push(risk);
+    }
   }
 
   return out;

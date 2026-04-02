@@ -12,11 +12,9 @@ import { assets } from "./assets.js";
 import { vulnerabilities } from "./vulnerabilities.js";
 
 /**
- * Build one row per asset vulnerability chunk (80 rows), then merge rows that share the same `name` so
- * the catalog has no duplicate threat titles. Legacy sequential THR-### ids from the pre-merge build are
- * remapped via `remapThreatIdFromLegacySequential` for assessments.
- * Each merged threat unions vulnerabilities and assets from its former rows; `ownerId` is taken from the
- * first occurrence. `applyCrossEntityLinks` syncs asset ↔ vulnerability ↔ threat.
+ * One row per asset vulnerability chunk (1–2 threats per asset). Each threat is scoped to a single
+ * asset. Titles include the asset name so catalog rows stay distinct.
+ * `applyCrossEntityLinks` syncs asset ↔ vulnerability ↔ threat.
  */
 
 type ThreatTemplate = {
@@ -289,41 +287,11 @@ const THREAT_TEMPLATES: Record<MockAsset["assetType"], ThreatTemplate[]> = {
   ],
 };
 
-/** Deterministic PRNG in [0, 1) for stable mock data across loads. */
-function mulberry32(seed: number): () => number {
-  return () => {
-    let t = (seed += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/**
- * Primary asset is always included; remaining slots are filled with distinct assets (deterministic shuffle).
- */
-function pickAssetIdsForThreat(primaryAssetId: string, threatSeq: number): string[] {
-  const maxAssets = assets.length;
-  const rand = mulberry32(threatSeq * 1_000_003 + 49_297);
-  const minCount = 2;
-  const maxCount = Math.min(10, maxAssets);
-  const targetCount = minCount + Math.floor(rand() * (maxCount - minCount + 1));
-
-  const others = assets.map((a) => a.id).filter((id) => id !== primaryAssetId);
-  const shuffled = [...others];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
-  }
-  const extra = shuffled.slice(0, Math.max(0, targetCount - 1));
-  return [primaryAssetId, ...extra];
-}
-
 function vulnsForAsset(assetId: string, all: MockVulnerability[]): MockVulnerability[] {
   return all.filter((v) => v.relationships.assetId === assetId);
 }
 
-/** Split asset vulnerabilities into 1–2 groups (2–3 items each) so total threats across catalog = 80. */
+/** Split asset vulnerabilities into 1–2 groups (2–3 items each) so each asset has 1–2 threats. */
 function chunkVulnerabilitiesForThreats(vulns: MockVulnerability[]): MockVulnerability[][] {
   const n = vulns.length;
   if (n === 0) return [];
@@ -349,72 +317,6 @@ function buildThreatRelationships(
   };
 }
 
-function dedupePushId(arr: string[], id: string): void {
-  if (!arr.includes(id)) arr.push(id);
-}
-
-/**
- * Collapse rows that share `name` into one threat (union of vulns and assets). Re-ids THR-001…THR-00N in
- * first-seen name order. Returns a map from each pre-merge threat id to the merged id.
- */
-function mergeThreatsByName(rows: MockThreat[]): {
-  merged: MockThreat[];
-  oldIdToNewId: Map<string, string>;
-} {
-  const byName = new Map<string, MockThreat>();
-  const nameOrder: string[] = [];
-
-  for (const t of rows) {
-    const existing = byName.get(t.name);
-    if (!existing) {
-      nameOrder.push(t.name);
-      byName.set(t.name, {
-        ...t,
-        vulnerabilityIds: [...t.vulnerabilityIds],
-        assetIds: [...t.assetIds],
-        cyberRiskIds: [],
-        relationships: buildThreatRelationships(
-          [],
-          [...t.assetIds],
-          [...t.vulnerabilityIds],
-        ),
-      });
-    } else {
-      for (const vid of t.vulnerabilityIds) {
-        dedupePushId(existing.vulnerabilityIds, vid);
-        dedupePushId(existing.relationships.vulnerabilityIds, vid);
-      }
-      for (const aid of t.assetIds) {
-        dedupePushId(existing.assetIds, aid);
-        dedupePushId(existing.relationships.assetIds, aid);
-      }
-    }
-  }
-
-  const nameToNewId = new Map<string, string>();
-  const merged: MockThreat[] = nameOrder.map((name, i) => {
-    const src = byName.get(name)!;
-    const newId = padId("THR", i + 1);
-    nameToNewId.set(name, newId);
-    return {
-      ...src,
-      id: newId,
-      relationships: {
-        ...src.relationships,
-        assetIds: [...src.relationships.assetIds],
-        vulnerabilityIds: [...src.relationships.vulnerabilityIds],
-      },
-    };
-  });
-
-  const oldIdToNewId = new Map<string, string>();
-  for (const t of rows) {
-    oldIdToNewId.set(t.id, nameToNewId.get(t.name)!);
-  }
-
-  return { merged, oldIdToNewId };
-}
-
 function buildThreats(): MockThreat[] {
   const out: MockThreat[] = [];
   let seq = 0;
@@ -429,12 +331,12 @@ function buildThreats(): MockThreat[] {
       seq += 1;
       const template = pool[(assetIndex + chunkIndex) % pool.length]!;
       const vulnerabilityIds = chunk.map((v) => v.id);
-      const assetIds = pickAssetIdsForThreat(asset.id, seq);
+      const assetIds = [asset.id];
       const cyberRiskIds: string[] = [];
 
       out.push({
         id: padId("THR", seq),
-        name: template.title,
+        name: `${template.title} (${asset.name})`,
         ownerId: asset.ownerId,
         source: template.source,
         status: template.status,
@@ -448,19 +350,14 @@ function buildThreats(): MockThreat[] {
     });
   }
 
-  if (out.length !== 80) {
-    throw new Error(`Expected 80 threats, got ${out.length}`);
-  }
-
   return out;
 }
 
-const threatsUnmerged = buildThreats();
-const { merged: threatsMerged, oldIdToNewId } = mergeThreatsByName(threatsUnmerged);
+const threatsBuilt = buildThreats();
 
-/** Maps legacy pre-dedupe THR-### (1…80) to the canonical merged threat id. */
+/** Maps assessment seed indices to `THR-###` ids. */
 export function remapThreatIdFromLegacySequential(legacyIndex: number): string {
-  return oldIdToNewId.get(padId("THR", legacyIndex)) ?? padId("THR", legacyIndex);
+  return padId("THR", legacyIndex);
 }
 
 function applyCrossEntityLinks(threatList: MockThreat[]): void {
@@ -504,7 +401,7 @@ function applyCrossEntityLinks(threatList: MockThreat[]): void {
   }
 }
 
-export const threats: MockThreat[] = threatsMerged;
+export const threats: MockThreat[] = threatsBuilt;
 applyCrossEntityLinks(threats);
 
 const threatById = new Map(threats.map((t) => [t.id, t]));

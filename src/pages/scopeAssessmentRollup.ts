@@ -1,6 +1,8 @@
 import { cyberRisks } from "../data/cyberRisks.js";
+import { scenarios } from "../data/scenarios.js";
 import { threats } from "../data/threats.js";
 import { vulnerabilities } from "../data/vulnerabilities.js";
+import type { MockScenario } from "../data/types.js";
 
 export function includedAssetIdSet(rows: { included: boolean; assetId: string }[]): Set<string> {
   const s = new Set<string>();
@@ -23,6 +25,15 @@ export function scopedThreats(assetIds: Set<string>) {
 export function scopedVulnerabilities(assetIds: Set<string>) {
   if (assetIds.size === 0) return [];
   return vulnerabilities.filter((v) => v.assetIds.some((aid) => assetIds.has(aid)));
+}
+
+/** Scenarios for included assets only, limited to cyber risks in scope (matches scoring). */
+export function scopedScenarios(assetIds: Set<string>): MockScenario[] {
+  if (assetIds.size === 0) return [];
+  const riskIds = new Set(scopedCyberRisks(assetIds).map((r) => r.id));
+  return scenarios.filter(
+    (s) => assetIds.has(s.assetId) && riskIds.has(s.cyberRiskId),
+  );
 }
 
 export const SCOPE_CATALOG_TOTALS = {

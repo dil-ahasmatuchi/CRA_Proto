@@ -129,6 +129,7 @@ function buildScenarios(): MockScenario[] {
       if (!threat) continue;
 
       for (const assetId of threat.assetIds) {
+        if (!risk.assetIds.includes(assetId)) continue;
         const asset = assetById.get(assetId);
         if (!asset) continue;
 
