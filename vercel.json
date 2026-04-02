@@ -1,0 +1,8 @@
+{
+  "framework": null,
+  "buildCommand": "npm install && npx vite build && rm -rf public && mv dist public",
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
