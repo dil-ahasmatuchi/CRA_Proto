@@ -409,7 +409,7 @@ function buildThreats(): MockThreat[] {
         id: padId("THR", seq),
         displayId: `T-${String(seq).padStart(4, "0")}`,
         name: `${template.title} (${asset.name})`,
-        ownerId: asset.ownerId,
+        ownerIds: [asset.ownerId],
         domain: template.domain,
         description: buildThreatDescription(template.title, asset.name, template.domain, sources),
         sources,
@@ -530,13 +530,13 @@ const DEFAULT_NEW_THREAT_DOMAIN: ThreatDomain = "Identity & Access Management";
  * Syncs cross-entity mirrors and notifies subscribers.
  */
 export function addThreat(): MockThreat {
-  const ownerId = users[0]?.id ?? "USR-001";
+  const defaultOwnerId = users[0]?.id ?? "USR-001";
   const nextNum = nextThreatNumericId();
   const newThreat: MockThreat = {
     id: padId("THR", nextNum),
     displayId: `T-${String(nextNum).padStart(4, "0")}`,
     name: nextNewThreatDisplayName(),
-    ownerId,
+    ownerIds: [defaultOwnerId],
     domain: DEFAULT_NEW_THREAT_DOMAIN,
     description: "",
     sources: ["Deliberate"],

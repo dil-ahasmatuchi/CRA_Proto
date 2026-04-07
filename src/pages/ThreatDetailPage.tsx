@@ -1,41 +1,28 @@
-import {
-  OverflowBreadcrumbs,
-  PageHeader,
-} from "@diligentcorp/atlas-react-bundle";
-import StatusDropdown from "../components/StatusDropdown.js";
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
-import CloudIcon from "@diligentcorp/atlas-react-bundle/icons/Cloud";
-import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
+import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
+import ThreatDetailHeader from "../components/ThreatDetailHeader.js";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
   Container,
   FormControl,
-  FormHelperText,
   FormLabel,
-  IconButton,
   InputLabel,
+  Link,
   ListItemText,
   MenuItem,
   Select,
   Snackbar,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   Typography,
   useTheme,
 } from "@mui/material";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  NavLink,
-  Navigate,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router";
 
 import type {
   MockThreatAttachment,
@@ -51,13 +38,15 @@ import {
   THREAT_SOURCE_OPTION_DETAILS,
 } from "../data/types.js";
 import { getThreatById } from "../data/threats.js";
-import { getUserById, users } from "../data/users.js";
-import {
-  atlasNavigationTabsSlotProps,
-  atlasNavigationTabsSx,
-} from "../utils/atlasNavigationTabsSx.js";
+import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
 
-const THREAT_STATUSES: ThreatStatus[] = ["Draft", "Active", "Archived"];
+/** Atlas user-lookup `Autocomplete` option shape (`OptionType.user`). */
+type ThreatOwnerLookupOption = {
+  id: string;
+  label: string;
+  email: string;
+  type: "user";
+};
 
 const THREAT_DOMAINS: ThreatDomain[] = [
   "Identity & Access Management",
@@ -154,14 +143,14 @@ export default function ThreatDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { presets } = useTheme();
-  const { TabsPresets } = presets;
+  const { AutocompletePresets } = presets;
 
   const threat = threatId ? getThreatById(threatId) : undefined;
 
   const [tab, setTab] = useState(0);
   const [name, setName] = useState("");
   const [displayId, setDisplayId] = useState("");
-  const [ownerId, setOwnerId] = useState("");
+  const [ownerIds, setOwnerIds] = useState<string[]>([]);
   const [sources, setSources] = useState<ThreatSource[]>([]);
   const [threatActors, setThreatActors] = useState<ThreatActor[]>([]);
   const [attackVectors, setAttackVectors] = useState<ThreatAttackVector[]>([]);
@@ -174,7 +163,7 @@ export default function ThreatDetailPage() {
     if (!threat) return;
     setName(threat.name);
     setDisplayId(threat.displayId);
-    setOwnerId(threat.ownerId);
+    setOwnerIds([...threat.ownerIds]);
     setSources([...threat.sources]);
     setThreatActors([...threat.threatActors]);
     setAttackVectors([...threat.attackVectors]);
@@ -199,11 +188,65 @@ export default function ThreatDetailPage() {
   }, [location.pathname, location.state, navigate]);
 
   const metaNow = useMemo(() => formatDetailDate(new Date()), []);
-  const createdBy = getUserById(ownerId)?.fullName ?? "—";
+  const createdBy = joinUserFullNames(ownerIds, "—");
+
+  const threatOwnerLookupOptions = useMemo((): ThreatOwnerLookupOption[] => {
+    return users.map((u) => ({
+      id: u.id,
+      label: u.fullName,
+      email: mockUserEmail(u),
+      type: "user" as const,
+    }));
+  }, []);
+
+  const selectedThreatOwners = useMemo((): ThreatOwnerLookupOption[] => {
+    return ownerIds
+      .map((id) => threatOwnerLookupOptions.find((o) => o.id === id))
+      .filter((o): o is ThreatOwnerLookupOption => o != null);
+  }, [ownerIds, threatOwnerLookupOptions]);
 
   const handleToastClose = useCallback(() => {
     setToastOpen(false);
   }, []);
+
+  const attachmentFileInputRef = useRef<HTMLInputElement>(null);
+
+  const openAttachmentFilePicker = useCallback(() => {
+    attachmentFileInputRef.current?.click();
+  }, []);
+
+  const addAttachmentFiles = useCallback((fileList: FileList | null) => {
+    if (!fileList?.length) return;
+    setAttachments((prev) => [
+      ...prev,
+      ...Array.from(fileList).map((file, i) => ({
+        id: `att-${Date.now()}-${i}-${file.name}`,
+        fileName: file.name,
+      })),
+    ]);
+  }, []);
+
+  const handleAttachmentFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      addAttachmentFiles(e.target.files);
+      e.target.value = "";
+    },
+    [addAttachmentFiles],
+  );
+
+  const handleAttachmentDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleAttachmentDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      addAttachmentFiles(e.dataTransfer.files);
+    },
+    [addAttachmentFiles],
+  );
 
   const toastAction = (
     <Button variant="text" size="medium" onClick={handleToastClose}>
@@ -218,101 +261,19 @@ export default function ThreatDetailPage() {
   const pageTitleText = name.trim() || threat.name;
 
   return (
-    <Container sx={{ py: 2, pb: 4 }} maxWidth={false}>
+    <Container sx={{ py: 2, pb: 4 }}>
       <Stack gap={2}>
-        <PageHeader
+        <ThreatDetailHeader
           pageTitle={pageTitleText}
-          breadcrumbs={
-            <OverflowBreadcrumbs
-              leadingElement={<span>Asset manager</span>}
-              items={[
-                { id: "threats", label: "Threats", url: "/cyber-risk/threats" },
-                { id: "detail", label: pageTitleText, url: "#" },
-              ]}
-              hideLastItem={true}
-              aria-label="Breadcrumbs"
-            >
-              {({ label, url }) =>
-                url === "#" ? (
-                  <Typography component="span" variant="inherit">
-                    {label}
-                  </Typography>
-                ) : (
-                  <NavLink to={url}>{label}</NavLink>
-                )
-              }
-            </OverflowBreadcrumbs>
-          }
-          statusIndicator={
-            <StatusDropdown
-              value={status}
-              options={THREAT_STATUSES}
-              onChange={(v) => setStatus(v as ThreatStatus)}
-              aria-label="Threat status"
-            />
-          }
-          moreButton={
-            <Stack direction="row" alignItems="center" gap={1}>
-              <Stack
-                direction="row"
-                alignItems="center"
-                gap={0.5}
-                sx={({ tokens }) => ({
-                  color: tokens.semantic.color.type.muted.value,
-                })}
-              >
-                <CloudIcon aria-hidden />
-                <Typography variant="textSm">Saved</Typography>
-              </Stack>
-              <IconButton aria-label="More actions" size="small">
-                <MoreIcon aria-hidden />
-              </IconButton>
-            </Stack>
-          }
-          slotProps={{
-            backButton: {
-              "aria-label": "Back to threats",
-              onClick: () => navigate("/cyber-risk/threats"),
-            },
-          }}
+          threatId={threat.id}
+          displayId={displayId}
+          metaNow={metaNow}
+          createdBy={createdBy}
+          status={status}
+          onStatusChange={setStatus}
+          tab={tab}
+          onTabChange={setTab}
         />
-
-        <Typography
-          variant="textSm"
-          component="div"
-          sx={({ tokens }) => ({
-            color: tokens.semantic.color.type.muted.value,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 2,
-            rowGap: 0.5,
-          })}
-        >
-          <span>Threat ID (meta): {threat.id}</span>
-          <span>Display ID: {displayId || "—"}</span>
-          <span>Created: {metaNow}</span>
-          <span>Created by: {createdBy}</span>
-          <span>Last updated: {metaNow}</span>
-          <span>Last updated by: {createdBy}</span>
-        </Typography>
-
-        <Tabs
-          value={tab}
-          onChange={(_, v) => setTab(v)}
-          className="atlas-size-large"
-          aria-label="Threat sections"
-          {...TabsPresets.Tabs.alignToPageHeader}
-          slotProps={atlasNavigationTabsSlotProps}
-          sx={{
-            ...(TabsPresets.Tabs.alignToPageHeader?.sx as Record<string, unknown> | undefined),
-            ...atlasNavigationTabsSx,
-          }}
-        >
-          <Tab label="Details" id="threat-tab-0" aria-controls="threat-panel-0" />
-          <Tab label="Relationships" id="threat-tab-1" aria-controls="threat-panel-1" />
-          <Tab label="Threat intel" id="threat-tab-2" aria-controls="threat-panel-2" />
-          <Tab label="Assessments" id="threat-tab-3" aria-controls="threat-panel-3" />
-        </Tabs>
 
         {tab === 0 && (
           <Box
@@ -321,93 +282,101 @@ export default function ThreatDetailPage() {
             aria-labelledby="threat-tab-0"
             sx={{ pt: 2 }}
           >
-            <Stack spacing={3}>
-              <Stack spacing={2}>
-                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                  <Box sx={{ flex: { md: "3 1 0" }, minWidth: 0 }}>
-                    <FormControl fullWidth sx={{ gap: 0 }} required>
-                      <FormLabel htmlFor="threat-detail-name" sx={fieldLabelSx}>
-                        Threat name
-                      </FormLabel>
-                      <TextField
-                        id="threat-detail-name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Short, recognisable label"
-                        fullWidth
-                        required
-                        margin="none"
-                        sx={{ mt: 0 }}
-                      />
-                    </FormControl>
-                  </Box>
-                  <Box sx={{ flex: { md: "1 1 200px" }, minWidth: 0 }}>
-                    <FormControl fullWidth sx={{ gap: 0 }}>
-                      <FormLabel htmlFor="threat-detail-meta-id" sx={fieldLabelSx}>
-                        Custom ID
-                      </FormLabel>
-                      <TextField
-                        id="threat-detail-meta-id"
-                        value={threat.id}
-                        fullWidth
-                        margin="none"
-                        sx={{ mt: 0 }}
-                      />
-                    </FormControl>
-                  </Box>
-                </Stack>
+            <Stack
+              sx={({ tokens }) => ({
+                width: "100%",
+                gap: tokens.core.spacing["6"].value,
+              })}
+            >
+              {/* Row 1: Threat name + Custom ID */}
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ width: "100%" }}>
+                <Box sx={{ flex: { md: "3 1 0" }, minWidth: 0 }}>
+                  <FormControl fullWidth sx={{ gap: 0 }} required>
+                    <FormLabel htmlFor="threat-detail-name" sx={fieldLabelSx}>
+                      Threat name
+                    </FormLabel>
+                    <TextField
+                      id="threat-detail-name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Short, recognisable label"
+                      fullWidth
+                      required
+                      margin="none"
+                      sx={{ mt: 0 }}
+                    />
+                  </FormControl>
+                </Box>
+                <Box sx={{ flex: { md: "1 1 200px" }, minWidth: 0 }}>
+                  <FormControl fullWidth sx={{ gap: 0 }}>
+                    <FormLabel htmlFor="threat-detail-custom-id" sx={fieldLabelSx}>
+                      Custom ID
+                    </FormLabel>
+                    <TextField
+                      id="threat-detail-custom-id"
+                      value={displayId}
+                      onChange={(e) => setDisplayId(e.target.value)}
+                      placeholder="e.g. T-0001"
+                      fullWidth
+                      margin="none"
+                      sx={{ mt: 0 }}
+                    />
+                  </FormControl>
+                </Box>
               </Stack>
 
-              <Stack spacing={2}>
-                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                  <Box sx={{ flex: "1 1 0", minWidth: 0 }}>
-                    <FormControl fullWidth margin="none">
-                      <InputLabel id="threat-domain-label" sx={fieldLabelSx}>
-                        Threat domain
-                      </InputLabel>
-                      <Select
-                        labelId="threat-domain-label"
-                        value={domain}
-                        label="Threat domain"
-                        onChange={(e) => setDomain(e.target.value as ThreatDomain)}
-                      >
-                        {THREAT_DOMAINS.map((d) => (
-                          <MenuItem key={d} value={d}>
-                            {d}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
-                  <Box sx={{ flex: "1 1 0", minWidth: 0 }}>
-                    <MultiComboBox
-                      label="Threat source type"
-                      value={sources}
-                      onChange={(v) => setSources(v as ThreatSource[])}
-                      options={THREAT_SOURCE_OPTION_DETAILS.map((o) => ({
-                        value: o.value,
-                        label: o.caption,
-                      }))}
-                    />
-                  </Box>
-                  <Box sx={{ flex: "1 1 0", minWidth: 0 }}>
-                    <MultiComboBox
-                      label="Threat actor"
-                      value={threatActors}
-                      onChange={(v) => setThreatActors(v as ThreatActor[])}
-                      options={THREAT_ACTOR_OPTIONS.map((a) => ({ value: a, label: a }))}
-                    />
-                  </Box>
-                  <Box sx={{ flex: "1 1 0", minWidth: 0 }}>
-                    <MultiComboBox
-                      label="Attack vector"
-                      value={attackVectors}
-                      onChange={(v) => setAttackVectors(v as ThreatAttackVector[])}
-                      options={THREAT_ATTACK_VECTOR_OPTIONS.map((v) => ({ value: v, label: v }))}
-                    />
-                  </Box>
-                </Stack>
+              {/* Row 2: Threat domain, source types, actors, attack vectors */}
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ width: "100%" }}>
+                <Box sx={{ flex: "1 1 0", minWidth: 0 }}>
+                  <FormControl fullWidth margin="none">
+                    <InputLabel id="threat-domain-label" sx={fieldLabelSx}>
+                      Threat domain
+                    </InputLabel>
+                    <Select
+                      labelId="threat-domain-label"
+                      value={domain}
+                      label="Threat domain"
+                      onChange={(e) => setDomain(e.target.value as ThreatDomain)}
+                    >
+                      {THREAT_DOMAINS.map((d) => (
+                        <MenuItem key={d} value={d}>
+                          {d}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+                <Box sx={{ flex: "1 1 0", minWidth: 0 }}>
+                  <MultiComboBox
+                    label="Threat source type"
+                    value={sources}
+                    onChange={(v) => setSources(v as ThreatSource[])}
+                    options={THREAT_SOURCE_OPTION_DETAILS.map((o) => ({
+                      value: o.value,
+                      label: o.caption,
+                    }))}
+                  />
+                </Box>
+                <Box sx={{ flex: "1 1 0", minWidth: 0 }}>
+                  <MultiComboBox
+                    label="Threat actor"
+                    value={threatActors}
+                    onChange={(v) => setThreatActors(v as ThreatActor[])}
+                    options={THREAT_ACTOR_OPTIONS.map((a) => ({ value: a, label: a }))}
+                  />
+                </Box>
+                <Box sx={{ flex: "1 1 0", minWidth: 0 }}>
+                  <MultiComboBox
+                    label="Attack vector"
+                    value={attackVectors}
+                    onChange={(v) => setAttackVectors(v as ThreatAttackVector[])}
+                    options={THREAT_ATTACK_VECTOR_OPTIONS.map((v) => ({ value: v, label: v }))}
+                  />
+                </Box>
+              </Stack>
 
+              {/* Row 3: Description (full width) */}
+              <Box sx={{ width: "100%" }}>
                 <FormControl fullWidth sx={{ gap: 0 }}>
                   <FormLabel htmlFor="threat-detail-description" sx={fieldLabelSx}>
                     Description
@@ -424,68 +393,154 @@ export default function ThreatDetailPage() {
                     sx={{ mt: 0 }}
                   />
                 </FormControl>
-              </Stack>
+              </Box>
 
-              <Stack spacing={2}>
-                <FormControl fullWidth margin="none" sx={{ maxWidth: { md: 480 } }}>
-                  <InputLabel id="threat-owner-label" sx={fieldLabelSx}>
-                    Owner
-                  </InputLabel>
-                  <Select
-                    labelId="threat-owner-label"
-                    value={ownerId}
-                    label="Owner"
-                    onChange={(e) => setOwnerId(e.target.value)}
-                  >
-                    {users.map((u) => (
-                      <MenuItem key={u.id} value={u.id}>
-                        {u.fullName} ({u.id})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  <FormHelperText>
-                    Accountable for periodic review and accuracy (individual or team).
-                  </FormHelperText>
+              {/* Row 4: Owner (full width) */}
+              <Box sx={{ width: "100%" }}>
+                <FormControl fullWidth margin="none">
+                  <Autocomplete
+                    multiple
+                    id="threat-detail-owner-lookup"
+                    options={threatOwnerLookupOptions}
+                    value={selectedThreatOwners}
+                    onChange={(_, newValue) => setOwnerIds(newValue.map((o) => o.id))}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Owner"
+                        placeholder="Select users..."
+                        margin="none"
+                      />
+                    )}
+                    renderOption={AutocompletePresets.userLookup.renderOption}
+                    renderTags={AutocompletePresets.userLookup.type.multiple.renderTags}
+                  />
                 </FormControl>
+              </Box>
 
-                <Stack spacing={1}>
-                  <Typography variant="subtitle1" fontWeight={600} component="h3">
-                    Attachments
-                  </Typography>
-                  <Typography
-                    variant="textSm"
-                    sx={({ tokens }) => ({ color: tokens.semantic.color.type.muted.value })}
-                  >
-                    Supplementary reference material only — not a primary data field. Examples: threat intelligence
-                    bulletins, vendor advisories, internal incident reports. Do not store critical structured
-                    information in attachments.
-                  </Typography>
-                  {attachments.length === 0 ? (
+              {/* Row 5: Attachments (full width) */}
+              <Stack spacing={1} sx={{ width: "100%" }}>
+                <Typography
+                  variant="caption"
+                  fontWeight={600}
+                  component="p"
+                  sx={({ tokens: t }) => ({
+                    color: t.semantic.color.type.default.value,
+                    letterSpacing: "0.3px",
+                    m: 0,
+                    maxWidth: 600,
+                  })}
+                >
+                  Attachments
+                </Typography>
+
+                <input
+                  ref={attachmentFileInputRef}
+                  type="file"
+                  hidden
+                  multiple
+                  accept=".jpg,.jpeg,.pdf,.xls,.xlsx"
+                  onChange={handleAttachmentFileInputChange}
+                />
+
+                <Box
+                  onDragOver={handleAttachmentDragOver}
+                  onDrop={handleAttachmentDrop}
+                  role="region"
+                  aria-label="Attachment upload area. Drag files here or use the link to select files."
+                  sx={({ tokens: t }) => ({
+                    borderStyle: "dashed",
+                    borderWidth: t.semantic.borderWidth.thin.value,
+                    borderColor: t.semantic.color.outline.default.value,
+                    borderRadius: t.semantic.radius.lg.value,
+                    px: 3,
+                    py: 3,
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 3,
+                    "&:hover": {
+                      borderColor: t.semantic.color.outline.hover.value,
+                      backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
+                    },
+                  })}
+                >
+                  <Stack alignItems="center" gap={0.5} sx={{ width: "100%" }}>
+                    <UploadIcon aria-hidden size="lg" />
                     <Typography
-                      variant="textSm"
-                      sx={({ tokens }) => ({ color: tokens.semantic.color.type.muted.value })}
+                      component="p"
+                      variant="body1"
+                      sx={({ tokens: t }) => ({
+                        m: 0,
+                        textAlign: "center",
+                        color: t.semantic.color.type.default.value,
+                        letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                      })}
                     >
-                      No attachments.
+                      Drag files here or{" "}
+                      <Link
+                        component="button"
+                        type="button"
+                        onClick={openAttachmentFilePicker}
+                        sx={({ tokens: t }) => ({
+                          verticalAlign: "baseline",
+                          fontSize: t.semantic.font.text.md.fontSize.value,
+                          lineHeight: t.semantic.font.text.md.lineHeight.value,
+                          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                          fontWeight: 600,
+                          textDecoration: "underline",
+                          color: t.semantic.color.action.link.default.value,
+                          cursor: "pointer",
+                          border: "none",
+                          background: "none",
+                          padding: 0,
+                          fontFamily: "inherit",
+                        })}
+                      >
+                        select files to upload
+                      </Link>
                     </Typography>
-                  ) : (
-                    <Stack component="ul" sx={{ pl: 2.5, m: 0 }} spacing={0.5}>
-                      {attachments.map((a) => (
-                        <Typography key={a.id} component="li" variant="textSm">
-                          {a.fileName}
-                        </Typography>
-                      ))}
-                    </Stack>
-                  )}
-                  <Button variant="outlined" size="small" disabled sx={{ alignSelf: "flex-start" }}>
-                    Add attachment
-                  </Button>
-                  <Typography
-                    variant="caption"
-                    sx={({ tokens }) => ({ color: tokens.semantic.color.type.muted.value })}
-                  >
-                    Prototype: linking files is not enabled.
-                  </Typography>
-                </Stack>
+                  </Stack>
+                  <Stack alignItems="center" gap={0.5} sx={{ width: "100%" }}>
+                    <Typography
+                      variant="caption"
+                      sx={({ tokens: t }) => ({
+                        m: 0,
+                        textAlign: "center",
+                        color: t.semantic.color.type.muted.value,
+                        letterSpacing: "0.3px",
+                        width: "100%",
+                      })}
+                    >
+                      Formats: JPG, PDF, XLS
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={({ tokens: t }) => ({
+                        m: 0,
+                        textAlign: "center",
+                        color: t.semantic.color.type.muted.value,
+                        letterSpacing: "0.3px",
+                        width: "100%",
+                      })}
+                    >
+                      Max. file size: 5 MB
+                    </Typography>
+                  </Stack>
+                </Box>
+
+                {attachments.length > 0 ? (
+                  <Stack component="ul" sx={{ pl: 2.5, m: 0 }} spacing={0.5}>
+                    {attachments.map((a) => (
+                      <Typography key={a.id} component="li" variant="textSm">
+                        {a.fileName}
+                      </Typography>
+                    ))}
+                  </Stack>
+                ) : null}
               </Stack>
             </Stack>
           </Box>

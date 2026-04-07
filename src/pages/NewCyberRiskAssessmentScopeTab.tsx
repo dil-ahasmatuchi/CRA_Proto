@@ -42,7 +42,7 @@ import { assets } from "../data/assets.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 import { threats } from "../data/threats.js";
 import { vulnerabilities } from "../data/vulnerabilities.js";
-import { getUserById } from "../data/users.js";
+import { getUserById, joinUserFullNames } from "../data/users.js";
 import type {
   FivePointScaleValue,
   MockCyberRisk,
@@ -1085,10 +1085,10 @@ function ScopeScopedThreatsGrid({
       },
       { field: "status", headerName: "Status", width: 120 },
       {
-        field: "ownerId",
+        field: "ownerIds",
         headerName: "Owner",
         width: 200,
-        valueGetter: (_v, row) => getUserById(row.ownerId)?.fullName ?? "Unassigned",
+        valueGetter: (_v, row) => joinUserFullNames(row.ownerIds),
       },
     ],
     [],

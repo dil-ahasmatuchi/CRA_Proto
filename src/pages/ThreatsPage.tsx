@@ -43,7 +43,7 @@ import {
   threats,
 } from "../data/threats.js";
 import { getAssetById } from "../data/assets.js";
-import { getUserById } from "../data/users.js";
+import { getUserById, joinUserFullNames } from "../data/users.js";
 import type { FivePointScaleLabel } from "../data/types.js";
 import { Doughnut, Bar } from "react-chartjs-2";
 import {
@@ -138,7 +138,7 @@ interface ThreatRow {
 
 function buildThreatRows(): ThreatRow[] {
   return threats.map((t, i) => {
-    const owner = getUserById(t.ownerId);
+    const owner = getUserById(t.ownerIds[0] ?? "");
     const seed = i + 1;
     const assessments = Math.floor(seededRandom(seed * 19) * 8) + 1;
     const assetsByCriticality = countLinkedAssetsByCriticality(t.assetIds);
@@ -154,7 +154,7 @@ function buildThreatRows(): ThreatRow[] {
       vulnerabilities: t.vulnerabilityIds.length,
       threatDomain: t.domain,
       created: "23 Jan 2025",
-      createdBy: owner?.fullName ?? "Unassigned",
+      createdBy: joinUserFullNames(t.ownerIds),
       createdByInitials: owner?.initials ?? "",
       lastUpdated: "23 Jan 2025",
       lastUpdatedBy: owner?.fullName ?? "Unassigned",

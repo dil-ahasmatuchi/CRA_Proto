@@ -182,8 +182,8 @@ export interface MockThreat {
   threatActors: ThreatActor[];
   attackVectors: ThreatAttackVector[];
   status: ThreatStatus;
-  /** User lookup — accountable owner for review and accuracy. */
-  ownerId: string;
+  /** User lookup — accountable owners for review and accuracy (ordered). */
+  ownerIds: string[];
   /** Supplementary references only (not primary structured data). */
   attachments: MockThreatAttachment[];
   cyberRiskIds: string[];
