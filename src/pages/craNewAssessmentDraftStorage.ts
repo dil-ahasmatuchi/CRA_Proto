@@ -21,6 +21,8 @@ export type CraNewAssessmentPersistedDraft = {
   assessmentType: string;
   startDate: string;
   dueDate: string;
+  /** Mock user ids from `users` (owner lookup). */
+  ownerIds: string[];
   scopeSubView: ScopeSubView;
   /** Asset ids included in assessment scope (AST-###). */
   includedScopeAssetIds: string[];
@@ -55,6 +57,9 @@ function sanitizeDraft(raw: CraNewAssessmentPersistedDraft): CraNewAssessmentPer
     activeTab = 0;
   }
   const scopeSubView = isScopeSubView(raw.scopeSubView) ? raw.scopeSubView : "overview";
+  const ownerIds = Array.isArray(raw.ownerIds)
+    ? (raw.ownerIds as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
   const includedScopeAssetIds = Array.isArray(raw.includedScopeAssetIds)
     ? (raw.includedScopeAssetIds as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
@@ -66,6 +71,7 @@ function sanitizeDraft(raw: CraNewAssessmentPersistedDraft): CraNewAssessmentPer
     assessmentType: typeof raw.assessmentType === "string" ? raw.assessmentType : "",
     startDate: typeof raw.startDate === "string" ? raw.startDate : "",
     dueDate: typeof raw.dueDate === "string" ? raw.dueDate : "",
+    ownerIds,
     scopeSubView,
     includedScopeAssetIds,
   };
@@ -86,6 +92,7 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
       assessmentType: o.assessmentType as string,
       startDate: o.startDate as string,
       dueDate: o.dueDate as string,
+      ownerIds: o.ownerIds as string[],
       scopeSubView: o.scopeSubView as ScopeSubView,
       includedScopeAssetIds: o.includedScopeAssetIds as string[],
     });

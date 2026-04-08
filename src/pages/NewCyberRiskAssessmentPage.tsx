@@ -1,12 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  PageHeader,
-  OverflowBreadcrumbs,
-  StatusIndicator,
-} from "@diligentcorp/atlas-react-bundle";
-import {
+  Autocomplete,
   Box,
-  Button,
   Container,
   FormControl,
   IconButton,
@@ -15,13 +10,11 @@ import {
   MenuItem,
   Select,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   Typography,
   useTheme,
 } from "@mui/material";
-import { NavLink, useLocation, useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import CalendarIcon from "@diligentcorp/atlas-react-bundle/icons/Calendar";
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
@@ -32,6 +25,21 @@ import NewCyberRiskAssessmentResultsTab from "./NewCyberRiskAssessmentResultsTab
 import NewCyberRiskAssessmentScopeTab, {
   type ScopeSubView,
 } from "./NewCyberRiskAssessmentScopeTab.js";
+import {
+  loadCraNewAssessmentDraft,
+  saveCraNewAssessmentDraft,
+  type AssessmentPhase,
+} from "./craNewAssessmentDraftStorage.js";
+import AssessmentDetailHeader from "../components/AssessmentDetailHeader.js";
+import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
+
+/** Atlas user-lookup `Autocomplete` option shape (`OptionType.user`). */
+type AssessmentOwnerLookupOption = {
+  id: string;
+  label: string;
+  email: string;
+  type: "user";
+};
 
 const SCOPE_DETAIL_PAGE: Record<
   Exclude<ScopeSubView, "overview">,
@@ -58,13 +66,6 @@ const SCOPE_DETAIL_PAGE: Record<
     crumb: "Vulnerabilities",
   },
 };
-import {
-  loadCraNewAssessmentDraft,
-  saveCraNewAssessmentDraft,
-  type AssessmentPhase,
-} from "./craNewAssessmentDraftStorage.js";
-
-const TAB_LABELS = ["Details", "Scope", "Scoring", "Results"] as const;
 
 const SCOPE_TAB_INDEX = 1;
 const SCORING_TAB_INDEX = 2;
@@ -108,10 +109,10 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 }
 
 export default function NewCyberRiskAssessmentPage() {
-  const { presets, tokens } = useTheme();
-  const { TabsPresets } = presets;
   const location = useLocation();
   const navigate = useNavigate();
+  const { presets } = useTheme();
+  const { AutocompletePresets } = presets;
 
   const isReturningFromScenario =
     (location.state as { craReturnToScoring?: boolean } | null)?.craReturnToScoring === true;
@@ -128,6 +129,7 @@ export default function NewCyberRiskAssessmentPage() {
   const [assessmentType, setAssessmentType] = useState(initialDraft?.assessmentType ?? "");
   const [startDate, setStartDate] = useState(initialDraft?.startDate ?? "");
   const [dueDate, setDueDate] = useState(initialDraft?.dueDate ?? "");
+  const [ownerIds, setOwnerIds] = useState<string[]>(initialDraft?.ownerIds ?? []);
   /** Scope tab: card overview vs assets data grid (drives PageHeader). */
   const [scopeSubView, setScopeSubView] = useState<ScopeSubView>(
     initialDraft?.scopeSubView ?? "overview",
@@ -158,6 +160,23 @@ export default function NewCyberRiskAssessmentPage() {
     });
   }, []);
 
+  const assessmentOwnerLookupOptions = useMemo((): AssessmentOwnerLookupOption[] => {
+    return users.map((u) => ({
+      id: u.id,
+      label: u.fullName,
+      email: mockUserEmail(u),
+      type: "user" as const,
+    }));
+  }, []);
+
+  const selectedAssessmentOwners = useMemo((): AssessmentOwnerLookupOption[] => {
+    return ownerIds
+      .map((id) => assessmentOwnerLookupOptions.find((o) => o.id === id))
+      .filter((o): o is AssessmentOwnerLookupOption => o != null);
+  }, [ownerIds, assessmentOwnerLookupOptions]);
+
+  const createdByDisplay = useMemo(() => joinUserFullNames(ownerIds, "—"), [ownerIds]);
+
   useEffect(() => {
     saveCraNewAssessmentDraft({
       activeTab,
@@ -167,6 +186,7 @@ export default function NewCyberRiskAssessmentPage() {
       assessmentType,
       startDate,
       dueDate,
+      ownerIds,
       scopeSubView,
       includedScopeAssetIds: [...includedScopeAssetIds],
     });
@@ -178,6 +198,7 @@ export default function NewCyberRiskAssessmentPage() {
     assessmentType,
     startDate,
     dueDate,
+    ownerIds,
     scopeSubView,
     includedScopeAssetIds,
   ]);
@@ -204,255 +225,28 @@ export default function NewCyberRiskAssessmentPage() {
     }
   }, [activeTab]);
 
-  const assessmentsUrl = "/cyber-risk/cyber-risk-assessments";
-
-  const breadcrumbs = (
-    <OverflowBreadcrumbs
-      leadingElement={<span>Asset manager</span>}
-      items={[
-        {
-          id: "crm",
-          label: "Cyber risk management",
-          url: assessmentsUrl,
-        },
-        {
-          id: "cra",
-          label: "Cyber risk analysis",
-          url: assessmentsUrl,
-        },
-      ]}
-      aria-label="Breadcrumbs"
-    >
-      {({ label, url }) => <NavLink to={url}>{label}</NavLink>}
-    </OverflowBreadcrumbs>
-  );
-
-  /** Scope subviews: extended trail + hide current page crumb (matches Figma 10752-119596 pattern). */
-  const scopeDetailBreadcrumbs = scopeDetail ? (
-    <OverflowBreadcrumbs
-      leadingElement={<span>Asset manager</span>}
-      hideLastItem
-      items={[
-        { id: "crm", label: "Cyber risk management", url: assessmentsUrl },
-        { id: "cra", label: "Cyber risk analysis", url: assessmentsUrl },
-        {
-          id: "assessment",
-          label: name.trim() || "New cyber risk assessment",
-          url: assessmentsUrl,
-        },
-        { id: "scope_detail", label: scopeDetail.crumb, url: "#" },
-      ]}
-      aria-label="Breadcrumbs"
-    >
-      {({ label, url }) =>
-        url === "#" ? (
-          <Typography component="span" variant="body1">
-            {label}
-          </Typography>
-        ) : (
-          <NavLink to={url}>{label}</NavLink>
-        )
-      }
-    </OverflowBreadcrumbs>
-  ) : null;
-
-  const defaultPageTitle = (
-    <Stack
-      direction="row"
-      alignItems="center"
-      justifyContent="center"
-      sx={{
-        gap: tokens.component.pageHeader.desktop.statusContainer.gap.value,
-        minWidth: 0,
-        width: "100%",
-      }}
-    >
-      <Typography
-        component="h1"
-        variant="h1"
-        sx={{
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          fontWeight: tokens.component.pageHeader.desktop.title.fontWeight.value,
-        }}
-      >
-        {name.trim() || "New cyber risk assessment"}
-      </Typography>
-      <Box sx={{ flexShrink: 0 }}>
-        {assessmentPhase === "draft" ? (
-          <StatusIndicator
-            customColor={({ semantic }) => ({
-              backgroundColor: semantic.color.status.neutral.backgroundVariant.value,
-              color: semantic.color.status.neutral.text.value,
-            })}
-            sx={{ display: "flex" }}
-            label="Draft"
-            aria-label="Assessment status: Draft"
-          />
-        ) : assessmentPhase === "scoping" ? (
-          <StatusIndicator
-            color="information"
-            sx={{ display: "flex" }}
-            label="Scoping"
-            aria-label="Assessment status: Scoping"
-          />
-        ) : assessmentPhase === "inProgress" ? (
-          <StatusIndicator
-            color="information"
-            sx={{ display: "flex" }}
-            label="In progress"
-            aria-label="Assessment status: In progress"
-          />
-        ) : (
-          <StatusIndicator
-            color="success"
-            sx={{ display: "flex" }}
-            label="Approved assessment"
-            aria-label="Assessment status: Approved assessment"
-          />
-        )}
-      </Box>
-    </Stack>
-  );
-
-  const ctaLabel =
-    assessmentPhase === "draft"
-      ? "Move to scoping"
-      : assessmentPhase === "scoping"
-        ? "Move to assessment"
-        : assessmentPhase === "inProgress"
-          ? "Approve assessment"
-          : "Done";
-
-  const defaultMoreButton =
-    assessmentPhase === "assessmentApproved" ? (
-      <Stack direction="row" alignItems="center" gap={1}>
-        <Button
-          variant="text"
-          size="medium"
-          onClick={() => {
-            setAssessmentPhase("inProgress");
-            setActiveTab(SCORING_TAB_INDEX);
-          }}
-        >
-          Back to scoring
-        </Button>
-        <Button
-          variant="contained"
-          size="medium"
-          onClick={() => navigate(assessmentsUrl)}
-        >
-          Done
-        </Button>
-      </Stack>
-    ) : (
-      <Button
-        variant="contained"
-        size="medium"
-        onClick={() => {
-          if (assessmentPhase === "draft") {
-            setAssessmentPhase("scoping");
-            setActiveTab(SCOPE_TAB_INDEX);
-            return;
-          }
-          if (assessmentPhase === "scoping") {
-            setAssessmentPhase("inProgress");
-            setActiveTab(SCORING_TAB_INDEX);
-            return;
-          }
-          if (assessmentPhase === "inProgress") {
-            setAssessmentPhase("assessmentApproved");
-            setActiveTab(RESULTS_TAB_INDEX);
-            return;
-          }
-        }}
-      >
-        {ctaLabel}
-      </Button>
-    );
-
   return (
-    <Container maxWidth="xl" sx={{ py: 2 }}>
+    <Container sx={{ py: 2 }}>
       <Stack gap={0}>
-        <PageHeader
-          pageTitle={scopeDetail ? scopeDetail.title : defaultPageTitle}
-          pageSubtitle={scopeDetail ? scopeDetail.subtitle : undefined}
-          breadcrumbs={scopeDetailBreadcrumbs ?? breadcrumbs}
-          slotProps={
-            scopeDetail
-              ? {
-                  backButton: {
-                    "aria-label": "Back to scope overview",
-                    onClick: () => setScopeSubView("overview"),
-                  },
-                }
-              : undefined
-          }
-          moreButton={
-            scopeDetail ? (
-              <Stack direction="row" alignItems="center" gap={1}>
-                <Button variant="text" size="medium" onClick={() => setScopeSubView("overview")}>
-                  Cancel
-                </Button>
-                <Button variant="contained" size="medium" onClick={() => setScopeSubView("overview")}>
-                  Done
-                </Button>
-              </Stack>
-            ) : (
-              defaultMoreButton
-            )
-          }
+        <AssessmentDetailHeader
+          assessmentName={name}
+          assessmentId={assessmentId}
+          startDate={startDate}
+          dueDate={dueDate}
+          createdBy={createdByDisplay}
+          assessmentPhase={assessmentPhase}
+          onPhaseChange={(phase) => {
+            setAssessmentPhase(phase);
+          }}
+          activeTab={activeTab}
+          onActiveTabChange={setActiveTab}
+          scopeDetail={scopeDetail}
+          onScopeSubViewBack={() => setScopeSubView("overview")}
+          onScopeDetailDone={() => setScopeSubView("overview")}
         />
 
-        {!isScopeDetailView ? (
-          <Tabs
-            value={activeTab}
-            onChange={(_e, v: number) => {
-              const scopingStarted = assessmentPhase !== "draft";
-              const assessmentStarted = assessmentPhase === "inProgress" || assessmentPhase === "assessmentApproved";
-              if (v === SCOPE_TAB_INDEX && !scopingStarted) return;
-              if (v === SCORING_TAB_INDEX && !assessmentStarted) return;
-              if (v === RESULTS_TAB_INDEX && !assessmentStarted) return;
-              setActiveTab(v);
-            }}
-            aria-label="New cyber risk assessment steps"
-            {...TabsPresets.Tabs.alignToPageHeader}
-            sx={[
-              TabsPresets.Tabs.alignToPageHeader?.sx,
-              { "& .MuiTabs-flexContainer": { gap: 0 } },
-            ]}
-          >
-            {TAB_LABELS.map((label, index) => {
-              const scopingStarted = assessmentPhase !== "draft";
-              const assessmentStarted = assessmentPhase === "inProgress" || assessmentPhase === "assessmentApproved";
-              const scopeLocked = index === SCOPE_TAB_INDEX && !scopingStarted;
-              const scoringLocked = index === SCORING_TAB_INDEX && !assessmentStarted;
-              const resultsLocked = index === RESULTS_TAB_INDEX && !assessmentStarted;
-              const tabDisabled = scopeLocked || scoringLocked || resultsLocked;
-              return (
-                <Tab
-                  key={`${label}-${index}`}
-                  label={label}
-                  id={`new-cra-tab-${index}`}
-                  aria-controls={`new-cra-tabpanel-${index}`}
-                  disabled={tabDisabled}
-                  sx={
-                    tabDisabled
-                      ? ({ tokens: t }) => ({
-                          color: `${t.semantic.color.type.muted.value} !important`,
-                        })
-                      : undefined
-                  }
-                />
-              );
-            })}
-          </Tabs>
-        ) : null}
-
         <TabPanel value={activeTab} index={0}>
-          <Stack gap={6} sx={{ pt: 3, pb: 4, maxWidth: 1280 }}>
+          <Stack gap={6} sx={{ pt: 3, pb: 4, width: "100%" }}>
             <Stack
               direction={{ xs: "column", md: "row" }}
               gap={2}
@@ -548,6 +342,30 @@ export default function NewCyberRiskAssessmentPage() {
                 </FormControl>
               </Box>
             </Stack>
+
+            <Box sx={{ width: "100%" }}>
+              <FormControl fullWidth margin="none">
+                <Autocomplete
+                  multiple
+                  id="cra-new-assessment-owner-lookup"
+                  options={assessmentOwnerLookupOptions as never}
+                  value={selectedAssessmentOwners as never}
+                  onChange={(_, newValue) => setOwnerIds(newValue.map((o) => o.id))}
+                  getOptionLabel={(option) => option.label}
+                  isOptionEqualToValue={(a, b) => a.id === b.id}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Owner"
+                      placeholder="Select users..."
+                      margin="none"
+                    />
+                  )}
+                  renderOption={AutocompletePresets.userLookup.renderOption}
+                  renderTags={AutocompletePresets.userLookup.type.multiple.renderTags}
+                />
+              </FormControl>
+            </Box>
 
             <Stack gap={2}>
               <SectionHeading>Scheduling</SectionHeading>

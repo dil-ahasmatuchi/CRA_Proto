@@ -52,6 +52,32 @@ export type ControlFrequency =
 
 export type ThreatSource = "Deliberate" | "Accidental" | "Environmental";
 
+/** Default options for “Typical threat actor / source” (multi-select). */
+export type ThreatActor =
+  | "Nation-State / State-Sponsored Actor"
+  | "Organised Cybercriminal Group"
+  | "Hacktivist"
+  | "Malicious Insider (employee, contractor)"
+  | "Negligent / Untrained Employee"
+  | "Opportunistic / Script Kiddie"
+  | "Terrorist / Extremist Group"
+  | "Competitor (corporate espionage)"
+  | "Natural / Environmental Event"
+  | "System / Process Failure (non-human)";
+
+/** Default options for “Attack vector” (multi-select). */
+export type ThreatAttackVector =
+  | "Email & Messaging (phishing, BEC, malicious attachments)"
+  | "Web Application & Browser"
+  | "Network & Remote Access (VPN, RDP, open ports)"
+  | "Physical Access & Removable Media"
+  | "Insider / Privileged Access Abuse"
+  | "Supply Chain & Third-Party Software"
+  | "Cloud Services & APIs"
+  | "Social Media & Public Channels"
+  | "Wireless & Mobile (Wi-Fi, Bluetooth, SMS)"
+  | "Operational Technology / Industrial Interfaces";
+
 /** Enterprise threat taxonomy for reporting and heat maps. */
 export type ThreatDomain =
   | "Identity & Access Management"
@@ -70,6 +96,32 @@ export type VulnerabilityDomain =
   | "People"
   | "Process"
   | "Physical";
+
+/** Default single-select options for “Vulnerability type” (within domain). ISO 27005 / NIST CSF–aligned library. */
+export const VULNERABILITY_TYPE_OPTIONS = [
+  "Patch / Update Management",
+  "Security Configuration",
+  "Unsupported / End-of-Life Technology",
+  "Authentication and Access Control",
+  "Cryptographic Weakness",
+  "Network Security Weakness",
+  "Application Security Defect",
+  "Cloud Security Misconfiguration",
+  "Asset Visibility and Inventory Gap",
+  "Logging, Monitoring and Detection Gap",
+  "Data Protection Weakness",
+  "Identity and Privilege Management",
+  "Security Awareness and Training Gap",
+  "Insider Risk and Human Error",
+  "Policy and Governance Gap",
+  "Change and Release Management Weakness",
+  "Incident Response Readiness Gap",
+  "Third-Party and Vendor Risk",
+  "Software Supply Chain Risk",
+  "Physical and Environmental Security Gap",
+] as const;
+
+export type VulnerabilityType = (typeof VULNERABILITY_TYPE_OPTIONS)[number];
 
 export type CIAImpact = "Confidentiality" | "Integrity" | "Availability";
 
@@ -131,19 +183,85 @@ export interface MockThreatRelationships {
   scenarioIds: string[];
 }
 
-export interface MockThreat {
+export interface MockThreatAttachment {
   id: string;
+  fileName: string;
+}
+
+/**
+ * Threat category (curated library object), MVP-aligned with ISO 27005 / NIST CSF framing.
+ * Meta ID (`id`) and display ID are customer-configurable in product; prototype uses seeded values.
+ */
+export interface MockThreat {
+  /** Meta / system identifier (e.g. THR-001). */
+  id: string;
+  /** Display identifier shown to users (customer-defined in product). */
+  displayId: string;
+  /** Short, recognisable label (required). */
   name: string;
-  ownerId: string;
-  source: ThreatSource;
-  status: ThreatStatus;
-  controlFrequency: ControlFrequency;
   domain: ThreatDomain;
+  /** Scenario narrative: what the threat is, how it manifests, what it targets. */
+  description: string;
+  /** Type of threat source (multi-select). */
+  sources: ThreatSource[];
+  /** Typical threat actor / source (multi-select). */
+  threatActors: ThreatActor[];
+  attackVectors: ThreatAttackVector[];
+  status: ThreatStatus;
+  /** User lookup — accountable owners for review and accuracy (ordered). */
+  ownerIds: string[];
+  /** Supplementary references only (not primary structured data). */
+  attachments: MockThreatAttachment[];
   cyberRiskIds: string[];
   assetIds: string[];
   vulnerabilityIds: string[];
   relationships: MockThreatRelationships;
 }
+
+/** UI copy for “Type of threat source” options (configurable values, fixed semantics in spec). */
+export const THREAT_SOURCE_OPTION_DETAILS: ReadonlyArray<{
+  value: ThreatSource;
+  caption: string;
+}> = [
+  {
+    value: "Deliberate",
+    caption: "Deliberate — intentional, malicious acts by human actors",
+  },
+  {
+    value: "Accidental",
+    caption: "Accidental — unintentional human errors or omissions",
+  },
+  {
+    value: "Environmental",
+    caption: "Environmental — natural events or infrastructure failures outside human control",
+  },
+];
+
+export const THREAT_ACTOR_OPTIONS: readonly ThreatActor[] = [
+  "Nation-State / State-Sponsored Actor",
+  "Organised Cybercriminal Group",
+  "Hacktivist",
+  "Malicious Insider (employee, contractor)",
+  "Negligent / Untrained Employee",
+  "Opportunistic / Script Kiddie",
+  "Terrorist / Extremist Group",
+  "Competitor (corporate espionage)",
+  "Natural / Environmental Event",
+  "System / Process Failure (non-human)",
+] as const;
+
+export const THREAT_ATTACK_VECTOR_OPTIONS: readonly ThreatAttackVector[] = [
+  "Email & Messaging (phishing, BEC, malicious attachments)",
+  "Web Application & Browser",
+  "Network & Remote Access (VPN, RDP, open ports)",
+  "Physical Access & Removable Media",
+  "Insider / Privileged Access Abuse",
+  "Supply Chain & Third-Party Software",
+  "Cloud Services & APIs",
+  "Social Media & Public Channels",
+  "Wireless & Mobile (Wi-Fi, Bluetooth, SMS)",
+  "Operational Technology / Industrial Interfaces",
+] as const;
 
 /** Cross-entity links; non-asset fields start empty until mock data rewrite catches up. */
 export interface MockVulnerabilityRelationships {
@@ -155,13 +273,29 @@ export interface MockVulnerabilityRelationships {
   scenarioIds: string[];
 }
 
+/**
+ * Vulnerability category (library row), aligned with ISO 27005 / NIST CSF framing.
+ * Meta ID (`id`) and display ID are customer-configurable in product; prototype uses seeded values.
+ */
 export interface MockVulnerability {
+  /** Meta / system identifier (e.g. VUL-001). */
   id: string;
+  /** Display identifier shown to users (e.g. VUL-CAT-001). */
+  displayId: string;
+  /** Short, recognisable label (required). */
   name: string;
-  ownerId: string;
+  /** Optional narrative — scope and boundary of the category. */
+  description?: string;
   domain: VulnerabilityDomain;
+  /** Optional finer classification within the domain. */
+  vulnerabilityType?: VulnerabilityType;
   status: VulnerabilityStatus;
-  primaryCIAImpact: CIAImpact;
+  /** One or more CIA triad pillars affected (multi-select). */
+  primaryCIAImpact: CIAImpact[];
+  /** User lookup — accountable owners for review and accuracy (ordered). */
+  ownerIds: string[];
+  /** Supplementary references only (not primary structured data). */
+  attachments: MockThreatAttachment[];
   cyberRiskIds: string[];
   /** Single asset per row; mirrors `relationships.assetId`. */
   assetIds: string[];

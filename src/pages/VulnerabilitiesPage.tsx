@@ -29,16 +29,21 @@ import {
   Toolbar,
 } from "@mui/x-data-grid-pro";
 import { useMemo, useState } from "react";
-import { NavLink } from "react-router";
+import { NavLink, Link as RouterNavLink } from "react-router";
 
 import "../data/threats.js";
 import { vulnerabilities } from "../data/vulnerabilities.js";
-import { getUserById } from "../data/users.js";
+import { getUserById, joinUserFullNames } from "../data/users.js";
 import {
   ragDataVizColor,
   type RagDataVizKey,
 } from "../data/ragDataVisualization.js";
 import type { FivePointScaleValue, FivePointScaleLabel } from "../data/types.js";
+import {
+  atlasNavigationTabsSlotProps,
+  atlasNavigationTabsSx,
+} from "../utils/atlasNavigationTabsSx.js";
+import { getVulnerabilityListMetrics } from "../utils/vulnerabilityListMetrics.js";
 import ImportIcon from "@diligentcorp/atlas-react-bundle/icons/Import";
 import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 import FilterIcon from "@diligentcorp/atlas-react-bundle/icons/Filter";
@@ -63,11 +68,6 @@ const SEVERITY_RAG: Record<FivePointScaleValue, RagDataVizKey> = {
 
 const AVATAR_COLORS = ["red", "blue", "green", "purple", "yellow"] as const;
 
-function seededRandom(seed: number) {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
 interface VulnerabilityRow {
   id: string;
   name: string;
@@ -86,30 +86,27 @@ interface VulnerabilityRow {
   lastUpdatedByInitials: string;
 }
 
-const vulnerabilityRows: VulnerabilityRow[] = vulnerabilities.map((v, i) => {
-  const owner = getUserById(v.ownerId);
-  const seed = i + 1;
-  const severityScore = (Math.floor(seededRandom(seed * 7) * 5) + 1) as FivePointScaleValue;
-  const findings = Math.floor(seededRandom(seed * 13) * 200) + 100;
-  const cves = Math.floor(seededRandom(seed * 17) * 200) + 100;
-  const assessments = Math.floor(seededRandom(seed * 23) * 8) + 1;
+const vulnerabilityRows: VulnerabilityRow[] = vulnerabilities.map((v) => {
+  const ownerLabel = joinUserFullNames(v.ownerIds);
+  const primaryOwner = v.ownerIds[0] ? getUserById(v.ownerIds[0]!) : undefined;
+  const metrics = getVulnerabilityListMetrics(v.id)!;
 
   return {
     id: v.id,
     name: v.name,
-    vulnerabilityId: v.id,
-    severityScore,
-    assessments,
-    findings,
-    cves,
+    vulnerabilityId: v.displayId,
+    severityScore: metrics.severityScore,
+    assessments: metrics.assessments,
+    findings: metrics.findings,
+    cves: metrics.cves,
     aggregatedAssets: v.assetIds.length,
     vulnerabilityDomain: v.domain,
     created: "23 Jan 2025",
-    createdByName: owner?.fullName ?? "Unassigned",
-    createdByInitials: owner?.initials ?? "",
+    createdByName: ownerLabel,
+    createdByInitials: primaryOwner?.initials ?? "",
     lastUpdated: "23 Jan 2025",
-    lastUpdatedByName: owner?.fullName ?? "Unassigned",
-    lastUpdatedByInitials: owner?.initials ?? "",
+    lastUpdatedByName: ownerLabel,
+    lastUpdatedByInitials: primaryOwner?.initials ?? "",
   };
 });
 
@@ -216,7 +213,12 @@ function VulnerabilitiesDataGrid() {
         flex: 1,
         minWidth: 250,
         renderCell: (params: GridRenderCellParams<VulnerabilityRow>) => (
-          <Link href="#" underline="hover" sx={{ cursor: "pointer" }}>
+          <Link
+            component={RouterNavLink}
+            to={`/cyber-risk/vulnerabilities/${params.row.id}`}
+            underline="hover"
+            sx={{ cursor: "pointer" }}
+          >
             {params.value}
           </Link>
         ),
@@ -352,6 +354,8 @@ function VulnerabilitiesDataGrid() {
 }
 
 export default function VulnerabilitiesPage() {
+  const { presets } = useTheme();
+  const { TabsPresets } = presets;
   const [activeTab, setActiveTab] = useState(1);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -396,6 +400,12 @@ export default function VulnerabilitiesPage() {
             onChange={handleTabChange}
             className="atlas-size-large"
             aria-label="Vulnerability page tabs"
+            {...TabsPresets.Tabs.alignToPageHeader}
+            slotProps={atlasNavigationTabsSlotProps}
+            sx={{
+              ...(TabsPresets.Tabs.alignToPageHeader?.sx as Record<string, unknown> | undefined),
+              ...atlasNavigationTabsSx,
+            }}
           >
             <Tab label="Overview" id="vuln-tab-0" aria-controls="vuln-tabpanel-0" />
             <Tab label="Vulnerability categories" id="vuln-tab-1" aria-controls="vuln-tabpanel-1" />

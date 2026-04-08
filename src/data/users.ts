@@ -66,3 +66,19 @@ const userById = new Map(users.map((u) => [u.id, u]));
 export function getUserById(id: string): MockUser | undefined {
   return userById.get(id);
 }
+
+/** Comma-separated display names for user ids; empty list uses `emptyLabel`. */
+export function joinUserFullNames(ids: string[], emptyLabel = "Unassigned"): string {
+  const names = ids.map((id) => getUserById(id)?.fullName).filter(Boolean) as string[];
+  return names.length ? names.join(", ") : emptyLabel;
+}
+
+/** Synthetic email for user-lookup option rows (prototype; not persisted). */
+export function mockUserEmail(u: MockUser): string {
+  const local = `${u.firstName}.${u.lastName}`
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9.]/g, "");
+  return `${local}@example.com`;
+}

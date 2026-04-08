@@ -1,15 +1,18 @@
 import { padId } from "./types.js";
 import type {
   MockThreat,
+  MockThreatAttachment,
+  ThreatActor,
+  ThreatAttackVector,
   ThreatSource,
   ThreatStatus,
-  ControlFrequency,
   ThreatDomain,
   MockVulnerability,
   MockAsset,
 } from "./types.js";
 import { assets } from "./assets.js";
 import { vulnerabilities } from "./vulnerabilities.js";
+import { users } from "./users.js";
 
 /**
  * One row per asset vulnerability chunk (1–2 threats per asset). Each threat is scoped to a single
@@ -19,269 +22,336 @@ import { vulnerabilities } from "./vulnerabilities.js";
 
 type ThreatTemplate = {
   title: string;
-  source: ThreatSource;
+  sources: ThreatSource[];
   status: ThreatStatus;
-  controlFrequency: ControlFrequency;
   domain: ThreatDomain;
 };
+
+function buildThreatDescription(
+  title: string,
+  assetName: string,
+  domain: ThreatDomain,
+  sources: ThreatSource[],
+): string {
+  const sourceSummary =
+    sources.length === 0
+      ? "unspecified source drivers"
+      : sources.length === 1
+        ? `${sources[0]!.toLowerCase()} drivers`
+        : `${sources.map((s) => s.toLowerCase()).join(", ")} drivers`;
+  return (
+    `${title} (${assetName}) is a curated threat category in the ${domain} domain. ` +
+    `It covers what can go wrong, how the scenario typically manifests, and which systems, data, or services are most exposed. ` +
+    `Source profile: ${sourceSummary}. Use this entry for top-down risk assessment (ISO 27005 / NIST CSF–aligned libraries).`
+  );
+}
+
+function pickThreatActors(seq: number, sources: ThreatSource[]): ThreatActor[] {
+  const pool: ThreatActor[] = [
+    "Organised Cybercriminal Group",
+    "Nation-State / State-Sponsored Actor",
+    "Malicious Insider (employee, contractor)",
+    "Hacktivist",
+    "Opportunistic / Script Kiddie",
+    "Competitor (corporate espionage)",
+  ];
+  const out = new Set<ThreatActor>();
+  if (sources.includes("Deliberate")) {
+    out.add(pool[seq % pool.length]!);
+    if (seq % 5 === 0) out.add("Malicious Insider (employee, contractor)");
+  }
+  if (sources.includes("Accidental")) out.add("Negligent / Untrained Employee");
+  if (sources.includes("Environmental")) {
+    out.add("Natural / Environmental Event");
+    out.add("System / Process Failure (non-human)");
+  }
+  if (out.size === 0) out.add("System / Process Failure (non-human)");
+  return [...out];
+}
+
+function pickAttackVectors(seq: number, domain: ThreatDomain): ThreatAttackVector[] {
+  const byDomain: Partial<Record<ThreatDomain, ThreatAttackVector[]>> = {
+    "Identity & Access Management": [
+      "Insider / Privileged Access Abuse",
+      "Network & Remote Access (VPN, RDP, open ports)",
+    ],
+    "Endpoint & Device": [
+      "Physical Access & Removable Media",
+      "Email & Messaging (phishing, BEC, malicious attachments)",
+    ],
+    "Network & Infrastructure": [
+      "Network & Remote Access (VPN, RDP, open ports)",
+      "Wireless & Mobile (Wi-Fi, Bluetooth, SMS)",
+    ],
+    "Application & API": [
+      "Web Application & Browser",
+      "Cloud Services & APIs",
+    ],
+    "Data & Information": [
+      "Insider / Privileged Access Abuse",
+      "Cloud Services & APIs",
+    ],
+    "Cloud & Virtualisation": [
+      "Cloud Services & APIs",
+      "Supply Chain & Third-Party Software",
+    ],
+    "Physical & Facilities": ["Physical Access & Removable Media"],
+    "Supply Chain & Third Party": [
+      "Supply Chain & Third-Party Software",
+      "Email & Messaging (phishing, BEC, malicious attachments)",
+    ],
+    "Operational Technology (OT/ICS)": [
+      "Operational Technology / Industrial Interfaces",
+      "Network & Remote Access (VPN, RDP, open ports)",
+    ],
+    "People & Workforce": [
+      "Email & Messaging (phishing, BEC, malicious attachments)",
+      "Social Media & Public Channels",
+    ],
+  };
+  const primary = byDomain[domain] ?? [
+    "Web Application & Browser",
+    "Network & Remote Access (VPN, RDP, open ports)",
+  ];
+  const extra: ThreatAttackVector[] = [
+    "Email & Messaging (phishing, BEC, malicious attachments)",
+    "Web Application & Browser",
+  ];
+  const merged = [...primary];
+  merged.push(extra[seq % extra.length]!);
+  return [...new Set(merged)];
+}
+
+function mockAttachmentsForSeq(seq: number): MockThreatAttachment[] {
+  if (seq % 7 !== 0) return [];
+  return [
+    { id: `thr-att-${seq}-1`, fileName: "Threat intelligence bulletin (sample).pdf" },
+    { id: `thr-att-${seq}-2`, fileName: "Internal incident summary — redacted.docx" },
+  ];
+}
 
 const THREAT_TEMPLATES: Record<MockAsset["assetType"], ThreatTemplate[]> = {
   Application: [
     {
       title: "Account takeover attempts",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Identity & Access Management",
     },
     {
       title: "Automated credential attacks",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Identity & Access Management",
     },
     {
       title: "API abuse and scraping",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Application & API",
     },
     {
       title: "Malware delivery via trusted channels",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Application & API",
     },
     {
       title: "Supply chain dependency compromise",
-      source: "Accidental",
+      sources: ["Accidental"],
       status: "Active",
-      controlFrequency: "Monthly",
       domain: "Supply Chain & Third Party",
     },
   ],
   Database: [
     {
       title: "Unauthorized data extraction",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Data & Information",
     },
     {
       title: "Privilege escalation via shared accounts",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Identity & Access Management",
     },
     {
       title: "Ransomware encryption attempts",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Data & Information",
     },
     {
       title: "Backup and replica exfiltration",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Monthly",
       domain: "Data & Information",
     },
     {
       title: "SQL and query-layer exploitation",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Draft",
-      controlFrequency: "Weekly",
       domain: "Application & API",
     },
   ],
   Server: [
     {
       title: "Remote code execution attempts",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Network & Infrastructure",
     },
     {
       title: "Lateral movement via shared credentials",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Identity & Access Management",
     },
     {
       title: "Cryptojacking and resource abuse",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Cloud & Virtualisation",
     },
     {
       title: "Denial-of-service against hosted services",
-      source: "Deliberate",
+      sources: ["Deliberate", "Environmental"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Network & Infrastructure",
     },
     {
       title: "Misconfiguration exploitation",
-      source: "Accidental",
+      sources: ["Accidental"],
       status: "Active",
-      controlFrequency: "Monthly",
       domain: "Cloud & Virtualisation",
     },
   ],
   "Network device": [
     {
       title: "Device firmware exploitation",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Network & Infrastructure",
     },
     {
       title: "Routing and control-plane manipulation",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Monthly",
       domain: "Network & Infrastructure",
     },
     {
       title: "Unauthorized configuration changes",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Identity & Access Management",
     },
     {
       title: "Traffic interception attempts",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Network & Infrastructure",
     },
     {
       title: "Recruitment of appliances into botnets",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Draft",
-      controlFrequency: "Monthly",
       domain: "Network & Infrastructure",
     },
   ],
   "Cloud service": [
     {
       title: "IAM policy abuse and token theft",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Identity & Access Management",
     },
     {
       title: "Misconfiguration and public exposure exploitation",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Cloud & Virtualisation",
     },
     {
       title: "SaaS session hijacking",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Cloud & Virtualisation",
     },
     {
       title: "Cloud metadata service abuse",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Cloud & Virtualisation",
     },
     {
       title: "Unauthorized workloads and cryptomining",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Monthly",
       domain: "Cloud & Virtualisation",
     },
   ],
   Endpoint: [
     {
       title: "Endpoint malware deployment",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Endpoint & Device",
     },
     {
       title: "Credential theft from endpoints",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Identity & Access Management",
     },
     {
       title: "USB and removable media borne attacks",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Endpoint & Device",
     },
     {
       title: "Lost or stolen device abuse",
-      source: "Accidental",
+      sources: ["Accidental", "Deliberate"],
       status: "Active",
-      controlFrequency: "Monthly",
       domain: "People & Workforce",
     },
     {
       title: "Local privilege escalation",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Draft",
-      controlFrequency: "Weekly",
       domain: "Endpoint & Device",
     },
   ],
   "IoT device": [
     {
       title: "IoT botnet recruitment",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Operational Technology (OT/ICS)",
     },
     {
       title: "Weak default credential abuse",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Daily",
       domain: "Identity & Access Management",
     },
     {
       title: "Firmware exploitation",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Monthly",
       domain: "Operational Technology (OT/ICS)",
     },
     {
       title: "Sensor data interception",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Active",
-      controlFrequency: "Weekly",
       domain: "Data & Information",
     },
     {
       title: "Physical tampering and side-channel access",
-      source: "Deliberate",
+      sources: ["Deliberate"],
       status: "Draft",
-      controlFrequency: "Quarterly",
       domain: "Physical & Facilities",
     },
   ],
@@ -334,14 +404,19 @@ function buildThreats(): MockThreat[] {
       const assetIds = [asset.id];
       const cyberRiskIds: string[] = [];
 
+      const sources = template.sources;
       out.push({
         id: padId("THR", seq),
+        displayId: `T-${String(seq).padStart(4, "0")}`,
         name: `${template.title} (${asset.name})`,
-        ownerId: asset.ownerId,
-        source: template.source,
-        status: template.status,
-        controlFrequency: template.controlFrequency,
+        ownerIds: [asset.ownerId],
         domain: template.domain,
+        description: buildThreatDescription(template.title, asset.name, template.domain, sources),
+        sources,
+        threatActors: pickThreatActors(seq, sources),
+        attackVectors: pickAttackVectors(seq, template.domain),
+        status: template.status,
+        attachments: mockAttachmentsForSeq(seq),
         cyberRiskIds,
         assetIds,
         vulnerabilityIds,
@@ -405,6 +480,81 @@ export const threats: MockThreat[] = threatsBuilt;
 applyCrossEntityLinks(threats);
 
 const threatById = new Map(threats.map((t) => [t.id, t]));
+
+const NEW_THREAT_NAME_RE = /^New threat (\d+)$/i;
+
+function nextThreatNumericId(): number {
+  let max = 0;
+  for (const t of threats) {
+    const m = /^THR-(\d+)$/.exec(t.id);
+    if (m) max = Math.max(max, Number.parseInt(m[1]!, 10));
+  }
+  return max + 1;
+}
+
+function nextNewThreatDisplayName(): string {
+  let max = 0;
+  for (const t of threats) {
+    const m = NEW_THREAT_NAME_RE.exec(t.name.trim());
+    if (m) max = Math.max(max, Number.parseInt(m[1]!, 10));
+  }
+  const n = max + 1;
+  return `New threat ${String(n).padStart(3, "0")}`;
+}
+
+const threatListeners = new Set<() => void>();
+let threatsSnapshotVersion = 0;
+
+function notifyThreatListeners(): void {
+  threatsSnapshotVersion += 1;
+  for (const cb of threatListeners) cb();
+}
+
+/** Subscribe to catalog mutations (e.g. `addThreat`). For `useSyncExternalStore`. */
+export function subscribeThreats(onStoreChange: () => void): () => void {
+  threatListeners.add(onStoreChange);
+  return () => {
+    threatListeners.delete(onStoreChange);
+  };
+}
+
+/** Version bump when `threats` is mutated; pair with `subscribeThreats`. */
+export function getThreatsSnapshotVersion(): number {
+  return threatsSnapshotVersion;
+}
+
+const DEFAULT_NEW_THREAT_DOMAIN: ThreatDomain = "Identity & Access Management";
+
+/**
+ * Appends a draft threat to the in-memory catalog (prototype).
+ * Syncs cross-entity mirrors and notifies subscribers.
+ */
+export function addThreat(): MockThreat {
+  const defaultOwnerId = users[0]?.id ?? "USR-001";
+  const nextNum = nextThreatNumericId();
+  const newThreat: MockThreat = {
+    id: padId("THR", nextNum),
+    displayId: `T-${String(nextNum).padStart(4, "0")}`,
+    name: nextNewThreatDisplayName(),
+    ownerIds: [defaultOwnerId],
+    domain: DEFAULT_NEW_THREAT_DOMAIN,
+    description: "",
+    sources: ["Deliberate"],
+    threatActors: [],
+    attackVectors: [],
+    status: "Draft",
+    attachments: [],
+    cyberRiskIds: [],
+    assetIds: [],
+    vulnerabilityIds: [],
+    relationships: buildThreatRelationships([], [], []),
+  };
+  threats.push(newThreat);
+  threatById.set(newThreat.id, newThreat);
+  applyCrossEntityLinks(threats);
+  notifyThreatListeners();
+  return newThreat;
+}
 
 export function getThreatById(id: string): MockThreat | undefined {
   return threatById.get(id);

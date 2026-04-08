@@ -717,7 +717,6 @@ function CyberRisksResultsTable({
         overflowX: "auto",
         borderRadius: t.semantic.radius.md.value,
         bgcolor: t.semantic.color.background.base.value,
-        maxWidth: 1280,
       })}
     >
       <Table
@@ -1008,7 +1007,7 @@ function AssetsResultsGrid({ rows }: { rows: AssetResultRow[] }) {
   );
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 1280 }}>
+    <Box sx={{ width: "100%" }}>
       <DataGridPro
         rows={rows}
         columns={columns}
@@ -1116,7 +1115,7 @@ export default function NewCyberRiskAssessmentResultsTab({
   }, [expandedGroups, cyberResultRows]);
 
   return (
-    <Stack gap={6} sx={{ pt: 3, pb: 4, maxWidth: 1280 }}>
+    <Stack gap={6} sx={{ pt: 3, pb: 4, width: "100%" }}>
       <Box
         sx={({ tokens: t }) => ({
           borderRadius: t.semantic.radius.md.value,

@@ -80,7 +80,10 @@ function buildScoringRationale(
 
   const assetVulns = vulnsByAssetId.get(assetId) ?? [];
   const vulnBullets = assetVulns
-    .map((v) => `• ${v.name} (${v.domain}, ${v.primaryCIAImpact})`)
+    .map(
+      (v) =>
+        `• ${v.name} (${v.domain}, ${v.primaryCIAImpact.length ? v.primaryCIAImpact.join(" · ") : "—"})`,
+    )
     .join("\n");
 
   const threatFocus =

@@ -23,6 +23,11 @@ import { NavLink } from "react-router";
 
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
+import {
+  atlasNavigationTabsSlotProps,
+  atlasNavigationTabsSx,
+} from "../utils/atlasNavigationTabsSx.js";
+
 interface ScopeItem {
   id: string;
   title: string;
@@ -262,12 +267,14 @@ export default function CyberRiskDetailsPage() {
         <Tabs
           value={activeTab}
           onChange={handleTabChange}
+          className="atlas-size-large"
           aria-label="Cyber risk assessment tabs"
           {...TabsPresets.Tabs.alignToPageHeader}
-          sx={[
-            TabsPresets.Tabs.alignToPageHeader?.sx,
-            { "& .MuiTabs-flexContainer": { gap: 0 } },
-          ]}
+          slotProps={atlasNavigationTabsSlotProps}
+          sx={{
+            ...(TabsPresets.Tabs.alignToPageHeader?.sx as Record<string, unknown> | undefined),
+            ...atlasNavigationTabsSx,
+          }}
         >
           {tabLabels.map((label, index) => (
             <Tab

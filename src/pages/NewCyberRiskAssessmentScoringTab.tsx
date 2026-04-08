@@ -427,12 +427,12 @@ export default function NewCyberRiskAssessmentScoringTab({
       {scoringRows.length === 0 ? (
         <Typography
           variant="body1"
-          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value, maxWidth: 1280 })}
+          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
         >
           Include assets in the Scope tab to see cyber risks and scenarios for this assessment.
         </Typography>
       ) : null}
-      <Stack gap={1.5} sx={{ maxWidth: 1280, width: "100%" }}>
+      <Stack gap={1.5} sx={{ width: "100%" }}>
         <Typography
           id={aggregationLabelId}
           variant="caption"
@@ -498,7 +498,6 @@ export default function NewCyberRiskAssessmentScoringTab({
           backgroundColor: "unset",
           overflow: "hidden",
           width: "100%",
-          maxWidth: 1280,
           p: 0,
         })}
       >

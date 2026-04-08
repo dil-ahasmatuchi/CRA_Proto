@@ -1,7 +1,10 @@
 import { cyberRisks } from "../data/cyberRisks.js";
 import { scenarios } from "../data/scenarios.js";
 import { threats } from "../data/threats.js";
-import { vulnerabilities } from "../data/vulnerabilities.js";
+import {
+  isVulnerabilityActiveForAssessment,
+  vulnerabilities,
+} from "../data/vulnerabilities.js";
 import type { MockScenario } from "../data/types.js";
 
 export function includedAssetIdSet(rows: { included: boolean; assetId: string }[]): Set<string> {
@@ -24,7 +27,10 @@ export function scopedThreats(assetIds: Set<string>) {
 
 export function scopedVulnerabilities(assetIds: Set<string>) {
   if (assetIds.size === 0) return [];
-  return vulnerabilities.filter((v) => v.assetIds.some((aid) => assetIds.has(aid)));
+  return vulnerabilities.filter(
+    (v) =>
+      isVulnerabilityActiveForAssessment(v) && v.assetIds.some((aid) => assetIds.has(aid)),
+  );
 }
 
 /** Scenarios for included assets only, limited to cyber risks in scope (matches scoring). */
@@ -39,5 +45,5 @@ export function scopedScenarios(assetIds: Set<string>): MockScenario[] {
 export const SCOPE_CATALOG_TOTALS = {
   cyberRisks: cyberRisks.length,
   threats: threats.length,
-  vulnerabilities: vulnerabilities.length,
+  vulnerabilities: vulnerabilities.filter(isVulnerabilityActiveForAssessment).length,
 } as const;

@@ -27,8 +27,8 @@ import {
   QuickFilterControl,
   Toolbar,
 } from "@mui/x-data-grid-pro";
-import { useMemo } from "react";
-import { NavLink } from "react-router";
+import { useMemo, useSyncExternalStore } from "react";
+import { NavLink, useNavigate } from "react-router";
 
 import {
   ragDataVizColor,
@@ -36,9 +36,14 @@ import {
   RAG_DATA_VIZ_CANVAS_FALLBACK,
   type RagDataVizKey,
 } from "../data/ragDataVisualization.js";
-import { threats } from "../data/threats.js";
+import {
+  addThreat,
+  getThreatsSnapshotVersion,
+  subscribeThreats,
+  threats,
+} from "../data/threats.js";
 import { getAssetById } from "../data/assets.js";
-import { getUserById } from "../data/users.js";
+import { getUserById, joinUserFullNames } from "../data/users.js";
 import type { FivePointScaleLabel } from "../data/types.js";
 import { Doughnut, Bar } from "react-chartjs-2";
 import {
@@ -131,30 +136,32 @@ interface ThreatRow {
   lastUpdatedByInitials: string;
 }
 
-const threatRows: ThreatRow[] = threats.map((t, i) => {
-  const owner = getUserById(t.ownerId);
-  const seed = i + 1;
-  const assessments = Math.floor(seededRandom(seed * 19) * 8) + 1;
-  const assetsByCriticality = countLinkedAssetsByCriticality(t.assetIds);
+function buildThreatRows(): ThreatRow[] {
+  return threats.map((t, i) => {
+    const owner = getUserById(t.ownerIds[0] ?? "");
+    const seed = i + 1;
+    const assessments = Math.floor(seededRandom(seed * 19) * 8) + 1;
+    const assetsByCriticality = countLinkedAssetsByCriticality(t.assetIds);
 
-  return {
-    id: t.id,
-    name: t.name,
-    threatId: t.id,
-    criticality: 0,
-    assessments,
-    aggregatedAssets: t.assetIds.length,
-    assetsByCriticality,
-    vulnerabilities: t.vulnerabilityIds.length,
-    threatDomain: t.domain,
-    created: "23 Jan 2025",
-    createdBy: owner?.fullName ?? "Unassigned",
-    createdByInitials: owner?.initials ?? "",
-    lastUpdated: "23 Jan 2025",
-    lastUpdatedBy: owner?.fullName ?? "Unassigned",
-    lastUpdatedByInitials: owner?.initials ?? "",
-  };
-});
+    return {
+      id: t.id,
+      name: t.name,
+      threatId: t.id,
+      criticality: 0,
+      assessments,
+      aggregatedAssets: t.assetIds.length,
+      assetsByCriticality,
+      vulnerabilities: t.vulnerabilityIds.length,
+      threatDomain: t.domain,
+      created: "23 Jan 2025",
+      createdBy: joinUserFullNames(t.ownerIds),
+      createdByInitials: owner?.initials ?? "",
+      lastUpdated: "23 Jan 2025",
+      lastUpdatedBy: owner?.fullName ?? "Unassigned",
+      lastUpdatedByInitials: owner?.initials ?? "",
+    };
+  });
+}
 
 function aggregateSeverityFromThreats(): {
   veryLow: number;
@@ -188,9 +195,9 @@ function aggregateTop5ThreatDomains(): { label: string; value: number }[] {
 
 const THREAT_SEVERITY_CHART_RAG: RagDataVizKey[] = ["pos05", "pos04", "neu03", "neg03", "neg05"];
 
-function ThreatsBySeverityCard() {
+function ThreatsBySeverityCard({ catalogVersion }: { catalogVersion: number }) {
   const { tokens } = useTheme();
-  const severityData = useMemo(() => aggregateSeverityFromThreats(), []);
+  const severityData = useMemo(() => aggregateSeverityFromThreats(), [catalogVersion]);
 
   const chartBackgroundColors = useMemo(
     () =>
@@ -351,9 +358,9 @@ function ThreatsBySeverityCard() {
   );
 }
 
-function Top5ThreatDomainsCard() {
+function Top5ThreatDomainsCard({ catalogVersion }: { catalogVersion: number }) {
   const { tokens } = useTheme();
-  const domainBars = useMemo(() => aggregateTop5ThreatDomains(), []);
+  const domainBars = useMemo(() => aggregateTop5ThreatDomains(), [catalogVersion]);
   const maxValue = useMemo(
     () => (domainBars.length > 0 ? Math.max(...domainBars.map((d) => d.value)) : 1),
     [domainBars],
@@ -563,18 +570,34 @@ function CustomToolbar() {
   );
 }
 
-function ThreatsDataGrid() {
+function ThreatsDataGrid({ rows }: { rows: ThreatRow[] }) {
   const columns: GridColDef<ThreatRow>[] = [
     {
       field: "name",
       headerName: "Name",
       flex: 1,
       minWidth: 250,
-      renderCell: (params: GridRenderCellParams<ThreatRow>) => (
-        <Link href="#" underline="hover" sx={{ cursor: "pointer" }}>
-          {params.value}
-        </Link>
-      ),
+      renderCell: (params: GridRenderCellParams<ThreatRow>) => {
+        const detailPath = `/cyber-risk/threats/${params.row.id}`;
+        const label = params.value as string;
+        return (
+          <Link
+            component={NavLink}
+            to={detailPath}
+            underline="hover"
+            sx={{ cursor: "pointer" }}
+            aria-label={`Open threat details for ${label}`}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            {label}
+          </Link>
+        );
+      },
     },
     {
       field: "threatId",
@@ -650,7 +673,7 @@ function ThreatsDataGrid() {
   return (
     <Box sx={{ width: "100%" }}>
       <DataGridPro
-        rows={threatRows}
+        rows={rows}
         columns={columns}
         getRowId={(row) => row.id}
         pagination
@@ -681,6 +704,22 @@ function ThreatsDataGrid() {
 }
 
 export default function ThreatsPage() {
+  const navigate = useNavigate();
+  const catalogVersion = useSyncExternalStore(
+    subscribeThreats,
+    getThreatsSnapshotVersion,
+    () => 0,
+  );
+  const threatRows = useMemo(() => buildThreatRows(), [catalogVersion]);
+
+  const handleAddThreats = () => {
+    const t = addThreat();
+    navigate(`${t.id}`, {
+      state: { showCreatedToast: true },
+      relative: "path",
+    });
+  };
+
   return (
     <Container sx={{ py: 2 }}>
       <Stack gap={3}>
@@ -703,7 +742,17 @@ export default function ThreatsPage() {
             </OverflowBreadcrumbs>
           }
           moreButton={
-            <Button variant="contained">Add threats</Button>
+            <Box
+              sx={{
+                position: "relative",
+                zIndex: 2,
+                flexShrink: 0,
+              }}
+            >
+              <Button type="button" variant="contained" onClick={handleAddThreats}>
+                Add threats
+              </Button>
+            </Box>
           }
         />
 
@@ -715,12 +764,12 @@ export default function ThreatsPage() {
           })}
         >
           <Stack direction="row" gap={3} sx={{ minHeight: 460 }}>
-            <ThreatsBySeverityCard />
-            <Top5ThreatDomainsCard />
+            <ThreatsBySeverityCard catalogVersion={catalogVersion} />
+            <Top5ThreatDomainsCard catalogVersion={catalogVersion} />
           </Stack>
         </Box>
 
-        <ThreatsDataGrid />
+        <ThreatsDataGrid rows={threatRows} />
       </Stack>
     </Container>
   );

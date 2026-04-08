@@ -66,7 +66,7 @@ export default function NewCyberRiskAssessmentMethodSection() {
   }, []);
 
   return (
-    <Stack gap={3} sx={{ maxWidth: 1280, width: "100%" }}>
+    <Stack gap={3} sx={{ width: "100%" }}>
       <Stack gap={2}>
         <Typography
           id={groupLabelId}

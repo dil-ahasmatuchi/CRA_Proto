@@ -11,6 +11,7 @@ import UploadFilesPage from "./pages/UploadFilesPage.js";
 import FindingsPage from "./pages/FindingsPage.js";
 import CyberRiskDetailsPage from "./pages/CyberRiskDetailsPage.js";
 import ThreatsPage from "./pages/ThreatsPage.js";
+import ThreatDetailPage from "./pages/ThreatDetailPage.js";
 import CyberRiskAssessmentsPage from "./pages/CyberRiskAssessmentsPage.js";
 import NewCyberRiskAssessmentPage from "./pages/NewCyberRiskAssessmentPage.js";
 import NewCyberRiskAssessmentScenarioDetailPage from "./pages/NewCyberRiskAssessmentScenarioDetailPage.js";
@@ -19,6 +20,7 @@ import ControlsPage from "./pages/ControlsPage.js";
 import CyberRisksPage from "./pages/CyberRisksPage.js";
 import MitigationPlansPage from "./pages/MitigationPlansPage.js";
 import VulnerabilitiesPage from "./pages/VulnerabilitiesPage.js";
+import VulnerabilityDetailPage from "./pages/VulnerabilityDetailPage.js";
 
 export default function App() {
   return (
@@ -98,12 +100,20 @@ export default function App() {
           element={<ControlsPage />}
         />
         <Route
+          path="cyber-risk/threats/:threatId"
+          element={<ThreatDetailPage />}
+        />
+        <Route
           path="cyber-risk/threats"
           element={<ThreatsPage />}
         />
         <Route
           path="cyber-risk/mitigation-plans"
           element={<MitigationPlansPage />}
+        />
+        <Route
+          path="cyber-risk/vulnerabilities/:vulnerabilityId"
+          element={<VulnerabilityDetailPage />}
         />
         <Route
           path="cyber-risk/vulnerabilities"

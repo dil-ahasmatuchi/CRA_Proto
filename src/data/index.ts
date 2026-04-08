@@ -12,8 +12,12 @@ export type {
   ControlType,
   ControlFrequency,
   ThreatSource,
+  ThreatActor,
+  ThreatAttackVector,
   ThreatDomain,
+  MockThreatAttachment,
   VulnerabilityDomain,
+  VulnerabilityType,
   CIAImpact,
   AssetType,
   MockUser,
@@ -41,6 +45,10 @@ export {
   getCyberRiskScoreRange,
   fivePointLabelToRag,
   padId,
+  THREAT_SOURCE_OPTION_DETAILS,
+  THREAT_ACTOR_OPTIONS,
+  THREAT_ATTACK_VECTOR_OPTIONS,
+  VULNERABILITY_TYPE_OPTIONS,
 } from "./types.js";
 
 // Data collections & lookup helpers
@@ -51,8 +59,15 @@ export {
   threats,
   getThreatById,
   remapThreatIdFromLegacySequential,
+  addThreat,
+  subscribeThreats,
+  getThreatsSnapshotVersion,
 } from "./threats.js";
-export { vulnerabilities, getVulnerabilityById } from "./vulnerabilities.js";
+export {
+  vulnerabilities,
+  getVulnerabilityById,
+  isVulnerabilityActiveForAssessment,
+} from "./vulnerabilities.js";
 export { controls, getControlById } from "./controls.js";
 export { cyberRisks, getCyberRiskById } from "./cyberRisks.js";
 export { scenarios, getScenarioById } from "./scenarios.js";
