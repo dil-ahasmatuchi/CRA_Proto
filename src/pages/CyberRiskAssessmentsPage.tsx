@@ -90,7 +90,7 @@ const STATUS_COLORS = {
 const statusData = {
   draft: assessmentRows.filter((r) => r.status === "Draft").length,
   scoping: assessmentRows.filter((r) => r.status === "Scoping").length,
-  inProgress: assessmentRows.filter((r) => r.status === "In progress").length,
+  inProgress: assessmentRows.filter((r) => r.status === "Scoring").length,
   approved: assessmentRows.filter((r) => r.status === "Approved").length,
   overdue: assessmentRows.filter((r) => r.status === "Overdue").length,
 };
@@ -116,7 +116,7 @@ function AssessmentsByStatusCard() {
     statusData.overdue;
 
   const chartData = {
-    labels: ["Draft", "Scoping", "In progress", "Approved", "Overdue"],
+    labels: ["Draft", "Scoping", "Scoring", "Approved", "Overdue"],
     datasets: [
       {
         data: [
@@ -142,7 +142,7 @@ function AssessmentsByStatusCard() {
   const legendItems = [
     { label: "Draft", value: statusData.draft, color: STATUS_COLORS.draft },
     { label: "Scoping", value: statusData.scoping, color: STATUS_COLORS.scoping },
-    { label: "In progress", value: statusData.inProgress, color: STATUS_COLORS.inProgress },
+    { label: "Scoring", value: statusData.inProgress, color: STATUS_COLORS.inProgress },
     { label: "Approved", value: statusData.approved, color: STATUS_COLORS.approved },
     { label: "Overdue", value: statusData.overdue, color: STATUS_COLORS.overdue },
   ];
@@ -224,8 +224,8 @@ function AssessmentsByStatusCard() {
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gridAutoRows: "auto",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateRows: "repeat(2, 1fr)",
             columnGap: 2,
             rowGap: 2,
             width: "100%",

@@ -259,7 +259,8 @@ function WorkflowStatusCard() {
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateRows: "repeat(2, 1fr)",
             columnGap: 2,
             rowGap: 2,
             width: "100%",

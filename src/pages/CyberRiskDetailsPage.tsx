@@ -259,7 +259,7 @@ export default function CyberRiskDetailsPage() {
           }
           moreButton={
             <Button variant="contained">
-              Move to assessment
+              Move to scoring
             </Button>
           }
         />

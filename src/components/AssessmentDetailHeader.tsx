@@ -2,14 +2,26 @@ import {
   OverflowBreadcrumbs,
   PageHeader,
 } from "@diligentcorp/atlas-react-bundle";
-import { Button, IconButton, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
+import {
+  Button,
+  CircularProgress,
+  IconButton,
+  Stack,
+  Tab,
+  Tabs,
+  Typography,
+  useTheme,
+} from "@mui/material";
 import { NavLink, useNavigate } from "react-router";
 
+import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
 import type { AssessmentStatus as AssessmentStatusValue } from "../data/types.js";
-import type { AssessmentPhase } from "../pages/craNewAssessmentDraftStorage.js";
-import AssessmentStatus from "./AssessmentStatus.js";
+import type { AiScoringPhase, AssessmentPhase } from "../pages/craNewAssessmentDraftStorage.js";
+import AssessmentStatus, {
+  assessmentStatusDotBackground,
+} from "./AssessmentStatus.js";
 import MetaTag from "./MetaTag.js";
 import StatusDropdown from "./StatusDropdown.js";
 import {
@@ -29,7 +41,7 @@ const TAB_LABELS = ["Details", "Scope", "Scoring", "Results"] as const;
 const ASSESSMENT_PHASE_LABELS: Record<AssessmentPhase, string> = {
   draft: "Draft",
   scoping: "Scoping",
-  inProgress: "In progress",
+  inProgress: "Scoring",
   overdue: "Overdue",
   assessmentApproved: "Approved assessment",
 };
@@ -37,7 +49,7 @@ const ASSESSMENT_PHASE_LABELS: Record<AssessmentPhase, string> = {
 const PHASE_LABEL_TO_PHASE: Record<string, AssessmentPhase> = {
   Draft: "draft",
   Scoping: "scoping",
-  "In progress": "inProgress",
+  Scoring: "inProgress",
   Overdue: "overdue",
   "Approved assessment": "assessmentApproved",
 };
@@ -46,7 +58,7 @@ const PHASE_LABEL_TO_PHASE: Record<string, AssessmentPhase> = {
 const PHASE_LABEL_TO_ASSESSMENT_STATUS: Record<string, AssessmentStatusValue> = {
   Draft: "Draft",
   Scoping: "Scoping",
-  "In progress": "In progress",
+  Scoring: "Scoring",
   Overdue: "Overdue",
   "Approved assessment": "Approved",
 };
@@ -72,10 +84,14 @@ export type AssessmentDetailHeaderProps = {
   onScopeSubViewBack: () => void;
   /** Called when the "Done" CTA is pressed in scope-detail mode. */
   onScopeDetailDone: () => void;
-  /** Tertiary Save action (main header only; not shown in scope-detail mode). */
+  /** Primary Save action (main header only; not shown in scope-detail mode). */
   onSave?: () => void;
   /** Tertiary More icon action (main header only). */
   onMoreClick?: () => void;
+  /** Scoring phase / overdue: AI scoring vs Approve assessment (after AI run completes). */
+  aiScoringPhase?: AiScoringPhase;
+  /** Starts the simulated AI scoring run (idle → processing). */
+  onAiScoringClick?: () => void;
 };
 
 export default function AssessmentDetailHeader({
@@ -93,10 +109,12 @@ export default function AssessmentDetailHeader({
   onScopeDetailDone,
   onSave = () => {},
   onMoreClick = () => {},
+  aiScoringPhase = "complete",
+  onAiScoringClick = () => {},
 }: AssessmentDetailHeaderProps) {
   const navigate = useNavigate();
   const { presets, tokens } = useTheme();
-  const { TabsPresets } = presets;
+  const { TabsPresets, CircularProgressPresets } = presets;
 
   const pageDisplayTitle = assessmentName.trim() || "New cyber risk assessment";
   const phaseDisplayLabel = ASSESSMENT_PHASE_LABELS[assessmentPhase];
@@ -148,35 +166,50 @@ export default function AssessmentDetailHeader({
     assessmentPhase === "draft"
       ? "Move to scoping"
       : assessmentPhase === "scoping"
-        ? "Move to assessment"
+        ? "Move to scoring"
         : assessmentPhase === "inProgress" || assessmentPhase === "overdue"
           ? "Approve assessment"
           : "Done";
 
+  const inProgressOrOverdue =
+    assessmentPhase === "inProgress" || assessmentPhase === "overdue";
+
+  const approveAssessmentClick = () => {
+    onPhaseChange("assessmentApproved");
+    onActiveTabChange(RESULTS_TAB_INDEX);
+  };
+
   const primaryCta =
     assessmentPhase === "assessmentApproved" ? (
-      <Stack direction="row" alignItems="center" gap={1}>
-        <Button
-          variant="text"
-          size="medium"
-          onClick={() => {
-            onPhaseChange("inProgress");
-            onActiveTabChange(SCORING_TAB_INDEX);
-          }}
-        >
-          Back to scoring
-        </Button>
-        <Button
-          variant="contained"
-          size="medium"
-          onClick={() => navigate(ASSESSMENTS_URL)}
-        >
-          Done
-        </Button>
-      </Stack>
-    ) : (
+      <Button
+        variant="text"
+        size="medium"
+        onClick={() => {
+          onPhaseChange("inProgress");
+          onActiveTabChange(SCORING_TAB_INDEX);
+        }}
+      >
+        Back to scoring
+      </Button>
+    ) : inProgressOrOverdue && aiScoringPhase !== "complete" ? (
       <Button
         variant="contained"
+        color="ai"
+        size="medium"
+        startIcon={aiScoringPhase === "processing" ? undefined : <AiSparkleIcon aria-hidden />}
+        loading={aiScoringPhase === "processing"}
+        loadingPosition="start"
+        loadingIndicator={
+          <CircularProgress color="inherit" {...CircularProgressPresets.size.sm} />
+        }
+        onClick={onAiScoringClick}
+        aria-busy={aiScoringPhase === "processing"}
+      >
+        AI scoring
+      </Button>
+    ) : (
+      <Button
+        variant="text"
         size="medium"
         onClick={() => {
           if (assessmentPhase === "draft") {
@@ -189,9 +222,8 @@ export default function AssessmentDetailHeader({
             onActiveTabChange(SCORING_TAB_INDEX);
             return;
           }
-          if (assessmentPhase === "inProgress" || assessmentPhase === "overdue") {
-            onPhaseChange("assessmentApproved");
-            onActiveTabChange(RESULTS_TAB_INDEX);
+          if (inProgressOrOverdue) {
+            approveAssessmentClick();
             return;
           }
         }}
@@ -208,10 +240,10 @@ export default function AssessmentDetailHeader({
         gap: t.core.spacing["2"].value,
       })}
     >
-      <Button variant="text" size="medium" onClick={onSave}>
+      {primaryCta}
+      <Button variant="contained" size="medium" onClick={onSave}>
         Save
       </Button>
-      {primaryCta}
       <IconButton size="medium" aria-label="More options" onClick={onMoreClick}>
         <MoreIcon aria-hidden />
       </IconButton>
@@ -255,6 +287,12 @@ export default function AssessmentDetailHeader({
                 if (phase) onPhaseChange(phase);
               }}
               aria-label="Assessment status"
+              resolveDotFill={(label, t) =>
+                assessmentStatusDotBackground(
+                  PHASE_LABEL_TO_ASSESSMENT_STATUS[label] ?? "Draft",
+                  t,
+                )
+              }
               renderChip={({ value: v }) => (
                 <AssessmentStatus
                   status={PHASE_LABEL_TO_ASSESSMENT_STATUS[v] ?? "Draft"}

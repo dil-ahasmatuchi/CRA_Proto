@@ -259,6 +259,7 @@ export default function ThreatDetailAssessmentsTab({
           columns={columns}
           pagination
           pageSizeOptions={[5, 10, 25]}
+          pinnedColumnsSectionSeparator="shadow"
           initialState={{
             pagination: { paginationModel: { pageSize: 10 } },
             pinnedColumns: { left: ["displayId", "name"] },
@@ -279,6 +280,15 @@ export default function ThreatDetailAssessmentsTab({
             border: "none",
             borderRadius: t.semantic.radius.md.value,
             bgcolor: t.semantic.color.background.base.value,
+            /* Pinned separator: shadow only at the scroll boundary (after Name), not a border+shadow on every column */
+            "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": {
+              boxShadow: "none",
+            },
+            /* With vertical borders, left-pinned cells all get a right edge; keep only the Name | Asset line */
+            '& .MuiDataGrid-columnHeader[data-field="displayId"], & .MuiDataGrid-cell[data-field="displayId"]': {
+              borderRightWidth: 0,
+              borderRightStyle: "none",
+            },
             "& .MuiDataGrid-columnHeaders": {
               backgroundColor: t.semantic.color.background.container.value,
             },

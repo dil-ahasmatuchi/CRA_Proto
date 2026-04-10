@@ -16,15 +16,23 @@ type TokenPick = (tokens: Tokens) => string;
 const STATUS_BACKGROUND: Record<AssessmentStatusValue, TokenPick> = {
   Draft: (t) => t.semantic.color.status.neutral.backgroundVariant.value,
   Scoping: (t) => t.semantic.color.accent.blue.background.value,
-  "In progress": (t) => t.semantic.color.accent.blue.background.value,
+  Scoring: (t) => t.semantic.color.accent.blue.background.value,
   Approved: (t) => t.semantic.color.status.success.default.value,
   Overdue: (t) => t.semantic.color.status.error.default.value,
 };
 
+/** Solid fill for status swatches (e.g. dropdown dots) — matches pill backgrounds. */
+export function assessmentStatusDotBackground(
+  status: AssessmentStatusValue,
+  tokens: Tokens,
+): string {
+  return STATUS_BACKGROUND[status](tokens);
+}
+
 const STATUS_FOREGROUND: Record<AssessmentStatusValue, TokenPick> = {
   Draft: (t) => t.semantic.color.status.neutral.text.value,
   Scoping: (t) => t.semantic.color.accent.blue.content.value,
-  "In progress": (t) => t.semantic.color.accent.blue.content.value,
+  Scoring: (t) => t.semantic.color.accent.blue.content.value,
   Approved: (t) => t.semantic.color.type.default.value,
   Overdue: (t) => t.semantic.color.type.inverse.value,
 };

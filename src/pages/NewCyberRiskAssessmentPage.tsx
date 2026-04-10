@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -26,6 +26,7 @@ import {
   assessmentStatusToPhase,
   loadCraNewAssessmentDraft,
   saveCraNewAssessmentDraft,
+  type AiScoringPhase,
   type AssessmentPhase,
 } from "./craNewAssessmentDraftStorage.js";
 import { getRiskAssessmentById } from "../data/riskAssessments.js";
@@ -128,7 +129,7 @@ export default function NewCyberRiskAssessmentPage() {
     if (mockFromRoute) return 0;
     return loadCraNewAssessmentDraft()?.activeTab ?? 0;
   });
-  /** Draft → Scoping → In progress → Approved assessment → Done (navigate to list). */
+  /** Draft → Scoping → Scoring → Approved assessment → Done (navigate to list). */
   const [assessmentPhase, setAssessmentPhase] = useState<AssessmentPhase>(() => {
     if (initialDraft) return initialDraft.assessmentPhase;
     if (mockFromRoute) return assessmentStatusToPhase(mockFromRoute.status);
@@ -177,6 +178,14 @@ export default function NewCyberRiskAssessmentPage() {
     const d = loadCraNewAssessmentDraft();
     return new Set(d?.includedScopeAssetIds ?? []);
   });
+
+  const [aiScoringPhase, setAiScoringPhase] = useState<AiScoringPhase>(() => {
+    if (mockFromRoute) return "idle";
+    if (initialDraft) return initialDraft.aiScoringPhase;
+    return loadCraNewAssessmentDraft()?.aiScoringPhase ?? "idle";
+  });
+
+  const aiScoringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toggleAssetIncluded = useCallback((assetId: string, included: boolean) => {
     setIncludedScopeAssetIds((prev) => {
@@ -228,6 +237,7 @@ export default function NewCyberRiskAssessmentPage() {
       ownerIds,
       scopeSubView,
       includedScopeAssetIds: [...includedScopeAssetIds],
+      aiScoringPhase,
     });
   }, [
     routeAssessmentId,
@@ -241,7 +251,30 @@ export default function NewCyberRiskAssessmentPage() {
     ownerIds,
     scopeSubView,
     includedScopeAssetIds,
+    aiScoringPhase,
   ]);
+
+  const handleAiScoringClick = useCallback(() => {
+    setAiScoringPhase((prev) => {
+      if (prev !== "idle") return prev;
+      if (aiScoringTimerRef.current) {
+        clearTimeout(aiScoringTimerRef.current);
+      }
+      aiScoringTimerRef.current = setTimeout(() => {
+        aiScoringTimerRef.current = null;
+        setAiScoringPhase("complete");
+      }, 3000);
+      return "processing";
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (aiScoringTimerRef.current) {
+        clearTimeout(aiScoringTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     handleSaveDraft();
@@ -296,6 +329,8 @@ export default function NewCyberRiskAssessmentPage() {
           onScopeSubViewBack={() => setScopeSubView("overview")}
           onScopeDetailDone={() => setScopeSubView("overview")}
           onSave={handleSaveDraft}
+          aiScoringPhase={aiScoringPhase}
+          onAiScoringClick={handleAiScoringClick}
         />
 
         <TabPanel value={activeTab} index={0}>
@@ -501,6 +536,7 @@ export default function NewCyberRiskAssessmentPage() {
           <NewCyberRiskAssessmentScoringTab
             assessmentName={name}
             includedAssetIds={includedScopeAssetIds}
+            aiScoringPhase={aiScoringPhase}
           />
         </TabPanel>
         <TabPanel value={activeTab} index={3}>

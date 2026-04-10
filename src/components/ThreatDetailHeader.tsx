@@ -3,7 +3,18 @@ import {
   PageHeader,
 } from "@diligentcorp/atlas-react-bundle";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
-import { Button, IconButton, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
+import {
+  Button,
+  IconButton,
+  Menu,
+  MenuItem,
+  Stack,
+  Tab,
+  Tabs,
+  Typography,
+  useTheme,
+} from "@mui/material";
+import { useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router";
 
 import type { ThreatStatus } from "../data/types.js";
@@ -15,6 +26,8 @@ import {
 } from "../utils/atlasNavigationTabsSx.js";
 
 const THREAT_STATUSES: ThreatStatus[] = ["Draft", "Active", "Archived"];
+
+const THREAT_MORE_MENU_ID = "threat-detail-more-menu";
 
 export type ThreatDetailHeaderProps = {
   pageTitle: string;
@@ -42,6 +55,22 @@ export default function ThreatDetailHeader({
   const navigate = useNavigate();
   const { presets, tokens } = useTheme();
   const { TabsPresets } = presets;
+
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+
+  const handleOpenMoreMenu = () => {
+    setMoreMenuOpen(true);
+  };
+
+  const handleCloseMoreMenu = () => {
+    setMoreMenuOpen(false);
+  };
+
+  const handleArchiveThreat = () => {
+    onStatusChange("Archived");
+    handleCloseMoreMenu();
+  };
 
   const metaRowInset = `calc(${tokens.component.button.iconOnly.medium.width.value} + ${tokens.component.pageHeader.desktop.mainContent.gap.value})`;
 
@@ -89,14 +118,44 @@ export default function ThreatDetailHeader({
           />
         }
         moreButton={
-          <Stack direction="row" alignItems="center" gap={1}>
-            <Button variant="contained" size="medium" type="button">
-              Save
-            </Button>
-            <IconButton aria-label="More actions" size="small">
-              <MoreIcon aria-hidden />
-            </IconButton>
-          </Stack>
+          <>
+            <Stack direction="row" alignItems="center" gap={1}>
+              <Button variant="contained" size="medium" type="button">
+                Save
+              </Button>
+              <IconButton
+                ref={moreButtonRef}
+                aria-label="More actions"
+                aria-haspopup="true"
+                aria-expanded={moreMenuOpen}
+                aria-controls={moreMenuOpen ? THREAT_MORE_MENU_ID : undefined}
+                size="small"
+                onClick={handleOpenMoreMenu}
+              >
+                <MoreIcon aria-hidden />
+              </IconButton>
+            </Stack>
+            <Menu
+              anchorEl={moreButtonRef.current}
+              open={moreMenuOpen}
+              onClose={handleCloseMoreMenu}
+              slotProps={{
+                list: {
+                  id: THREAT_MORE_MENU_ID,
+                  role: "menu",
+                  "aria-label": "More actions",
+                },
+              }}
+            >
+              <MenuItem
+                disabled={status === "Archived"}
+                onClick={handleArchiveThreat}
+                role="menuitem"
+              >
+                Archive
+              </MenuItem>
+            </Menu>
+          </>
         }
         slotProps={{
           backButton: {

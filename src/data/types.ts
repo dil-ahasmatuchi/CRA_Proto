@@ -27,7 +27,7 @@ export type CyberRiskStatus =
 export type AssessmentStatus =
   | "Draft"
   | "Scoping"
-  | "In progress"
+  | "Scoring"
   | "Approved"
   | "Overdue";
 

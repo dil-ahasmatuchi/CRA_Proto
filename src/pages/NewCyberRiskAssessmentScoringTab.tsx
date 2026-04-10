@@ -7,6 +7,7 @@ import {
   Link,
   Radio,
   RadioGroup,
+  Skeleton,
   Stack,
   Table,
   TableBody,
@@ -24,6 +25,7 @@ import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import { fivePointLabelToRag, getLikelihoodLabel, getCyberRiskScoreLabel } from "../data/types.js";
 import type { FivePointScaleLabel } from "../data/types.js";
+import type { AiScoringPhase } from "./craNewAssessmentDraftStorage.js";
 import { scopedCyberRisks, scopedScenarios } from "./scopeAssessmentRollup.js";
 
 type ScoreValue = {
@@ -336,15 +338,25 @@ function NameCell({
   );
 }
 
+function MetricScoreSkeleton() {
+  return (
+    <Box sx={{ minHeight: 56, display: "flex", alignItems: "center", py: 1 }}>
+      <Skeleton variant="rounded" width={120} height={22} sx={{ borderRadius: 1 }} />
+    </Box>
+  );
+}
+
 type NewCyberRiskAssessmentScoringTabProps = {
   /** Passed to the scenario detail page for breadcrumbs. */
   assessmentName?: string;
   includedAssetIds: Set<string>;
+  aiScoringPhase: AiScoringPhase;
 };
 
 export default function NewCyberRiskAssessmentScoringTab({
   assessmentName = "",
   includedAssetIds,
+  aiScoringPhase,
 }: NewCyberRiskAssessmentScoringTabProps) {
   const navigate = useNavigate();
   const aggregationLabelId = useId();
@@ -383,6 +395,14 @@ export default function NewCyberRiskAssessmentScoringTab({
     }
     return m;
   }, [scoringRows]);
+
+  const previewImpactByGroupId = useMemo(() => {
+    const result = new Map<string, ScoreValue>();
+    for (const [groupId, scenarios] of scenariosByGroupId) {
+      result.set(groupId, aggregateMetricForGroup(scenarios, "impact", "highest"));
+    }
+    return result;
+  }, [scenariosByGroupId]);
 
   const aggregatedByGroupId = useMemo(() => {
     const metrics: MetricKey[] = ["impact", "threat", "vulnerability", "likelihood", "cyberRiskScore"];
@@ -432,63 +452,65 @@ export default function NewCyberRiskAssessmentScoringTab({
           Include assets in the Scope tab to see cyber risks and scenarios for this assessment.
         </Typography>
       ) : null}
-      <Stack gap={1.5} sx={{ width: "100%" }}>
-        <Typography
-          id={aggregationLabelId}
-          variant="caption"
-          fontWeight={600}
-          component="p"
-          sx={({ tokens: t }) => ({
-            color: t.semantic.color.type.default.value,
-            letterSpacing: "0.3px",
-            m: 0,
-            fontSize: "24px",
-            lineHeight: 1.3,
-          })}
-        >
-          Aggregation method
-        </Typography>
-        <FormControl variant="standard" fullWidth>
-          <RadioGroup
-            row
-            aria-labelledby={aggregationLabelId}
-            name="new-cra-scoring-aggregation"
-            value={aggregationMethod ?? ""}
-            onChange={handleAggregationChange}
+      {aiScoringPhase === "complete" ? (
+        <Stack gap={1} sx={{ width: "100%" }}>
+          <Typography
+            id={aggregationLabelId}
+            component="p"
+            sx={({ tokens: t }) => ({
+              m: 0,
+              fontFamily: t.semantic.font.label.sm.fontFamily.value,
+              fontSize: t.semantic.font.label.sm.fontSize.value,
+              lineHeight: t.semantic.font.label.sm.lineHeight.value,
+              letterSpacing: t.semantic.font.label.sm.letterSpacing.value,
+              fontWeight: t.semantic.fontWeight.emphasis.value,
+              color: t.semantic.color.type.default.value,
+            })}
           >
-            <FormControlLabel
-              value="highest"
-              control={<Radio />}
-              label="Highest"
-              slotProps={{
-                typography: {
-                  sx: ({ tokens: t }) => ({
-                    fontSize: t.semantic.font.text.md.fontSize.value,
-                    lineHeight: t.semantic.font.text.md.lineHeight.value,
-                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                    color: t.semantic.color.type.default.value,
-                  }),
-                },
-              }}
-            />
-            <FormControlLabel
-              value="average"
-              control={<Radio />}
-              label="Average"
-              slotProps={{
-                typography: {
-                  sx: ({ tokens: t }) => ({
-                    fontSize: t.semantic.font.text.md.fontSize.value,
-                    lineHeight: t.semantic.font.text.md.lineHeight.value,
-                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                    color: t.semantic.color.type.default.value,
-                  }),
-                },
-              }}
-            />
-          </RadioGroup>
-        </FormControl>
-      </Stack>
+            Aggregation method
+          </Typography>
+          <FormControl variant="standard" fullWidth>
+            <RadioGroup
+              row
+              aria-labelledby={aggregationLabelId}
+              name="new-cra-scoring-aggregation"
+              value={aggregationMethod ?? ""}
+              onChange={handleAggregationChange}
+            >
+              <FormControlLabel
+                value="highest"
+                control={<Radio />}
+                label="Highest"
+                slotProps={{
+                  typography: {
+                    sx: ({ tokens: t }) => ({
+                      fontSize: t.semantic.font.text.md.fontSize.value,
+                      lineHeight: t.semantic.font.text.md.lineHeight.value,
+                      letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                      color: t.semantic.color.type.default.value,
+                    }),
+                  },
+                }}
+              />
+              <FormControlLabel
+                value="average"
+                control={<Radio />}
+                label="Average"
+                slotProps={{
+                  typography: {
+                    sx: ({ tokens: t }) => ({
+                      fontSize: t.semantic.font.text.md.fontSize.value,
+                      lineHeight: t.semantic.font.text.md.lineHeight.value,
+                      letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                      color: t.semantic.color.type.default.value,
+                    }),
+                  },
+                }}
+              />
+            </RadioGroup>
+          </FormControl>
+        </Stack>
+      ) : null}
 
       {scoringRows.length === 0 ? null : (
       <Box
@@ -502,6 +524,7 @@ export default function NewCyberRiskAssessmentScoringTab({
         })}
       >
         <TableContainer
+          aria-busy={aiScoringPhase === "processing"}
           sx={{
             overflowX: "auto",
             borderRadius: ({ tokens: t }) => t.semantic.radius.sm.value,
@@ -583,142 +606,206 @@ export default function NewCyberRiskAssessmentScoringTab({
               </TableRow>
             </TableHead>
             <TableBody>
-              {visibleRows.map((row) => {
-                const isScenario = row.kind === "scenario";
-                return (
-                  <TableRow
-                    key={row.id}
-                    hover={isScenario}
-                    tabIndex={isScenario ? 0 : undefined}
-                    aria-label={
-                      isScenario
-                        ? `Open ${row.tag}: ${row.id}. Press Enter to view scoring rationale.`
-                        : undefined
-                    }
-                    onClick={() => {
-                      if (isScenario) goToScenario(row.id);
-                    }}
-                    onKeyDown={(e) => {
-                      if (!isScenario) return;
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        goToScenario(row.id);
-                      }
-                    }}
-                    sx={
-                      isScenario
-                        ? ({ tokens: t }) => ({
-                            cursor: "pointer",
-                            "&.MuiTableRow-hover:hover": {
-                              backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
-                            },
-                            "&.MuiTableRow-hover:hover .MuiTableCell-root": {
-                              backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
-                            },
-                            "&:focus-visible": {
-                              outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
-                              outlineOffset: -2,
-                            },
-                          })
-                        : undefined
-                    }
-                  >
-                    <TableCell
-                      sx={({ tokens: t }) => ({
-                        position: "sticky",
-                        left: 0,
-                        zIndex: 2,
-                        bgcolor: t.semantic.color.background.base.value,
-                        width: 420,
-                        minWidth: 320,
-                        maxWidth: 420,
-                        whiteSpace: "normal",
-                        wordBreak: "break-word",
-                        overflowWrap: "break-word",
-                      })}
-                    >
-                      <NameCell
-                        row={row}
-                        expanded={expanded[row.groupId] !== false}
-                        onToggle={() => toggleGroup(row.groupId)}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ px: 2, py: 0 }}>
-                      <RiskLegendCell
-                        value={
-                          row.kind === "cyberRisk"
-                            ? aggregationMethod
-                              ? aggregatedByGroupId.get(row.groupId)?.impact ?? null
-                              : null
-                            : row.impact
-                        }
-                      />
-                    </TableCell>
-                    <TableCell sx={{ px: 2, py: 0 }}>
-                      <RiskLegendCell
-                        value={
-                          row.kind === "cyberRisk"
-                            ? aggregationMethod
-                              ? aggregatedByGroupId.get(row.groupId)?.threat ?? null
-                              : null
-                            : row.threat
-                        }
-                      />
-                    </TableCell>
-                    <TableCell sx={{ px: 2, py: 0 }}>
-                      <RiskLegendCell
-                        value={
-                          row.kind === "cyberRisk"
-                            ? aggregationMethod
-                              ? aggregatedByGroupId.get(row.groupId)?.vulnerability ?? null
-                              : null
-                            : row.vulnerability
-                        }
-                      />
-                    </TableCell>
-                    <TableCell sx={{ px: 2, py: 0 }}>
-                      <RiskLegendCell
-                        value={
-                          row.kind === "cyberRisk"
-                            ? aggregationMethod
-                              ? aggregatedByGroupId.get(row.groupId)?.likelihood ?? null
-                              : null
-                            : row.likelihood
-                        }
-                      />
-                    </TableCell>
-                    <TableCell sx={{ px: 2, py: 0 }}>
-                      <RiskLegendCell
-                        value={
-                          row.kind === "cyberRisk"
-                            ? aggregationMethod
-                              ? aggregatedByGroupId.get(row.groupId)?.cyberRiskScore ?? null
-                              : null
-                            : row.cyberRiskScore
-                        }
-                      />
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={({ tokens: t }) => ({
-                        position: "sticky",
-                        right: 0,
-                        zIndex: 2,
-                        bgcolor: t.semantic.color.background.base.value,
-                        verticalAlign: "middle",
-                      })}
-                    >
-                      <IconButton
-                        size="small"
-                        aria-label="Row actions"
-                        onClick={(e) => e.stopPropagation()}
+              {aiScoringPhase === "processing"
+                ? visibleRows.map((row) => (
+                    <TableRow key={row.id} hover={false}>
+                      <TableCell
+                        sx={({ tokens: t }) => ({
+                          position: "sticky",
+                          left: 0,
+                          zIndex: 2,
+                          bgcolor: t.semantic.color.background.base.value,
+                          width: 420,
+                          minWidth: 320,
+                          maxWidth: 420,
+                          whiteSpace: "normal",
+                          wordBreak: "break-word",
+                          overflowWrap: "break-word",
+                        })}
                       >
-                        <MoreIcon aria-hidden />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                        <NameCell
+                          row={row}
+                          expanded={expanded[row.groupId] !== false}
+                          onToggle={() => toggleGroup(row.groupId)}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ px: 2, py: 0 }}>
+                        <MetricScoreSkeleton />
+                      </TableCell>
+                      <TableCell sx={{ px: 2, py: 0 }}>
+                        <MetricScoreSkeleton />
+                      </TableCell>
+                      <TableCell sx={{ px: 2, py: 0 }}>
+                        <MetricScoreSkeleton />
+                      </TableCell>
+                      <TableCell sx={{ px: 2, py: 0 }}>
+                        <MetricScoreSkeleton />
+                      </TableCell>
+                      <TableCell sx={{ px: 2, py: 0 }}>
+                        <MetricScoreSkeleton />
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={({ tokens: t }) => ({
+                          position: "sticky",
+                          right: 0,
+                          zIndex: 2,
+                          bgcolor: t.semantic.color.background.base.value,
+                          verticalAlign: "middle",
+                        })}
+                      >
+                        <IconButton size="small" aria-label="Row actions" disabled>
+                          <MoreIcon aria-hidden />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : visibleRows.map((row) => {
+                    const isScenario = row.kind === "scenario";
+                    const idleMode = aiScoringPhase === "idle";
+                    const impactValue = idleMode
+                      ? row.kind === "cyberRisk"
+                        ? previewImpactByGroupId.get(row.groupId) ?? null
+                        : row.impact
+                      : row.kind === "cyberRisk"
+                        ? aggregationMethod
+                          ? aggregatedByGroupId.get(row.groupId)?.impact ?? null
+                          : null
+                        : row.impact;
+                    return (
+                      <TableRow
+                        key={row.id}
+                        hover={isScenario}
+                        tabIndex={isScenario ? 0 : undefined}
+                        aria-label={
+                          isScenario
+                            ? `Open ${row.tag}: ${row.id}. Press Enter to view scoring rationale.`
+                            : undefined
+                        }
+                        onClick={() => {
+                          if (isScenario) goToScenario(row.id);
+                        }}
+                        onKeyDown={(e) => {
+                          if (!isScenario) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            goToScenario(row.id);
+                          }
+                        }}
+                        sx={
+                          isScenario
+                            ? ({ tokens: t }) => ({
+                                cursor: "pointer",
+                                "&.MuiTableRow-hover:hover": {
+                                  backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
+                                },
+                                "&.MuiTableRow-hover:hover .MuiTableCell-root": {
+                                  backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
+                                },
+                                "&:focus-visible": {
+                                  outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
+                                  outlineOffset: -2,
+                                },
+                              })
+                            : undefined
+                        }
+                      >
+                        <TableCell
+                          sx={({ tokens: t }) => ({
+                            position: "sticky",
+                            left: 0,
+                            zIndex: 2,
+                            bgcolor: t.semantic.color.background.base.value,
+                            width: 420,
+                            minWidth: 320,
+                            maxWidth: 420,
+                            whiteSpace: "normal",
+                            wordBreak: "break-word",
+                            overflowWrap: "break-word",
+                          })}
+                        >
+                          <NameCell
+                            row={row}
+                            expanded={expanded[row.groupId] !== false}
+                            onToggle={() => toggleGroup(row.groupId)}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ px: 2, py: 0 }}>
+                          <RiskLegendCell value={impactValue} />
+                        </TableCell>
+                        <TableCell sx={{ px: 2, py: 0 }}>
+                          <RiskLegendCell
+                            value={
+                              idleMode
+                                ? null
+                                : row.kind === "cyberRisk"
+                                  ? aggregationMethod
+                                    ? aggregatedByGroupId.get(row.groupId)?.threat ?? null
+                                    : null
+                                  : row.threat
+                            }
+                          />
+                        </TableCell>
+                        <TableCell sx={{ px: 2, py: 0 }}>
+                          <RiskLegendCell
+                            value={
+                              idleMode
+                                ? null
+                                : row.kind === "cyberRisk"
+                                  ? aggregationMethod
+                                    ? aggregatedByGroupId.get(row.groupId)?.vulnerability ?? null
+                                    : null
+                                  : row.vulnerability
+                            }
+                          />
+                        </TableCell>
+                        <TableCell sx={{ px: 2, py: 0 }}>
+                          <RiskLegendCell
+                            value={
+                              idleMode
+                                ? null
+                                : row.kind === "cyberRisk"
+                                  ? aggregationMethod
+                                    ? aggregatedByGroupId.get(row.groupId)?.likelihood ?? null
+                                    : null
+                                  : row.likelihood
+                            }
+                          />
+                        </TableCell>
+                        <TableCell sx={{ px: 2, py: 0 }}>
+                          <RiskLegendCell
+                            value={
+                              idleMode
+                                ? null
+                                : row.kind === "cyberRisk"
+                                  ? aggregationMethod
+                                    ? aggregatedByGroupId.get(row.groupId)?.cyberRiskScore ?? null
+                                    : null
+                                  : row.cyberRiskScore
+                            }
+                          />
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={({ tokens: t }) => ({
+                            position: "sticky",
+                            right: 0,
+                            zIndex: 2,
+                            bgcolor: t.semantic.color.background.base.value,
+                            verticalAlign: "middle",
+                          })}
+                        >
+                          <IconButton
+                            size="small"
+                            aria-label="Row actions"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreIcon aria-hidden />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
             </TableBody>
           </Table>
         </TableContainer>

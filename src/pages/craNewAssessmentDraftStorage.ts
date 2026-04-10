@@ -7,6 +7,9 @@ export type AssessmentPhase =
   | "overdue"
   | "assessmentApproved";
 
+/** AI scoring flow on the Scoring tab (Scoring phase / Overdue). */
+export type AiScoringPhase = "idle" | "processing" | "complete";
+
 type ScopeSubView =
   | "overview"
   | "assets"
@@ -33,6 +36,8 @@ export type CraNewAssessmentPersistedDraft = {
   scopeSubView: ScopeSubView;
   /** Asset ids included in assessment scope (AST-###). */
   includedScopeAssetIds: string[];
+  /** AI scoring CTA/table state; `processing` is not restored after reload. */
+  aiScoringPhase: AiScoringPhase;
 };
 
 function isAssessmentPhase(v: unknown): v is AssessmentPhase {
@@ -43,6 +48,10 @@ function isAssessmentPhase(v: unknown): v is AssessmentPhase {
     v === "overdue" ||
     v === "assessmentApproved"
   );
+}
+
+function isAiScoringPhase(v: unknown): v is AiScoringPhase {
+  return v === "idle" || v === "processing" || v === "complete";
 }
 
 function isScopeSubView(v: unknown): v is ScopeSubView {
@@ -79,6 +88,12 @@ function sanitizeDraft(raw: CraNewAssessmentPersistedDraft): CraNewAssessmentPer
   const includedScopeAssetIds = Array.isArray(raw.includedScopeAssetIds)
     ? (raw.includedScopeAssetIds as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
+  let aiScoringPhase: AiScoringPhase = isAiScoringPhase(raw.aiScoringPhase)
+    ? raw.aiScoringPhase
+    : "idle";
+  if (aiScoringPhase === "processing") {
+    aiScoringPhase = "idle";
+  }
   return {
     activeTab,
     assessmentPhase,
@@ -90,6 +105,7 @@ function sanitizeDraft(raw: CraNewAssessmentPersistedDraft): CraNewAssessmentPer
     ownerIds,
     scopeSubView,
     includedScopeAssetIds,
+    aiScoringPhase,
   };
 }
 
@@ -111,6 +127,7 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
       ownerIds: o.ownerIds as string[],
       scopeSubView: o.scopeSubView as ScopeSubView,
       includedScopeAssetIds: o.includedScopeAssetIds as string[],
+      aiScoringPhase: o.aiScoringPhase as AiScoringPhase,
     });
   } catch {
     return null;
@@ -132,7 +149,7 @@ export function assessmentStatusToPhase(status: AssessmentStatus): AssessmentPha
       return "draft";
     case "Scoping":
       return "scoping";
-    case "In progress":
+    case "Scoring":
       return "inProgress";
     case "Approved":
       return "assessmentApproved";
