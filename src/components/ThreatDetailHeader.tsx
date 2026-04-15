@@ -198,8 +198,7 @@ export default function ThreatDetailHeader({
       >
         <Tab label="Details" id="threat-tab-0" aria-controls="threat-panel-0" />
         <Tab label="Relationships" id="threat-tab-1" aria-controls="threat-panel-1" />
-        <Tab label="Threat intel" id="threat-tab-2" aria-controls="threat-panel-2" />
-        <Tab label="Assessments" id="threat-tab-3" aria-controls="threat-panel-3" />
+        <Tab label="Assessments" id="threat-tab-2" aria-controls="threat-panel-2" />
       </Tabs>
     </Stack>
   );

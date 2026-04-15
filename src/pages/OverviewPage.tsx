@@ -555,7 +555,7 @@ function MostExposedAssetsTable() {
 // Page
 // ===========================================================================
 
-export default function CyberRiskOverviewPage() {
+export default function OverviewPage() {
   return (
     <Container sx={{ py: 2 }}>
       <Stack gap={3}>

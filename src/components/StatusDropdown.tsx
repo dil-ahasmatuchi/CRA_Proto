@@ -10,7 +10,7 @@ import {
   useTheme,
 } from "@mui/material";
 import type { Theme } from "@mui/material/styles";
-import { useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 
 export type LensTokens = Theme extends { tokens: infer T } ? T : never;
 
@@ -71,6 +71,11 @@ interface StatusDropdownProps {
   resolveDotFill?: (option: string, tokens: LensTokens) => string;
   /** When set, replaces the default StatusIndicator chip (e.g. custom assessment status styling). */
   renderChip?: (args: { value: string }) => ReactNode;
+  /**
+   * Labels shown in the menu for context only; they are not clickable and do not call `onChange`.
+   * Use for derived or terminal states (e.g. Approved, Overdue).
+   */
+  nonSelectableOptions?: readonly string[];
 }
 
 function statusColorForLabel(
@@ -102,8 +107,13 @@ export default function StatusDropdown({
   colorMap,
   resolveDotFill,
   renderChip,
+  nonSelectableOptions = [],
 }: StatusDropdownProps) {
   const { presets, tokens } = useTheme();
+  const nonSelectableSet = useMemo(
+    () => new Set(nonSelectableOptions),
+    [nonSelectableOptions],
+  );
   const StatusIndicator =
     presets.StatusIndicatorPresets?.components.StatusIndicator ?? StatusIndicatorFallback;
 
@@ -180,6 +190,7 @@ export default function StatusDropdown({
       >
         {options.map((option) => {
           const selected = option === value;
+          const isNonSelectable = nonSelectableSet.has(option);
           const dotFill = resolveDotFill
             ? resolveDotFill(option, tokens)
             : statusDotFill(tokens, statusColorForLabel(option, colorMap));
@@ -187,10 +198,24 @@ export default function StatusDropdown({
           return (
             <MenuItem
               key={option}
+              disabled={isNonSelectable}
               selected={selected}
               role="option"
               aria-selected={selected}
-              onClick={() => handleSelect(option)}
+              onClick={() => {
+                if (!isNonSelectable) handleSelect(option);
+              }}
+              sx={
+                isNonSelectable
+                  ? ({ tokens: t }) => ({
+                      "&.Mui-disabled": {
+                        opacity: 1,
+                        color: t.semantic.color.type.default.value,
+                        WebkitTextFillColor: t.semantic.color.type.default.value,
+                      },
+                    })
+                  : undefined
+              }
             >
               <ListItemIcon
                 sx={{

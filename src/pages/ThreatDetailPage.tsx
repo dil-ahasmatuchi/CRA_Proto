@@ -624,19 +624,6 @@ export default function ThreatDetailPage() {
             aria-labelledby="threat-tab-2"
             sx={{ py: 3 }}
           >
-            <Typography variant="textMd" sx={({ tokens }) => ({ color: tokens.semantic.color.type.muted.value })}>
-              Threat intelligence sources and context will appear here.
-            </Typography>
-          </Box>
-        )}
-
-        {tab === 3 && (
-          <Box
-            role="tabpanel"
-            id="threat-panel-3"
-            aria-labelledby="threat-tab-3"
-            sx={{ py: 3 }}
-          >
             <ThreatDetailAssessmentsTab threatId={threat.id} threatAssetIds={threat.assetIds} />
           </Box>
         )}

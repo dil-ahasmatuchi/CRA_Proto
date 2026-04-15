@@ -127,6 +127,7 @@ function buildScenarios(): MockScenario[] {
   let seq = 0;
 
   for (const risk of cyberRisks) {
+    // `risk.assetIds` is the union of assets from linked threats; keep in sync in cyberRisks.ts so we do not drop pairs here.
     for (const tid of risk.threatIds) {
       const threat = threatById.get(tid);
       if (!threat) continue;

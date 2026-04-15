@@ -1,4 +1,5 @@
 import type { AssessmentStatus } from "../data/types.js";
+import { scopedScenarios } from "./scopeAssessmentRollup.js";
 
 export type AssessmentPhase =
   | "draft"
@@ -142,6 +143,32 @@ export function saveCraNewAssessmentDraft(draft: CraNewAssessmentPersistedDraft)
   }
 }
 
+/**
+ * When the session draft is in Scoping with scope assets and at least one scoped scenario,
+ * advances phase to inProgress (Scoring) so returning from the scenario page restores the right phase.
+ */
+export function advanceCraPhaseToScoringIfEligible(): void {
+  const draft = loadCraNewAssessmentDraft();
+  if (!draft) return;
+  if (draft.assessmentPhase !== "scoping") return;
+  const assetIds = new Set(draft.includedScopeAssetIds);
+  if (assetIds.size === 0) return;
+  if (scopedScenarios(assetIds).length === 0) return;
+  saveCraNewAssessmentDraft({
+    ...draft,
+    assessmentPhase: "inProgress",
+  });
+}
+
+/** Clears persisted draft (e.g. before a fresh "new assessment" visit). */
+export function clearCraNewAssessmentDraft(): void {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 /** Maps list/grid `AssessmentStatus` to header workflow phase (e.g. when opening an existing mock assessment). */
 export function assessmentStatusToPhase(status: AssessmentStatus): AssessmentPhase {
   switch (status) {
@@ -157,5 +184,21 @@ export function assessmentStatusToPhase(status: AssessmentStatus): AssessmentPha
       return "overdue";
     default:
       return "draft";
+  }
+}
+
+/** Inverse of {@link assessmentStatusToPhase} for the current CRA workflow. */
+export function assessmentPhaseToAssessmentStatus(phase: AssessmentPhase): AssessmentStatus {
+  switch (phase) {
+    case "draft":
+      return "Draft";
+    case "scoping":
+      return "Scoping";
+    case "inProgress":
+      return "Scoring";
+    case "overdue":
+      return "Overdue";
+    case "assessmentApproved":
+      return "Approved";
   }
 }

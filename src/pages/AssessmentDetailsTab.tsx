@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -6,6 +6,9 @@ import {
   FormControl,
   IconButton,
   InputAdornment,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -17,21 +20,35 @@ import CalendarIcon from "@diligentcorp/atlas-react-bundle/icons/Calendar";
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
 
 import NewCyberRiskAssessmentMethodSection from "./NewCyberRiskAssessmentMethodSection.js";
-import NewCyberRiskAssessmentScoringTab from "./NewCyberRiskAssessmentScoringTab.js";
-import NewCyberRiskAssessmentResultsTab from "./NewCyberRiskAssessmentResultsTab.js";
-import NewCyberRiskAssessmentScopeTab, {
+import AssessmentScoringTab from "./AssessmentScoringTab.js";
+import AssessmentResultsTab from "./AssessmentResultsTab.js";
+import AssessmentScopeTab, {
   type ScopeSubView,
-} from "./NewCyberRiskAssessmentScopeTab.js";
+} from "./AssessmentScopeTab.js";
 import {
   assessmentStatusToPhase,
+  clearCraNewAssessmentDraft,
   loadCraNewAssessmentDraft,
   saveCraNewAssessmentDraft,
   type AiScoringPhase,
   type AssessmentPhase,
 } from "./craNewAssessmentDraftStorage.js";
+import { scopedScenarios } from "./scopeAssessmentRollup.js";
 import { getRiskAssessmentById } from "../data/riskAssessments.js";
 import AssessmentDetailHeader from "../components/AssessmentDetailHeader.js";
 import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
+
+const ASSESSMENT_TYPE_OPTIONS = [
+  "Cyber risk assessment",
+  "Enterprise risk assessment",
+] as const;
+
+const DEFAULT_NEW_ASSESSMENT_NAME = "New cyber risk assessment";
+const DEFAULT_NEW_OWNER_ID = users[0]!.id;
+
+function isStandardAssessmentType(value: string): boolean {
+  return (ASSESSMENT_TYPE_OPTIONS as readonly string[]).includes(value);
+}
 
 /** Atlas user-lookup `Autocomplete` option shape (`OptionType.user`). */
 type AssessmentOwnerLookupOption = {
@@ -74,20 +91,24 @@ function TabPanel({
   children,
   value,
   index,
+  sx,
 }: {
   children: React.ReactNode;
   value: number;
   index: number;
+  sx?: React.ComponentProps<typeof Box>["sx"];
 }) {
   return (
-    <div
+    <Box
+      component="div"
       role="tabpanel"
       hidden={value !== index}
       id={`new-cra-tabpanel-${index}`}
       aria-labelledby={`new-cra-tab-${index}`}
+      sx={sx}
     >
       {value === index ? children : null}
-    </div>
+    </Box>
   );
 }
 
@@ -107,7 +128,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function NewCyberRiskAssessmentPage() {
+export default function AssessmentDetailsTab() {
   const location = useLocation();
   const navigate = useNavigate();
   const { assessmentId: routeAssessmentId } = useParams();
@@ -127,65 +148,69 @@ export default function NewCyberRiskAssessmentPage() {
   const [activeTab, setActiveTab] = useState(() => {
     if (initialDraft) return initialDraft.activeTab;
     if (mockFromRoute) return 0;
-    return loadCraNewAssessmentDraft()?.activeTab ?? 0;
+    return 0;
   });
-  /** Draft → Scoping → Scoring → Approved assessment → Done (navigate to list). */
+  /** Draft → Scoping → Scoring → Approved → Done (navigate to list). */
   const [assessmentPhase, setAssessmentPhase] = useState<AssessmentPhase>(() => {
     if (initialDraft) return initialDraft.assessmentPhase;
     if (mockFromRoute) return assessmentStatusToPhase(mockFromRoute.status);
-    return loadCraNewAssessmentDraft()?.assessmentPhase ?? "draft";
+    return "draft";
   });
   const [name, setName] = useState(() => {
     if (initialDraft) return initialDraft.name;
     if (mockFromRoute) return mockFromRoute.name;
-    return loadCraNewAssessmentDraft()?.name ?? "";
+    return DEFAULT_NEW_ASSESSMENT_NAME;
   });
   const [assessmentId, setAssessmentId] = useState(() => {
     if (initialDraft) return initialDraft.assessmentId;
     if (mockFromRoute) return mockFromRoute.id;
-    return loadCraNewAssessmentDraft()?.assessmentId ?? "";
+    return "";
   });
   const [assessmentType, setAssessmentType] = useState(() => {
     if (initialDraft) return initialDraft.assessmentType;
     if (mockFromRoute) return mockFromRoute.assessmentType;
-    return loadCraNewAssessmentDraft()?.assessmentType ?? "";
-  });
-  const [startDate, setStartDate] = useState(() => {
-    if (initialDraft) return initialDraft.startDate;
-    if (mockFromRoute) return mockFromRoute.startDate;
-    return loadCraNewAssessmentDraft()?.startDate ?? "";
+    return ASSESSMENT_TYPE_OPTIONS[0];
   });
   const [dueDate, setDueDate] = useState(() => {
     if (initialDraft) return initialDraft.dueDate;
     if (mockFromRoute) return mockFromRoute.dueDate;
-    return loadCraNewAssessmentDraft()?.dueDate ?? "";
+    return "";
   });
   const [ownerIds, setOwnerIds] = useState<string[]>(() => {
     if (initialDraft) return initialDraft.ownerIds;
     if (mockFromRoute) return [mockFromRoute.ownerId];
-    return loadCraNewAssessmentDraft()?.ownerIds ?? [];
+    return [DEFAULT_NEW_OWNER_ID];
   });
   /** Scope tab: card overview vs assets data grid (drives PageHeader). */
   const [scopeSubView, setScopeSubView] = useState<ScopeSubView>(() => {
     if (initialDraft) return initialDraft.scopeSubView;
     if (mockFromRoute) return "overview";
-    return loadCraNewAssessmentDraft()?.scopeSubView ?? "overview";
+    return "overview";
   });
 
   const [includedScopeAssetIds, setIncludedScopeAssetIds] = useState<Set<string>>(() => {
     if (initialDraft) return new Set(initialDraft.includedScopeAssetIds ?? []);
     if (mockFromRoute) return new Set(mockFromRoute.assetIds);
-    const d = loadCraNewAssessmentDraft();
-    return new Set(d?.includedScopeAssetIds ?? []);
+    return new Set();
   });
 
   const [aiScoringPhase, setAiScoringPhase] = useState<AiScoringPhase>(() => {
     if (mockFromRoute) return "idle";
     if (initialDraft) return initialDraft.aiScoringPhase;
-    return loadCraNewAssessmentDraft()?.aiScoringPhase ?? "idle";
+    return "idle";
   });
 
   const aiScoringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const needsInitialDraftClear =
+    !routeAssessmentId &&
+    mockFromRoute == null &&
+    !isReturningFromScenario;
+
+  useLayoutEffect(() => {
+    if (!needsInitialDraftClear) return;
+    clearCraNewAssessmentDraft();
+  }, [needsInitialDraftClear]);
 
   const toggleAssetIncluded = useCallback((assetId: string, included: boolean) => {
     setIncludedScopeAssetIds((prev) => {
@@ -224,6 +249,24 @@ export default function NewCyberRiskAssessmentPage() {
 
   const createdByDisplay = useMemo(() => joinUserFullNames(ownerIds, "—"), [ownerIds]);
 
+  useEffect(() => {
+    if (routeAssessmentId) return;
+    if (mockFromRoute != null) return;
+    if (assessmentPhase !== "draft") return;
+    if (includedScopeAssetIds.size === 0) return;
+    setAssessmentPhase("scoping");
+  }, [routeAssessmentId, mockFromRoute, assessmentPhase, includedScopeAssetIds]);
+
+  const showAiScoringAction = useMemo(() => {
+    if (assessmentPhase === "inProgress" || assessmentPhase === "overdue") return true;
+    if (assessmentPhase === "scoping") {
+      return (
+        includedScopeAssetIds.size >= 1 && scopedScenarios(includedScopeAssetIds).length >= 1
+      );
+    }
+    return false;
+  }, [assessmentPhase, includedScopeAssetIds]);
+
   const handleSaveDraft = useCallback(() => {
     if (routeAssessmentId) return;
     saveCraNewAssessmentDraft({
@@ -232,7 +275,7 @@ export default function NewCyberRiskAssessmentPage() {
       name,
       assessmentId,
       assessmentType,
-      startDate,
+      startDate: "",
       dueDate,
       ownerIds,
       scopeSubView,
@@ -246,7 +289,6 @@ export default function NewCyberRiskAssessmentPage() {
     name,
     assessmentId,
     assessmentType,
-    startDate,
     dueDate,
     ownerIds,
     scopeSubView,
@@ -255,6 +297,15 @@ export default function NewCyberRiskAssessmentPage() {
   ]);
 
   const handleAiScoringClick = useCallback(() => {
+    if (assessmentPhase === "scoping") {
+      if (
+        includedScopeAssetIds.size < 1 ||
+        scopedScenarios(includedScopeAssetIds).length < 1
+      ) {
+        return;
+      }
+      setAssessmentPhase("inProgress");
+    }
     setAiScoringPhase((prev) => {
       if (prev !== "idle") return prev;
       if (aiScoringTimerRef.current) {
@@ -266,7 +317,7 @@ export default function NewCyberRiskAssessmentPage() {
       }, 3000);
       return "processing";
     });
-  }, []);
+  }, [assessmentPhase, includedScopeAssetIds]);
 
   useEffect(() => {
     return () => {
@@ -316,9 +367,13 @@ export default function NewCyberRiskAssessmentPage() {
         <AssessmentDetailHeader
           assessmentName={name}
           assessmentId={assessmentId}
-          startDate={startDate}
           dueDate={dueDate}
+          createdAtDisplay={mockFromRoute ? mockFromRoute.startDate : "—"}
           createdBy={createdByDisplay}
+          lastUpdatedAtDisplay={mockFromRoute ? mockFromRoute.dueDate : "—"}
+          lastUpdatedByDisplay={
+            mockFromRoute ? joinUserFullNames([mockFromRoute.ownerId]) : "—"
+          }
           assessmentPhase={assessmentPhase}
           onPhaseChange={(phase) => {
             setAssessmentPhase(phase);
@@ -330,7 +385,6 @@ export default function NewCyberRiskAssessmentPage() {
           onScopeDetailDone={() => setScopeSubView("overview")}
           onSave={handleSaveDraft}
           aiScoringPhase={aiScoringPhase}
-          onAiScoringClick={handleAiScoringClick}
         />
 
         <TabPanel value={activeTab} index={0}>
@@ -374,7 +428,7 @@ export default function NewCyberRiskAssessmentPage() {
                         letterSpacing: "0.3px",
                       })}
                     >
-                      ID
+                      Custom ID
                     </Typography>
                     <Typography
                       variant="caption"
@@ -392,20 +446,31 @@ export default function NewCyberRiskAssessmentPage() {
                     value={assessmentId}
                     onChange={(e) => setAssessmentId(e.target.value)}
                     placeholder="e.g. CRA-001"
-                    aria-label="Assessment ID"
+                    aria-label="Custom ID"
                   />
                 </Stack>
               </Box>
               <Box sx={{ flex: { md: "3 1 0" }, minWidth: { xs: "100%", md: 200 } }}>
-                <TextField
-                  fullWidth
-                  label="Assessment type"
-                  size="medium"
-                  value={assessmentType}
-                  onChange={(e) => setAssessmentType(e.target.value)}
-                  placeholder="e.g. Full assessment"
-                  aria-label="Assessment type"
-                />
+                <FormControl fullWidth>
+                  <InputLabel id="cra-assessment-type-label">Assessment type</InputLabel>
+                  <Select
+                    labelId="cra-assessment-type-label"
+                    id="cra-assessment-type"
+                    label="Assessment type"
+                    value={assessmentType}
+                    onChange={(e) => setAssessmentType(e.target.value)}
+                    aria-label="Assessment type"
+                  >
+                    {!isStandardAssessmentType(assessmentType) && assessmentType ? (
+                      <MenuItem value={assessmentType}>{assessmentType}</MenuItem>
+                    ) : null}
+                    {ASSESSMENT_TYPE_OPTIONS.map((opt) => (
+                      <MenuItem key={opt} value={opt}>
+                        {opt}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Box>
             </Stack>
 
@@ -436,46 +501,6 @@ export default function NewCyberRiskAssessmentPage() {
             <Stack gap={2}>
               <SectionHeading>Scheduling</SectionHeading>
               <Stack direction={{ xs: "column", sm: "row" }} gap={3} flexWrap="wrap">
-                <Box sx={{ flex: { sm: "1 1 240px" }, minWidth: 194, maxWidth: 400 }}>
-                  <Stack gap={1}>
-                    <Typography
-                      variant="caption"
-                      fontWeight={600}
-                      sx={({ tokens: t }) => ({
-                        color: t.semantic.color.type.default.value,
-                        letterSpacing: "0.3px",
-                      })}
-                    >
-                      Start date
-                    </Typography>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      placeholder="e.g. 02 Feb 2026"
-                      aria-label="Start date"
-                      slotProps={{
-                        input: {
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                size="small"
-                                aria-label="Clear start date"
-                                onClick={() => setStartDate("")}
-                              >
-                                <CloseIcon fontSize="small" aria-hidden />
-                              </IconButton>
-                              <IconButton size="small" aria-label="Open calendar">
-                                <CalendarIcon aria-hidden />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        },
-                      }}
-                    />
-                  </Stack>
-                </Box>
                 <Box sx={{ flex: { sm: "1 1 240px" }, minWidth: 194, maxWidth: 400 }}>
                   <Stack gap={1}>
                     <Typography
@@ -524,7 +549,7 @@ export default function NewCyberRiskAssessmentPage() {
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
-          <NewCyberRiskAssessmentScopeTab
+          <AssessmentScopeTab
             scopeSubView={scopeSubView}
             onScopeSubViewChange={setScopeSubView}
             includedAssetIds={includedScopeAssetIds}
@@ -532,15 +557,29 @@ export default function NewCyberRiskAssessmentPage() {
             onBulkAssetIdsIncluded={bulkSetAssetsIncluded}
           />
         </TabPanel>
-        <TabPanel value={activeTab} index={2}>
-          <NewCyberRiskAssessmentScoringTab
+        <TabPanel
+          value={activeTab}
+          index={2}
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <AssessmentScoringTab
             assessmentName={name}
             includedAssetIds={includedScopeAssetIds}
             aiScoringPhase={aiScoringPhase}
+            showAiScoringAction={showAiScoringAction}
+            onAiScoringClick={handleAiScoringClick}
+            onGoToScope={() => setActiveTab(SCOPE_TAB_INDEX)}
           />
         </TabPanel>
         <TabPanel value={activeTab} index={3}>
-          <NewCyberRiskAssessmentResultsTab includedAssetIds={includedScopeAssetIds} />
+          <AssessmentResultsTab
+            includedAssetIds={includedScopeAssetIds}
+            onGoToScoring={() => setActiveTab(SCORING_TAB_INDEX)}
+          />
         </TabPanel>
       </Stack>
     </Container>

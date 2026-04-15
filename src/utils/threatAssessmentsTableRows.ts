@@ -1,4 +1,4 @@
-import { riskAssessments } from "../data/riskAssessments.js";
+import { getRiskAssessmentsForThreatId } from "../data/riskAssessments.js";
 import { getAssetById } from "../data/assets.js";
 import { scenarios } from "../data/scenarios.js";
 import {
@@ -96,7 +96,7 @@ export function buildThreatAssessmentGridRows(
   threatId: string,
   threatAssetIds: string[],
 ): ThreatAssessmentGridRow[] {
-  const list = riskAssessments.filter((a) => a.threatIds.includes(threatId));
+  const list = getRiskAssessmentsForThreatId(threatId);
 
   return list.map((a) => {
     let maxThreatSev: FivePointScaleValue | null = null;

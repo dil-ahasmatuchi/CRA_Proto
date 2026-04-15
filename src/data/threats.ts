@@ -7,29 +7,236 @@ import type {
   ThreatSource,
   ThreatStatus,
   ThreatDomain,
-  MockVulnerability,
-  MockAsset,
 } from "./types.js";
 import { assets } from "./assets.js";
 import { vulnerabilities } from "./vulnerabilities.js";
 import { users } from "./users.js";
 
 /**
- * One row per asset vulnerability chunk (1–2 threats per asset). Each threat is scoped to a single
- * asset. Titles include the asset name so catalog rows stay distinct.
- * `applyCrossEntityLinks` syncs asset ↔ vulnerability ↔ threat.
+ * 25 library threats with many-to-many links to assets (8–20 assets per threat, 2–5 threats per asset).
+ * `applyCrossEntityLinks` syncs asset ↔ vulnerability ↔ threat. Cyber risk / control mirrors are filled later.
  */
 
-type ThreatTemplate = {
+type ThreatSeed = {
   title: string;
   sources: ThreatSource[];
   status: ThreatStatus;
   domain: ThreatDomain;
 };
 
-function buildThreatDescription(
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const TOTAL_THREAT_ASSET_EDGES = 400;
+
+type FlowEdge = { to: number; rev: number; cap: number };
+
+function addFlowEdge(g: FlowEdge[][], from: number, to: number, cap: number): void {
+  const fwd: FlowEdge = { to, rev: g[to].length, cap };
+  const back: FlowEdge = { to: from, rev: g[from].length, cap: 0 };
+  g[from].push(fwd);
+  g[to].push(back);
+}
+
+/** Dinic max flow; graph is mutated (residual capacities). */
+function dinicMaxFlow(g: FlowEdge[][], s: number, t: number): number {
+  const n = g.length;
+  let flow = 0;
+  const level = new Int32Array(n);
+  const ptr = new Int32Array(n);
+
+  const bfs = (): boolean => {
+    level.fill(-1);
+    level[s] = 0;
+    const q: number[] = [s];
+    for (let qi = 0; qi < q.length; qi++) {
+      const v = q[qi]!;
+      for (const e of g[v]) {
+        if (e.cap > 0 && level[e.to] < 0) {
+          level[e.to] = level[v] + 1;
+          q.push(e.to);
+        }
+      }
+    }
+    return level[t] >= 0;
+  };
+
+  const dfs = (v: number, f: number): number => {
+    if (v === t) return f;
+    for (; ptr[v]! < g[v].length; ptr[v]!++) {
+      const e = g[v][ptr[v]!]!;
+      if (e.cap > 0 && level[v]! < level[e.to]!) {
+        const ret = dfs(e.to, Math.min(f, e.cap));
+        if (ret > 0) {
+          e.cap -= ret;
+          g[e.to][e.rev]!.cap += ret;
+          return ret;
+        }
+      }
+    }
+    return 0;
+  };
+
+  const INF = 1_000_000_000;
+  while (bfs()) {
+    ptr.fill(0);
+    let pushed: number;
+    while ((pushed = dfs(s, INF)) > 0) {
+      flow += pushed;
+    }
+  }
+  return flow;
+}
+
+/** Start at 16 edges per threat (sum 400); random pairwise transfers keep sum and keep each threat in 8–20. */
+function variedThreatDegrees(): number[] {
+  const rng = mulberry32(13579);
+  const deg = new Array(25).fill(16);
+  for (let iter = 0; iter < 400; iter++) {
+    const i = Math.floor(rng() * 25);
+    const j = Math.floor(rng() * 25);
+    if (i === j) continue;
+    if (deg[i]! > 8 && deg[j]! < 20) {
+      deg[i]!--;
+      deg[j]!++;
+    } else if (deg[i]! < 20 && deg[j]! > 8) {
+      deg[i]!++;
+      deg[j]!--;
+    }
+  }
+  const sum = deg.reduce((a, b) => a + b, 0);
+  if (sum !== TOTAL_THREAT_ASSET_EDGES) {
+    throw new Error(`Threat degree sum ${sum} !== ${TOTAL_THREAT_ASSET_EDGES}`);
+  }
+  for (const d of deg) {
+    if (d < 8 || d > 20) {
+      throw new Error(`Threat degree ${d} out of [8,20] range`);
+    }
+  }
+  return deg;
+}
+
+/** Asset stubs sum to `totalEdges`; each asset degree in [2, 5]. */
+function buildAssetDegrees(totalEdges: number, rng: () => number): number[] {
+  const minSum = 300;
+  const extra = totalEdges - minSum;
+  if (extra < 0 || extra > 150 * 3) {
+    throw new Error(`Cannot realize asset degrees for ${totalEdges} edges`);
+  }
+  const aDeg = new Array(150).fill(2);
+  let rem = extra;
+  let guard = 0;
+  while (rem > 0 && guard < 50_000) {
+    guard++;
+    const j = Math.floor(rng() * 150);
+    if (aDeg[j]! < 5) {
+      aDeg[j]!++;
+      rem--;
+    }
+  }
+  for (let j = 0; j < 150 && rem > 0; j++) {
+    while (aDeg[j]! < 5 && rem > 0) {
+      aDeg[j]++;
+      rem--;
+    }
+  }
+  if (rem !== 0) {
+    throw new Error("Could not assign asset degrees");
+  }
+  const s = aDeg.reduce((a, b) => a + b, 0);
+  if (s !== totalEdges) {
+    throw new Error(`Asset degree sum ${s} !== ${totalEdges}`);
+  }
+  return aDeg;
+}
+
+/**
+ * Bipartite realization: each threat has 8–20 assets (varied); each asset has 2–5 threats.
+ * Total edges fixed at 400. Uses a max-flow construction (simple bipartite graph) so a realization
+ * is found whenever the degree sequences admit one (unlike random configuration pairing).
+ */
+function buildThreatAssetEdges(): Array<[number, number]> {
+  const tDeg = variedThreatDegrees();
+  const rngDeg = mulberry32(24680);
+  const aDeg = buildAssetDegrees(TOTAL_THREAT_ASSET_EDGES, rngDeg);
+
+  const S = 0;
+  const T = 26 + 150;
+  const n = T + 1;
+  const g: FlowEdge[][] = Array.from({ length: n }, () => []);
+  const tid = (t: number) => 1 + t;
+  const aid = (a: number) => 26 + a;
+
+  for (let t = 0; t < 25; t++) {
+    addFlowEdge(g, S, tid(t), tDeg[t]!);
+  }
+  for (let t = 0; t < 25; t++) {
+    for (let a = 0; a < 150; a++) {
+      addFlowEdge(g, tid(t), aid(a), 1);
+    }
+  }
+  for (let a = 0; a < 150; a++) {
+    addFlowEdge(g, aid(a), T, aDeg[a]!);
+  }
+
+  const flow = dinicMaxFlow(g, S, T);
+  if (flow !== TOTAL_THREAT_ASSET_EDGES) {
+    throw new Error(
+      `Threat↔asset max flow ${flow} !== ${TOTAL_THREAT_ASSET_EDGES}; degree sequences may be unrealizable`,
+    );
+  }
+
+  const edges: Array<[number, number]> = [];
+  for (let t = 0; t < 25; t++) {
+    const v = tid(t);
+    for (const e of g[v]) {
+      if (e.to >= 26 && e.to < T && e.cap === 0) {
+        edges.push([t, e.to - 26]);
+      }
+    }
+  }
+  if (edges.length !== TOTAL_THREAT_ASSET_EDGES) {
+    throw new Error(`Expected ${TOTAL_THREAT_ASSET_EDGES} threat↔asset edges, got ${edges.length}`);
+  }
+  return edges;
+}
+
+const LIBRARY_THREATS: ThreatSeed[] = [
+  { title: "Account takeover and session abuse", sources: ["Deliberate"], status: "Active", domain: "Identity & Access Management" },
+  { title: "Automated credential stuffing campaigns", sources: ["Deliberate"], status: "Active", domain: "Identity & Access Management" },
+  { title: "Ransomware and destructive malware", sources: ["Deliberate"], status: "Active", domain: "Endpoint & Device" },
+  { title: "Phishing and business email compromise", sources: ["Deliberate"], status: "Active", domain: "People & Workforce" },
+  { title: "API abuse and excessive data harvesting", sources: ["Deliberate"], status: "Active", domain: "Application & API" },
+  { title: "Distributed denial-of-service attacks", sources: ["Deliberate", "Environmental"], status: "Active", domain: "Network & Infrastructure" },
+  { title: "Supply chain and third-party software compromise", sources: ["Accidental", "Deliberate"], status: "Active", domain: "Supply Chain & Third Party" },
+  { title: "Cloud misconfiguration and public exposure", sources: ["Accidental"], status: "Active", domain: "Cloud & Virtualisation" },
+  { title: "Insider data exfiltration", sources: ["Deliberate"], status: "Active", domain: "Data & Information" },
+  { title: "Physical intrusion and device theft", sources: ["Deliberate"], status: "Draft", domain: "Physical & Facilities" },
+  { title: "OT and industrial protocol exploitation", sources: ["Deliberate"], status: "Active", domain: "Operational Technology (OT/ICS)" },
+  { title: "Cryptojacking and resource hijacking", sources: ["Deliberate"], status: "Active", domain: "Cloud & Virtualisation" },
+  { title: "Wireless and rogue access point abuse", sources: ["Deliberate"], status: "Active", domain: "Network & Infrastructure" },
+  { title: "SQL injection and injection-style attacks", sources: ["Deliberate"], status: "Active", domain: "Application & API" },
+  { title: "Privilege escalation via misconfiguration", sources: ["Accidental", "Deliberate"], status: "Active", domain: "Identity & Access Management" },
+  { title: "Data loss through misdelivery and human error", sources: ["Accidental"], status: "Active", domain: "People & Workforce" },
+  { title: "Natural disaster and site loss impacting systems", sources: ["Environmental"], status: "Active", domain: "Physical & Facilities" },
+  { title: "DNS and routing manipulation", sources: ["Deliberate"], status: "Active", domain: "Network & Infrastructure" },
+  { title: "Container escape and host breakout", sources: ["Deliberate"], status: "Draft", domain: "Cloud & Virtualisation" },
+  { title: "AI-assisted social engineering at scale", sources: ["Deliberate"], status: "Active", domain: "People & Workforce" },
+  { title: "Payment fraud and invoice manipulation", sources: ["Deliberate"], status: "Active", domain: "Application & API" },
+  { title: "Legacy protocol and cleartext credential exposure", sources: ["Accidental"], status: "Active", domain: "Network & Infrastructure" },
+  { title: "IoT botnet recruitment and lateral movement", sources: ["Deliberate"], status: "Active", domain: "Operational Technology (OT/ICS)" },
+  { title: "SaaS tenant isolation failure", sources: ["Accidental"], status: "Draft", domain: "Cloud & Virtualisation" },
+  { title: "Nation-state espionage and long dwell time", sources: ["Deliberate"], status: "Active", domain: "Data & Information" },
+];
+
+function buildThreatLibraryDescription(
   title: string,
-  assetName: string,
   domain: ThreatDomain,
   sources: ThreatSource[],
 ): string {
@@ -40,9 +247,9 @@ function buildThreatDescription(
         ? `${sources[0]!.toLowerCase()} drivers`
         : `${sources.map((s) => s.toLowerCase()).join(", ")} drivers`;
   return (
-    `${title} (${assetName}) is a curated threat category in the ${domain} domain. ` +
-    `It covers what can go wrong, how the scenario typically manifests, and which systems, data, or services are most exposed. ` +
-    `Source profile: ${sourceSummary}. Use this entry for top-down risk assessment (ISO 27005 / NIST CSF–aligned libraries).`
+    `${title} is a curated enterprise threat category in the ${domain} domain. ` +
+    `It describes how loss scenarios can manifest across in-scope assets. ` +
+    `Source profile: ${sourceSummary}. Aligned with ISO 27005 / NIST CSF–style libraries.`
   );
 }
 
@@ -83,18 +290,9 @@ function pickAttackVectors(seq: number, domain: ThreatDomain): ThreatAttackVecto
       "Network & Remote Access (VPN, RDP, open ports)",
       "Wireless & Mobile (Wi-Fi, Bluetooth, SMS)",
     ],
-    "Application & API": [
-      "Web Application & Browser",
-      "Cloud Services & APIs",
-    ],
-    "Data & Information": [
-      "Insider / Privileged Access Abuse",
-      "Cloud Services & APIs",
-    ],
-    "Cloud & Virtualisation": [
-      "Cloud Services & APIs",
-      "Supply Chain & Third-Party Software",
-    ],
+    "Application & API": ["Web Application & Browser", "Cloud Services & APIs"],
+    "Data & Information": ["Insider / Privileged Access Abuse", "Cloud Services & APIs"],
+    "Cloud & Virtualisation": ["Cloud Services & APIs", "Supply Chain & Third-Party Software"],
     "Physical & Facilities": ["Physical Access & Removable Media"],
     "Supply Chain & Third Party": [
       "Supply Chain & Third-Party Software",
@@ -130,248 +328,6 @@ function mockAttachmentsForSeq(seq: number): MockThreatAttachment[] {
   ];
 }
 
-const THREAT_TEMPLATES: Record<MockAsset["assetType"], ThreatTemplate[]> = {
-  Application: [
-    {
-      title: "Account takeover attempts",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Identity & Access Management",
-    },
-    {
-      title: "Automated credential attacks",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Identity & Access Management",
-    },
-    {
-      title: "API abuse and scraping",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Application & API",
-    },
-    {
-      title: "Malware delivery via trusted channels",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Application & API",
-    },
-    {
-      title: "Supply chain dependency compromise",
-      sources: ["Accidental"],
-      status: "Active",
-      domain: "Supply Chain & Third Party",
-    },
-  ],
-  Database: [
-    {
-      title: "Unauthorized data extraction",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Data & Information",
-    },
-    {
-      title: "Privilege escalation via shared accounts",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Identity & Access Management",
-    },
-    {
-      title: "Ransomware encryption attempts",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Data & Information",
-    },
-    {
-      title: "Backup and replica exfiltration",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Data & Information",
-    },
-    {
-      title: "SQL and query-layer exploitation",
-      sources: ["Deliberate"],
-      status: "Draft",
-      domain: "Application & API",
-    },
-  ],
-  Server: [
-    {
-      title: "Remote code execution attempts",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Network & Infrastructure",
-    },
-    {
-      title: "Lateral movement via shared credentials",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Identity & Access Management",
-    },
-    {
-      title: "Cryptojacking and resource abuse",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Cloud & Virtualisation",
-    },
-    {
-      title: "Denial-of-service against hosted services",
-      sources: ["Deliberate", "Environmental"],
-      status: "Active",
-      domain: "Network & Infrastructure",
-    },
-    {
-      title: "Misconfiguration exploitation",
-      sources: ["Accidental"],
-      status: "Active",
-      domain: "Cloud & Virtualisation",
-    },
-  ],
-  "Network device": [
-    {
-      title: "Device firmware exploitation",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Network & Infrastructure",
-    },
-    {
-      title: "Routing and control-plane manipulation",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Network & Infrastructure",
-    },
-    {
-      title: "Unauthorized configuration changes",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Identity & Access Management",
-    },
-    {
-      title: "Traffic interception attempts",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Network & Infrastructure",
-    },
-    {
-      title: "Recruitment of appliances into botnets",
-      sources: ["Deliberate"],
-      status: "Draft",
-      domain: "Network & Infrastructure",
-    },
-  ],
-  "Cloud service": [
-    {
-      title: "IAM policy abuse and token theft",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Identity & Access Management",
-    },
-    {
-      title: "Misconfiguration and public exposure exploitation",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Cloud & Virtualisation",
-    },
-    {
-      title: "SaaS session hijacking",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Cloud & Virtualisation",
-    },
-    {
-      title: "Cloud metadata service abuse",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Cloud & Virtualisation",
-    },
-    {
-      title: "Unauthorized workloads and cryptomining",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Cloud & Virtualisation",
-    },
-  ],
-  Endpoint: [
-    {
-      title: "Endpoint malware deployment",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Endpoint & Device",
-    },
-    {
-      title: "Credential theft from endpoints",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Identity & Access Management",
-    },
-    {
-      title: "USB and removable media borne attacks",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Endpoint & Device",
-    },
-    {
-      title: "Lost or stolen device abuse",
-      sources: ["Accidental", "Deliberate"],
-      status: "Active",
-      domain: "People & Workforce",
-    },
-    {
-      title: "Local privilege escalation",
-      sources: ["Deliberate"],
-      status: "Draft",
-      domain: "Endpoint & Device",
-    },
-  ],
-  "IoT device": [
-    {
-      title: "IoT botnet recruitment",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Operational Technology (OT/ICS)",
-    },
-    {
-      title: "Weak default credential abuse",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Identity & Access Management",
-    },
-    {
-      title: "Firmware exploitation",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Operational Technology (OT/ICS)",
-    },
-    {
-      title: "Sensor data interception",
-      sources: ["Deliberate"],
-      status: "Active",
-      domain: "Data & Information",
-    },
-    {
-      title: "Physical tampering and side-channel access",
-      sources: ["Deliberate"],
-      status: "Draft",
-      domain: "Physical & Facilities",
-    },
-  ],
-};
-
-function vulnsForAsset(assetId: string, all: MockVulnerability[]): MockVulnerability[] {
-  return all.filter((v) => v.relationships.assetId === assetId);
-}
-
-/** Split asset vulnerabilities into 1–2 groups (2–3 items each) so each asset has 1–2 threats. */
-function chunkVulnerabilitiesForThreats(vulns: MockVulnerability[]): MockVulnerability[][] {
-  const n = vulns.length;
-  if (n === 0) return [];
-  if (n <= 3) return [vulns];
-  if (n === 4) return [vulns.slice(0, 2), vulns.slice(2, 4)];
-  if (n === 5) return [vulns.slice(0, 3), vulns.slice(3, 5)];
-  if (n === 6) return [vulns.slice(0, 3), vulns.slice(3, 6)];
-  throw new Error(`Unexpected vulnerability count per asset: ${n}`);
-}
-
 function buildThreatRelationships(
   cyberRiskIds: string[],
   assetIds: string[],
@@ -387,52 +343,59 @@ function buildThreatRelationships(
   };
 }
 
+function vulnIdsForAssets(assetIds: string[]): string[] {
+  const set = new Set<string>();
+  const byAsset = new Map<string, string[]>();
+  for (const v of vulnerabilities) {
+    const aid = v.relationships.assetId;
+    const list = byAsset.get(aid) ?? [];
+    list.push(v.id);
+    byAsset.set(aid, list);
+  }
+  for (const aid of assetIds) {
+    for (const vid of byAsset.get(aid) ?? []) set.add(vid);
+  }
+  return [...set];
+}
+
 function buildThreats(): MockThreat[] {
+  const edges = buildThreatAssetEdges();
+  const assetIdxByThreat: string[][] = Array.from({ length: 25 }, () => []);
+
+  for (const [ti, ai] of edges) {
+    assetIdxByThreat[ti]!.push(assets[ai]!.id);
+  }
+
+  const defaultOwnerId = users[0]?.id ?? "USR-001";
   const out: MockThreat[] = [];
-  let seq = 0;
 
-  for (let assetIndex = 0; assetIndex < assets.length; assetIndex++) {
-    const asset = assets[assetIndex]!;
-    const pool = THREAT_TEMPLATES[asset.assetType];
-    const assetVulns = vulnsForAsset(asset.id, vulnerabilities);
-    const chunks = chunkVulnerabilitiesForThreats(assetVulns);
+  for (let i = 0; i < 25; i++) {
+    const seed = LIBRARY_THREATS[i]!;
+    const assetIds = [...assetIdxByThreat[i]!].sort();
+    const vulnerabilityIds = vulnIdsForAssets(assetIds);
+    const seq = i + 1;
+    const description = buildThreatLibraryDescription(seed.title, seed.domain, seed.sources);
 
-    chunks.forEach((chunk, chunkIndex) => {
-      seq += 1;
-      const template = pool[(assetIndex + chunkIndex) % pool.length]!;
-      const vulnerabilityIds = chunk.map((v) => v.id);
-      const assetIds = [asset.id];
-      const cyberRiskIds: string[] = [];
-
-      const sources = template.sources;
-      out.push({
-        id: padId("THR", seq),
-        displayId: `T-${String(seq).padStart(4, "0")}`,
-        name: template.title,
-        ownerIds: [asset.ownerId],
-        domain: template.domain,
-        description: buildThreatDescription(template.title, asset.name, template.domain, sources),
-        sources,
-        threatActors: pickThreatActors(seq, sources),
-        attackVectors: pickAttackVectors(seq, template.domain),
-        status: template.status,
-        attachments: mockAttachmentsForSeq(seq),
-        cyberRiskIds,
-        assetIds,
-        vulnerabilityIds,
-        relationships: buildThreatRelationships(cyberRiskIds, assetIds, vulnerabilityIds),
-      });
+    out.push({
+      id: padId("THR", seq),
+      displayId: `T-${String(seq).padStart(4, "0")}`,
+      name: seed.title,
+      ownerIds: [defaultOwnerId],
+      domain: seed.domain,
+      description,
+      sources: seed.sources,
+      threatActors: pickThreatActors(seq, seed.sources),
+      attackVectors: pickAttackVectors(seq, seed.domain),
+      status: seed.status,
+      attachments: mockAttachmentsForSeq(seq),
+      cyberRiskIds: [],
+      assetIds,
+      vulnerabilityIds,
+      relationships: buildThreatRelationships([], assetIds, vulnerabilityIds),
     });
   }
 
   return out;
-}
-
-const threatsBuilt = buildThreats();
-
-/** Maps assessment seed indices to `THR-###` ids. */
-export function remapThreatIdFromLegacySequential(legacyIndex: number): string {
-  return padId("THR", legacyIndex);
 }
 
 function applyCrossEntityLinks(threatList: MockThreat[]): void {
@@ -451,7 +414,8 @@ function applyCrossEntityLinks(threatList: MockThreat[]): void {
   }
 
   for (const v of vulnerabilities) {
-    const a = assetById.get(v.relationships.assetId);
+    const aid = v.relationships.assetId;
+    const a = assetById.get(aid);
     if (a) {
       a.vulnerabilityIds.push(v.id);
       a.relationships.vulnerabilityIds.push(v.id);
@@ -474,6 +438,13 @@ function applyCrossEntityLinks(threatList: MockThreat[]): void {
       }
     }
   }
+}
+
+const threatsBuilt = buildThreats();
+
+/** Maps assessment seed indices to `THR-###` ids (1-based index). */
+export function remapThreatIdFromLegacySequential(legacyIndex: number): string {
+  return padId("THR", legacyIndex);
 }
 
 export const threats: MockThreat[] = threatsBuilt;
@@ -510,7 +481,6 @@ function notifyThreatListeners(): void {
   for (const cb of threatListeners) cb();
 }
 
-/** Subscribe to catalog mutations (e.g. `addThreat`). For `useSyncExternalStore`. */
 export function subscribeThreats(onStoreChange: () => void): () => void {
   threatListeners.add(onStoreChange);
   return () => {
@@ -518,17 +488,12 @@ export function subscribeThreats(onStoreChange: () => void): () => void {
   };
 }
 
-/** Version bump when `threats` is mutated; pair with `subscribeThreats`. */
 export function getThreatsSnapshotVersion(): number {
   return threatsSnapshotVersion;
 }
 
 const DEFAULT_NEW_THREAT_DOMAIN: ThreatDomain = "Identity & Access Management";
 
-/**
- * Appends a draft threat to the in-memory catalog (prototype).
- * Syncs cross-entity mirrors and notifies subscribers.
- */
 export function addThreat(): MockThreat {
   const defaultOwnerId = users[0]?.id ?? "USR-001";
   const nextNum = nextThreatNumericId();

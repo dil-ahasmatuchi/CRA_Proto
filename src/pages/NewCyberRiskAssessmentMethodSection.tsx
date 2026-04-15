@@ -47,6 +47,11 @@ const QUANTITATIVE_DESCRIPTION = (
   </>
 );
 
+const assessmentMethodFormControlLabelSx = {
+  gap: 0,
+  py: 0,
+} as const;
+
 /**
  * Assessment method, instructions, and attachments — embedded on the Details tab (formerly the Method tab).
  */
@@ -97,6 +102,7 @@ export default function NewCyberRiskAssessmentMethodSection() {
                   value="qualitative"
                   control={<Radio />}
                   label="Qualitative"
+                  sx={assessmentMethodFormControlLabelSx}
                   slotProps={{
                     typography: {
                       sx: ({ tokens: t }) => ({
@@ -140,6 +146,7 @@ export default function NewCyberRiskAssessmentMethodSection() {
                       disabled
                       control={<Radio disabled />}
                       label="Quantitative"
+                      sx={assessmentMethodFormControlLabelSx}
                       slotProps={{
                         typography: {
                           sx: ({ tokens: t }) => ({

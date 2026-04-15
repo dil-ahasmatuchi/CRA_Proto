@@ -167,7 +167,9 @@ export default function ThreatDetailAssessmentsTab({
         renderCell: (params: GridRenderCellParams<ThreatAssessmentGridRow>) => (
           <Link
             component={NavLink}
-            to={ASSESSMENTS_LIST_PATH}
+            to={`${ASSESSMENTS_LIST_PATH}/${params.row.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
             underline="hover"
             sx={({ tokens: t }) => ({
               fontWeight: 600,

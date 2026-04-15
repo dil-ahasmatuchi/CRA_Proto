@@ -2,23 +2,23 @@ import {
   OverflowBreadcrumbs,
   PageHeader,
 } from "@diligentcorp/atlas-react-bundle";
-import {
-  Button,
-  CircularProgress,
-  IconButton,
-  Stack,
-  Tab,
-  Tabs,
-  Typography,
-  useTheme,
-} from "@mui/material";
+import { Button, IconButton, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
+import { useRef } from "react";
 import { NavLink, useNavigate } from "react-router";
 
-import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
+import {
+  assessmentStatusFromDisplayLabel,
+  assessmentStatusLabel,
+} from "../data/assessmentStatusLabels.js";
 import type { AssessmentStatus as AssessmentStatusValue } from "../data/types.js";
-import type { AiScoringPhase, AssessmentPhase } from "../pages/craNewAssessmentDraftStorage.js";
+import {
+  assessmentPhaseToAssessmentStatus,
+  assessmentStatusToPhase,
+  type AiScoringPhase,
+  type AssessmentPhase,
+} from "../pages/craNewAssessmentDraftStorage.js";
 import AssessmentStatus, {
   assessmentStatusDotBackground,
 } from "./AssessmentStatus.js";
@@ -37,43 +37,42 @@ const RESULTS_TAB_INDEX = 3;
 
 const TAB_LABELS = ["Details", "Scope", "Scoring", "Results"] as const;
 
-/** Display labels for assessment phases, in dropdown order. */
-const ASSESSMENT_PHASE_LABELS: Record<AssessmentPhase, string> = {
-  draft: "Draft",
-  scoping: "Scoping",
-  inProgress: "Scoring",
-  overdue: "Overdue",
-  assessmentApproved: "Approved assessment",
-};
+/** Menu order for the status dropdown; Overdue is last. Approved and Overdue are informational only. */
+const STATUS_DROPDOWN_ORDER: readonly AssessmentStatusValue[] = [
+  "Draft",
+  "Scoping",
+  "Scoring",
+  "Approved",
+  "Overdue",
+];
 
-const PHASE_LABEL_TO_PHASE: Record<string, AssessmentPhase> = {
-  Draft: "draft",
-  Scoping: "scoping",
-  Scoring: "inProgress",
-  Overdue: "overdue",
-  "Approved assessment": "assessmentApproved",
-};
+const STATUS_DROPDOWN_OPTIONS = STATUS_DROPDOWN_ORDER.map(assessmentStatusLabel);
 
-/** Maps PageHeader phase labels to canonical list/grid status tokens for `AssessmentStatus` colors. */
-const PHASE_LABEL_TO_ASSESSMENT_STATUS: Record<string, AssessmentStatusValue> = {
-  Draft: "Draft",
-  Scoping: "Scoping",
-  Scoring: "Scoring",
-  Overdue: "Overdue",
-  "Approved assessment": "Approved",
-};
+const NON_SELECTABLE_STATUS_LABELS: readonly string[] = [
+  assessmentStatusLabel("Approved"),
+  assessmentStatusLabel("Overdue"),
+];
 
-const ALL_PHASE_DISPLAY_LABELS = Object.values(ASSESSMENT_PHASE_LABELS);
+/** Random system-style id `CRA-NNN` (001–999), stable for the lifetime of the header instance. */
+function randomCraStyleId(): string {
+  const n = Math.floor(Math.random() * 999) + 1;
+  return `CRA-${String(n).padStart(3, "0")}`;
+}
 
 export type AssessmentDetailHeaderProps = {
   /** Assessment display name (used in breadcrumb + page title). */
   assessmentName: string;
-  /** Meta ID (e.g. "CRA-001"), shown in MetaTag row. */
+  /** User-defined assessment code from details; shown as Custom ID. */
   assessmentId: string;
-  startDate: string;
   dueDate: string;
+  /** Display string for when the assessment was created. */
+  createdAtDisplay: string;
   /** Display name of the created-by user. */
   createdBy: string;
+  /** Display string for last update time. */
+  lastUpdatedAtDisplay: string;
+  /** Display name of the user who last updated the assessment. */
+  lastUpdatedByDisplay: string;
   assessmentPhase: AssessmentPhase;
   onPhaseChange: (phase: AssessmentPhase) => void;
   activeTab: number;
@@ -88,18 +87,18 @@ export type AssessmentDetailHeaderProps = {
   onSave?: () => void;
   /** Tertiary More icon action (main header only). */
   onMoreClick?: () => void;
-  /** Scoring phase / overdue: AI scoring vs Approve assessment (after AI run completes). */
+  /** When scoring/overdue, controls when the header shows "Approve assessment" (after AI run completes). */
   aiScoringPhase?: AiScoringPhase;
-  /** Starts the simulated AI scoring run (idle → processing). */
-  onAiScoringClick?: () => void;
 };
 
 export default function AssessmentDetailHeader({
   assessmentName,
   assessmentId,
-  startDate,
   dueDate,
+  createdAtDisplay,
   createdBy,
+  lastUpdatedAtDisplay,
+  lastUpdatedByDisplay,
   assessmentPhase,
   onPhaseChange,
   activeTab,
@@ -110,14 +109,21 @@ export default function AssessmentDetailHeader({
   onSave = () => {},
   onMoreClick = () => {},
   aiScoringPhase = "complete",
-  onAiScoringClick = () => {},
 }: AssessmentDetailHeaderProps) {
   const navigate = useNavigate();
   const { presets, tokens } = useTheme();
-  const { TabsPresets, CircularProgressPresets } = presets;
+  const { TabsPresets } = presets;
+
+  const generatedSystemIdRef = useRef("");
+  if (!generatedSystemIdRef.current) {
+    generatedSystemIdRef.current = randomCraStyleId();
+  }
+  const systemIdDisplay = generatedSystemIdRef.current;
 
   const pageDisplayTitle = assessmentName.trim() || "New cyber risk assessment";
-  const phaseDisplayLabel = ASSESSMENT_PHASE_LABELS[assessmentPhase];
+  const phaseDisplayLabel = assessmentStatusLabel(
+    assessmentPhaseToAssessmentStatus(assessmentPhase),
+  );
 
   const metaRowInset = `calc(${tokens.component.button.iconOnly.medium.width.value} + ${tokens.component.pageHeader.desktop.mainContent.gap.value})`;
 
@@ -191,23 +197,7 @@ export default function AssessmentDetailHeader({
       >
         Back to scoring
       </Button>
-    ) : inProgressOrOverdue && aiScoringPhase !== "complete" ? (
-      <Button
-        variant="contained"
-        color="ai"
-        size="medium"
-        startIcon={aiScoringPhase === "processing" ? undefined : <AiSparkleIcon aria-hidden />}
-        loading={aiScoringPhase === "processing"}
-        loadingPosition="start"
-        loadingIndicator={
-          <CircularProgress color="inherit" {...CircularProgressPresets.size.sm} />
-        }
-        onClick={onAiScoringClick}
-        aria-busy={aiScoringPhase === "processing"}
-      >
-        AI scoring
-      </Button>
-    ) : (
+    ) : inProgressOrOverdue && aiScoringPhase !== "complete" ? null : (
       <Button
         variant="text"
         size="medium"
@@ -281,22 +271,22 @@ export default function AssessmentDetailHeader({
           scopeDetail ? undefined : (
             <StatusDropdown
               value={phaseDisplayLabel}
-              options={ALL_PHASE_DISPLAY_LABELS}
+              options={[...STATUS_DROPDOWN_OPTIONS]}
+              nonSelectableOptions={NON_SELECTABLE_STATUS_LABELS}
               onChange={(label) => {
-                const phase = PHASE_LABEL_TO_PHASE[label];
-                if (phase) onPhaseChange(phase);
+                const status = assessmentStatusFromDisplayLabel(label);
+                if (status) onPhaseChange(assessmentStatusToPhase(status));
               }}
               aria-label="Assessment status"
               resolveDotFill={(label, t) =>
                 assessmentStatusDotBackground(
-                  PHASE_LABEL_TO_ASSESSMENT_STATUS[label] ?? "Draft",
+                  assessmentStatusFromDisplayLabel(label) ?? "Draft",
                   t,
                 )
               }
               renderChip={({ value: v }) => (
                 <AssessmentStatus
-                  status={PHASE_LABEL_TO_ASSESSMENT_STATUS[v] ?? "Draft"}
-                  label={v}
+                  status={assessmentStatusFromDisplayLabel(v) ?? "Draft"}
                 />
               )}
             />
@@ -324,7 +314,7 @@ export default function AssessmentDetailHeader({
         <Stack
           direction="row"
           component="div"
-          flexWrap="nowrap"
+          flexWrap="wrap"
           gap={1}
           sx={{
             alignItems: "center",
@@ -332,10 +322,13 @@ export default function AssessmentDetailHeader({
             paddingInlineStart: metaRowInset,
           }}
         >
-          <MetaTag label="ID" value={assessmentId || "—"} />
-          <MetaTag label="Start date" value={startDate || "—"} />
+          <MetaTag label="ID" value={systemIdDisplay} />
+          <MetaTag label="Custom ID" value={assessmentId.trim() || "—"} />
           <MetaTag label="Due date" value={dueDate || "—"} />
+          <MetaTag label="Created" value={createdAtDisplay || "—"} />
           <MetaTag label="Created by" value={createdBy || "—"} />
+          <MetaTag label="Last updated" value={lastUpdatedAtDisplay || "—"} />
+          <MetaTag label="Last updated by" value={lastUpdatedByDisplay || "—"} />
         </Stack>
       ) : null}
 
@@ -343,14 +336,6 @@ export default function AssessmentDetailHeader({
         <Tabs
           value={activeTab}
           onChange={(_e, v: number) => {
-            const scopingStarted = assessmentPhase !== "draft";
-            const assessmentStarted =
-              assessmentPhase === "inProgress" ||
-              assessmentPhase === "overdue" ||
-              assessmentPhase === "assessmentApproved";
-            if (v === SCOPE_TAB_INDEX && !scopingStarted) return;
-            if (v === SCORING_TAB_INDEX && !assessmentStarted) return;
-            if (v === RESULTS_TAB_INDEX && !assessmentStarted) return;
             onActiveTabChange(v);
           }}
           className="atlas-size-large"
@@ -362,33 +347,14 @@ export default function AssessmentDetailHeader({
             ...atlasPageHeaderNavigationTabsSx,
           }}
         >
-          {TAB_LABELS.map((label, index) => {
-            const scopingStarted = assessmentPhase !== "draft";
-            const assessmentStarted =
-              assessmentPhase === "inProgress" ||
-              assessmentPhase === "overdue" ||
-              assessmentPhase === "assessmentApproved";
-            const scopeLocked = index === SCOPE_TAB_INDEX && !scopingStarted;
-            const scoringLocked = index === SCORING_TAB_INDEX && !assessmentStarted;
-            const resultsLocked = index === RESULTS_TAB_INDEX && !assessmentStarted;
-            const tabDisabled = scopeLocked || scoringLocked || resultsLocked;
-            return (
-              <Tab
-                key={`${label}-${index}`}
-                label={label}
-                id={`new-cra-tab-${index}`}
-                aria-controls={`new-cra-tabpanel-${index}`}
-                disabled={tabDisabled}
-                sx={
-                  tabDisabled
-                    ? ({ tokens: t }) => ({
-                        color: `${t.semantic.color.type.muted.value} !important`,
-                      })
-                    : undefined
-                }
-              />
-            );
-          })}
+          {TAB_LABELS.map((label, index) => (
+            <Tab
+              key={`${label}-${index}`}
+              label={label}
+              id={`new-cra-tab-${index}`}
+              aria-controls={`new-cra-tabpanel-${index}`}
+            />
+          ))}
         </Tabs>
       ) : null}
     </Stack>

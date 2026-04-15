@@ -51,6 +51,12 @@ export {
   VULNERABILITY_TYPE_OPTIONS,
 } from "./types.js";
 
+export {
+  ASSESSMENT_STATUS_LABELS,
+  assessmentStatusLabel,
+  assessmentStatusFromDisplayLabel,
+} from "./assessmentStatusLabels.js";
+
 // Data collections & lookup helpers
 export { users, getUserById } from "./users.js";
 export { businessUnits, getBusinessUnitById } from "./businessUnits.js";
@@ -71,5 +77,9 @@ export {
 export { controls, getControlById } from "./controls.js";
 export { cyberRisks, getCyberRiskById } from "./cyberRisks.js";
 export { scenarios, getScenarioById } from "./scenarios.js";
-export { riskAssessments, getRiskAssessmentById } from "./riskAssessments.js";
+export {
+  riskAssessments,
+  getRiskAssessmentById,
+  getRiskAssessmentsForThreatId,
+} from "./riskAssessments.js";
 export { mitigationPlans, getMitigationPlanById } from "./mitigationPlans.js";

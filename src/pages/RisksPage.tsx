@@ -502,10 +502,10 @@ function CyberRisksDataGrid() {
 // Page
 // ---------------------------------------------------------------------------
 
-export default function CyberRisksPage() {
+export default function RisksPage() {
   return (
     <Container sx={{ py: 2 }}>
-      <Stack gap={3}>
+      <Stack gap={6}>
         <PageHeader
           pageTitle="Cyber risks"
           breadcrumbs={

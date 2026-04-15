@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SectionHeader, Footer } from "@diligentcorp/atlas-react-bundle";
+
+import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
 import {
   Box,
   Button,
@@ -1051,10 +1053,12 @@ const OVERVIEW_SCOPE_OPTIONS: { value: OverviewScope; label: string }[] = [
   { value: "riskScenarios", label: "Risk scenarios" },
 ];
 
-export default function NewCyberRiskAssessmentResultsTab({
+export default function AssessmentResultsTab({
   includedAssetIds,
+  onGoToScoring,
 }: {
   includedAssetIds: Set<string>;
+  onGoToScoring: () => void;
 }) {
   const [overviewScope, setOverviewScope] = useState<OverviewScope>("cyberRisks");
   const [overviewMenuAnchor, setOverviewMenuAnchor] = useState<null | HTMLElement>(null);
@@ -1113,6 +1117,14 @@ export default function NewCyberRiskAssessmentResultsTab({
     }
     return out;
   }, [expandedGroups, cyberResultRows]);
+
+  if (includedAssetIds.size === 0) {
+    return (
+      <Stack sx={{ pt: 3, pb: 4, width: "100%" }}>
+        <AssessmentScopeEmptyState variant="results" onPrimaryAction={onGoToScoring} />
+      </Stack>
+    );
+  }
 
   return (
     <Stack gap={6} sx={{ pt: 3, pb: 4, width: "100%" }}>

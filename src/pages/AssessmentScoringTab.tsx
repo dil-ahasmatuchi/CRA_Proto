@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   Box,
+  Button,
+  CardContent,
+  CircularProgress,
   FormControl,
   FormControlLabel,
   IconButton,
@@ -16,11 +19,16 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useTheme,
 } from "@mui/material";
 import { useNavigate } from "react-router";
 
+import { Card } from "@diligentcorp/atlas-react-bundle";
+import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
+
+import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
 
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import { fivePointLabelToRag, getLikelihoodLabel, getCyberRiskScoreLabel } from "../data/types.js";
@@ -346,19 +354,30 @@ function MetricScoreSkeleton() {
   );
 }
 
-type NewCyberRiskAssessmentScoringTabProps = {
+type AssessmentScoringTabProps = {
   /** Passed to the scenario detail page for breadcrumbs. */
   assessmentName?: string;
   includedAssetIds: Set<string>;
   aiScoringPhase: AiScoringPhase;
+  /** Scoring or overdue phase: show AI scoring CTA above the table. */
+  showAiScoringAction: boolean;
+  onAiScoringClick: () => void;
+  /** Empty state: navigate to Scope tab. */
+  onGoToScope: () => void;
 };
 
-export default function NewCyberRiskAssessmentScoringTab({
+export default function AssessmentScoringTab({
   assessmentName = "",
   includedAssetIds,
   aiScoringPhase,
-}: NewCyberRiskAssessmentScoringTabProps) {
+  showAiScoringAction,
+  onAiScoringClick,
+  onGoToScope,
+}: AssessmentScoringTabProps) {
   const navigate = useNavigate();
+  const {
+    presets: { CircularProgressPresets },
+  } = useTheme();
   const aggregationLabelId = useId();
   const [aggregationMethod, setAggregationMethod] = useState<AggregationMethod | null>(null);
   const scoringRows = useMemo(
@@ -442,14 +461,79 @@ export default function NewCyberRiskAssessmentScoringTab({
     }
   }, []);
 
+  if (includedAssetIds.size === 0) {
+    return (
+      <Stack gap={6} sx={{ pt: 6, pb: 4 }}>
+        <AssessmentScopeEmptyState variant="scoring" onPrimaryAction={onGoToScope} />
+      </Stack>
+    );
+  }
+
   return (
-    <Stack gap={3} sx={{ pt: 3, pb: 4 }}>
+    <Stack gap={6} sx={{ pt: 6, pb: 4 }}>
+      {showAiScoringAction ? (
+        <Card
+          variant="outlined"
+          sx={({ tokens: t }) => ({
+            width: "100%",
+            minWidth: 0,
+            borderRadius: t.semantic.radius.lg.value,
+            border: "none",
+            borderImage: "none",
+            bgcolor: "var(--lens-component-avatar-purple-background-color)",
+            boxShadow: "none",
+          })}
+        >
+          <CardContent sx={{ pt: 0, pb: 3, px: 0 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2}>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography variant="h4" component="h3" fontWeight={600} sx={{ mb: 1 }}>
+                  AI scoring
+                </Typography>
+                <Typography
+                  variant="body1"
+                  sx={({ tokens: t }) => ({
+                    m: 0,
+                    color: t.semantic.color.type.default.value,
+                  })}
+                >
+                  Assessments will be scored using{" "}
+                  <Box component="span" sx={{ fontWeight: 600 }}>
+                    (Impact x Likelihood)
+                  </Box>
+                  . Impact is determined by Asset criticality and Likelihood is determined by{" "}
+                  <Box component="span" sx={{ fontWeight: 600 }}>
+                    (Vulnerability severity x Threat severity)
+                  </Box>
+                  . Review and adjust values in the table below before approving the assessment.
+                </Typography>
+              </Box>
+              <Button
+                variant="outlined"
+                color="ai"
+                size="medium"
+                sx={{ flexShrink: 0 }}
+                startIcon={aiScoringPhase === "processing" ? undefined : <AiSparkleIcon aria-hidden />}
+                loading={aiScoringPhase === "processing"}
+                loadingPosition="start"
+                loadingIndicator={
+                  <CircularProgress color="inherit" {...CircularProgressPresets.size.sm} />
+                }
+                onClick={onAiScoringClick}
+                aria-busy={aiScoringPhase === "processing"}
+              >
+                Start AI scoring
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+      ) : null}
       {scoringRows.length === 0 ? (
         <Typography
           variant="body1"
           sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
         >
-          Include assets in the Scope tab to see cyber risks and scenarios for this assessment.
+          No cyber risks or scenarios are linked to the selected assets. Adjust selections on the Scope tab if needed.
         </Typography>
       ) : null}
       {aiScoringPhase === "complete" ? (

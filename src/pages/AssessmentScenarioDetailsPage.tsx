@@ -27,6 +27,7 @@ import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
 
 import AssessmentWysiwygEditor from "../components/AssessmentWysiwygEditor.js";
+import { advanceCraPhaseToScoringIfEligible } from "./craNewAssessmentDraftStorage.js";
 import { getScenarioById } from "../data/scenarios.js";
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 
@@ -295,7 +296,7 @@ function OverrideRationaleDialog({
   );
 }
 
-export default function NewCyberRiskAssessmentScenarioDetailPage() {
+export default function AssessmentScenarioDetailsPage() {
   const { scenarioId } = useParams<{ scenarioId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -380,6 +381,7 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
         return;
       }
       setImpact(next);
+      advanceCraPhaseToScoringIfEligible();
     },
     [impact],
   );
@@ -402,6 +404,7 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
         return;
       }
       setThreat(next);
+      advanceCraPhaseToScoringIfEligible();
     },
     [threat],
   );
@@ -424,6 +427,7 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
         return;
       }
       setVulnerability(next);
+      advanceCraPhaseToScoringIfEligible();
     },
     [vulnerability],
   );
@@ -446,6 +450,9 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
       }
       setLikelihoodOverridden(false);
       setLikelihood(next);
+      if (next) {
+        advanceCraPhaseToScoringIfEligible();
+      }
     },
     [calculatedLikelihood],
   );
@@ -468,6 +475,9 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
       }
       setCyberRiskOverridden(false);
       setCyberRiskScore(next);
+      if (next) {
+        advanceCraPhaseToScoringIfEligible();
+      }
     },
     [calculatedCyberRisk],
   );
@@ -494,6 +504,7 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
         return prev.trim() ? `${update}\n\n${prev.trim()}` : update;
       });
       setPendingOverride(null);
+      advanceCraPhaseToScoringIfEligible();
     },
     [pendingOverride],
   );

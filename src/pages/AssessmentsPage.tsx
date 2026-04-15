@@ -41,7 +41,9 @@ import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 import FilterIcon from "@diligentcorp/atlas-react-bundle/icons/Filter";
 import ColumnsIcon from "@diligentcorp/atlas-react-bundle/icons/Columns";
 
-import AssessmentStatus from "../components/AssessmentStatus.js";
+import AssessmentStatus, {
+  assessmentStatusColorForCanvas,
+} from "../components/AssessmentStatus.js";
 import type { AssessmentStatus as AssessmentStatusValue } from "../data/types.js";
 import { riskAssessments } from "../data/riskAssessments.js";
 import { getUserById } from "../data/users.js";
@@ -79,14 +81,6 @@ const assessmentRows: AssessmentRow[] = riskAssessments.map((a) => {
   };
 });
 
-const STATUS_COLORS = {
-  draft: "#a0a2a5",
-  scoping: "#c8f08a",
-  inProgress: "#0086fa",
-  approved: "#26c926",
-  overdue: "#d32f2f",
-};
-
 const statusData = {
   draft: assessmentRows.filter((r) => r.status === "Draft").length,
   scoping: assessmentRows.filter((r) => r.status === "Scoping").length,
@@ -94,6 +88,29 @@ const statusData = {
   approved: assessmentRows.filter((r) => r.status === "Approved").length,
   overdue: assessmentRows.filter((r) => r.status === "Overdue").length,
 };
+
+const STATUS_CHART_ORDER: AssessmentStatusValue[] = [
+  "Draft",
+  "Scoping",
+  "Scoring",
+  "Approved",
+  "Overdue",
+];
+
+function countForAssessmentStatus(status: AssessmentStatusValue): number {
+  switch (status) {
+    case "Draft":
+      return statusData.draft;
+    case "Scoping":
+      return statusData.scoping;
+    case "Scoring":
+      return statusData.inProgress;
+    case "Approved":
+      return statusData.approved;
+    case "Overdue":
+      return statusData.overdue;
+  }
+}
 
 /** Figma: Assessments by business unit — moss scale + orange for zero-coverage BU */
 const businessUnitData = [
@@ -108,6 +125,8 @@ const businessUnitData = [
 const BUSINESS_UNIT_COUNT = businessUnitData.length;
 
 function AssessmentsByStatusCard() {
+  const { tokens } = useTheme();
+
   const total =
     statusData.draft +
     statusData.scoping +
@@ -115,37 +134,23 @@ function AssessmentsByStatusCard() {
     statusData.approved +
     statusData.overdue;
 
+  const legendItems = STATUS_CHART_ORDER.map((status) => ({
+    label: status,
+    value: countForAssessmentStatus(status),
+    color: assessmentStatusColorForCanvas(status, tokens),
+  }));
+
   const chartData = {
-    labels: ["Draft", "Scoping", "Scoring", "Approved", "Overdue"],
+    labels: [...STATUS_CHART_ORDER],
     datasets: [
       {
-        data: [
-          statusData.draft,
-          statusData.scoping,
-          statusData.inProgress,
-          statusData.approved,
-          statusData.overdue,
-        ],
-        backgroundColor: [
-          STATUS_COLORS.draft,
-          STATUS_COLORS.scoping,
-          STATUS_COLORS.inProgress,
-          STATUS_COLORS.approved,
-          STATUS_COLORS.overdue,
-        ],
+        data: legendItems.map((item) => item.value),
+        backgroundColor: legendItems.map((item) => item.color),
         borderWidth: 0,
         cutout: "72%",
       },
     ],
   };
-
-  const legendItems = [
-    { label: "Draft", value: statusData.draft, color: STATUS_COLORS.draft },
-    { label: "Scoping", value: statusData.scoping, color: STATUS_COLORS.scoping },
-    { label: "Scoring", value: statusData.inProgress, color: STATUS_COLORS.inProgress },
-    { label: "Approved", value: statusData.approved, color: STATUS_COLORS.approved },
-    { label: "Overdue", value: statusData.overdue, color: STATUS_COLORS.overdue },
-  ];
 
   return (
     <Card sx={{ flex: "0 1 360px", minWidth: 280, border: "none" }}>
@@ -607,10 +612,10 @@ function AssessmentsDataGrid() {
   );
 }
 
-export default function CyberRiskAssessmentsPage() {
+export default function AssessmentsPage() {
   return (
     <Container sx={{ py: 2 }}>
-      <Stack gap={3}>
+      <Stack gap={6}>
         <PageHeader
           pageTitle="Cyber risk assessments"
           breadcrumbs={

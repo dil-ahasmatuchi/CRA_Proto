@@ -1,6 +1,6 @@
 /**
- * Vulnerability catalog. If you import this module without loading `threats.js` first,
- * `threatIds` / `relationships.threatIds` stay empty and assets lack threat links.
+ * Vulnerability catalog (two Active/Draft rows per asset = 300 total). If you import this module
+ * without loading `threats.js` first, `threatIds` / `relationships.threatIds` stay empty.
  * Import `../data/threats.js` (side effect) or use the data barrel that pulls in threats.
  */
 import { padId } from "./types.js";
@@ -374,9 +374,8 @@ const TEMPLATES: Record<AssetType, VulnTemplate[]> = {
   ],
 };
 
-function vulnerabilityCountForAssetIndex(assetIndex: number): number {
-  return 2 + (assetIndex % 5);
-}
+/** Exactly two vulnerability categories per asset → 300 total with 150 assets. */
+const VULNERABILITIES_PER_ASSET = 2;
 
 function emptyRelationshipPlaceholders(assetId: string, cyberRiskIds: string[]) {
   return {
@@ -396,9 +395,8 @@ function buildVulnerabilities(): MockVulnerability[] {
   for (let assetIndex = 0; assetIndex < assets.length; assetIndex++) {
     const asset = assets[assetIndex]!;
     const pool = TEMPLATES[asset.assetType];
-    const count = vulnerabilityCountForAssetIndex(assetIndex);
 
-    for (let j = 0; j < count; j++) {
+    for (let j = 0; j < VULNERABILITIES_PER_ASSET; j++) {
       vulnSeq += 1;
       const template = pool[(assetIndex + j) % pool.length]!;
       const cyberRiskIds: string[] = [];
@@ -409,7 +407,7 @@ function buildVulnerabilities(): MockVulnerability[] {
       out.push({
         id: metaId,
         displayId,
-        name: template.name,
+        name: `${template.name} · ${asset.name}`,
         description: template.description,
         domain: template.domain,
         vulnerabilityType: template.vulnerabilityType,

@@ -198,7 +198,7 @@ function PlaceholderContent({ label }: { label: string }) {
   );
 }
 
-export default function CyberRiskDetailsPage() {
+export default function RiskDetailsPage() {
   const [activeTab, setActiveTab] = useState(1);
   const { presets } = useTheme();
   const { TabsPresets } = presets;

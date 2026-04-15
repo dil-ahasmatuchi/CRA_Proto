@@ -10,18 +10,19 @@ import GenericPage from "./pages/GenericPage.js";
 import FileImportPage from "./pages/FileImportPage.js";
 import UploadFilesPage from "./pages/UploadFilesPage.js";
 import FindingsPage from "./pages/FindingsPage.js";
-import CyberRiskDetailsPage from "./pages/CyberRiskDetailsPage.js";
+import RiskDetailsPage from "./pages/RiskDetailsPage.js";
 import ThreatsPage from "./pages/ThreatsPage.js";
 import ThreatDetailPage from "./pages/ThreatDetailPage.js";
-import CyberRiskAssessmentsPage from "./pages/CyberRiskAssessmentsPage.js";
-import NewCyberRiskAssessmentPage from "./pages/NewCyberRiskAssessmentPage.js";
-import NewCyberRiskAssessmentScenarioDetailPage from "./pages/NewCyberRiskAssessmentScenarioDetailPage.js";
-import CyberRiskOverviewPage from "./pages/CyberRiskOverviewPage.js";
+import AssessmentsPage from "./pages/AssessmentsPage.js";
+import AssessmentDetailsTab from "./pages/AssessmentDetailsTab.js";
+import AssessmentScenarioDetailsPage from "./pages/AssessmentScenarioDetailsPage.js";
+import OverviewPage from "./pages/OverviewPage.js";
 import ControlsPage from "./pages/ControlsPage.js";
-import CyberRisksPage from "./pages/CyberRisksPage.js";
+import RisksPage from "./pages/RisksPage.js";
 import MitigationPlansPage from "./pages/MitigationPlansPage.js";
 import VulnerabilitiesPage from "./pages/VulnerabilitiesPage.js";
 import VulnerabilityDetailPage from "./pages/VulnerabilityDetailPage.js";
+import ScrollToTop from "./components/ScrollToTop.js";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
         path="/"
         element={
           <AppLayout navigation={<Navigation />}>
+            <ScrollToTop />
             <Outlet />
           </AppLayout>
         }
@@ -90,11 +92,11 @@ export default function App() {
 
         <Route
           path="cyber-risk/overview"
-          element={<CyberRiskOverviewPage />}
+          element={<OverviewPage />}
         />
         <Route
           path="cyber-risk/cyber-risks"
-          element={<CyberRisksPage />}
+          element={<RisksPage />}
         />
         <Route
           path="cyber-risk/controls"
@@ -122,19 +124,19 @@ export default function App() {
         />
         <Route
           path="cyber-risk/cyber-risk-assessments"
-          element={<CyberRiskAssessmentsPage />}
+          element={<AssessmentsPage />}
         />
         <Route
           path="cyber-risk/cyber-risk-assessments/new"
-          element={<NewCyberRiskAssessmentPage />}
+          element={<AssessmentDetailsTab />}
         />
         <Route
           path="cyber-risk/cyber-risk-assessments/:assessmentId"
-          element={<NewCyberRiskAssessmentPage />}
+          element={<AssessmentDetailsTab />}
         />
         <Route
           path="cyber-risk/cyber-risk-assessments/new/scenario/:scenarioId"
-          element={<NewCyberRiskAssessmentScenarioDetailPage />}
+          element={<AssessmentScenarioDetailsPage />}
         />
         <Route
           path="cyber-risk/file-import"
@@ -150,7 +152,7 @@ export default function App() {
         />
         <Route
           path="cyber-risk/cyber-risk-assessment"
-          element={<CyberRiskDetailsPage />}
+          element={<RiskDetailsPage />}
         />
 
         <Route path="activity" element={<ActivityPage />} />

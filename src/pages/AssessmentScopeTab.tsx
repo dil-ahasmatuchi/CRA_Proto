@@ -1281,7 +1281,7 @@ function ScopeScopedVulnerabilitiesGrid({
   );
 }
 
-type NewCyberRiskAssessmentScopeTabProps = {
+type AssessmentScopeTabProps = {
   scopeSubView: ScopeSubView;
   onScopeSubViewChange: (view: ScopeSubView) => void;
   includedAssetIds: Set<string>;
@@ -1289,13 +1289,13 @@ type NewCyberRiskAssessmentScopeTabProps = {
   onBulkAssetIdsIncluded: (assetIds: string[], included: boolean) => void;
 };
 
-export default function NewCyberRiskAssessmentScopeTab({
+export default function AssessmentScopeTab({
   scopeSubView,
   onScopeSubViewChange,
   includedAssetIds,
   onToggleAssetIncluded,
   onBulkAssetIdsIncluded,
-}: NewCyberRiskAssessmentScopeTabProps) {
+}: AssessmentScopeTabProps) {
   const rows = useMemo(
     () =>
       buildScopeRows().map((r) => ({
