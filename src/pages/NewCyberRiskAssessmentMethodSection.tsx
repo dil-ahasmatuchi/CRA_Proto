@@ -15,6 +15,12 @@ import {
 import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
 
 import AssessmentWysiwygEditor from "../components/AssessmentWysiwygEditor.js";
+import type { CraScoringTypeChoice } from "./craNewAssessmentDraftStorage.js";
+
+const SCORING_TYPE_OPTIONS = [
+  { value: "inherent" satisfies CraScoringTypeChoice, label: "Inherent" },
+  { value: "residual" satisfies CraScoringTypeChoice, label: "Residual" },
+] as const;
 
 const QUALITATIVE_DESCRIPTION = (
   <>
@@ -52,10 +58,18 @@ const assessmentMethodFormControlLabelSx = {
   py: 0,
 } as const;
 
+export type NewCyberRiskAssessmentMethodSectionProps = {
+  scoringType: CraScoringTypeChoice;
+  onScoringTypeChange: (value: CraScoringTypeChoice) => void;
+};
+
 /**
  * Assessment method, instructions, and attachments — embedded on the Details tab (formerly the Method tab).
  */
-export default function NewCyberRiskAssessmentMethodSection() {
+export default function NewCyberRiskAssessmentMethodSection({
+  scoringType,
+  onScoringTypeChange,
+}: NewCyberRiskAssessmentMethodSectionProps) {
   const groupLabelId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assessmentMethod, setAssessmentMethod] = useState<"qualitative" | "quantitative">("qualitative");
@@ -178,6 +192,59 @@ export default function NewCyberRiskAssessmentMethodSection() {
             </Stack>
           </RadioGroup>
         </FormControl>
+
+        <Stack gap={1} sx={{ pt: 1 }}>
+          <Typography
+            variant="caption"
+            fontWeight={600}
+            component="p"
+            sx={({ tokens: t }) => ({
+              color: t.semantic.color.type.default.value,
+              letterSpacing: "0.3px",
+              m: 0,
+            })}
+          >
+            Scoring type
+          </Typography>
+          <FormControl variant="standard" fullWidth>
+            <RadioGroup
+              row
+              name="new-cra-scoring-type"
+              value={scoringType}
+              onChange={(_e, v) => {
+                if (v === "inherent" || v === "residual") {
+                  onScoringTypeChange(v);
+                }
+              }}
+              sx={{
+                flexWrap: "wrap",
+                gap: 2,
+                columnGap: 3,
+                rowGap: 1,
+              }}
+            >
+              {SCORING_TYPE_OPTIONS.map((opt) => (
+                <FormControlLabel
+                  key={opt.value}
+                  value={opt.value}
+                  control={<Radio />}
+                  label={opt.label}
+                  sx={assessmentMethodFormControlLabelSx}
+                  slotProps={{
+                    typography: {
+                      sx: ({ tokens: t }) => ({
+                        fontSize: t.semantic.font.text.md.fontSize.value,
+                        lineHeight: t.semantic.font.text.md.lineHeight.value,
+                        letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                        color: t.semantic.color.type.default.value,
+                      }),
+                    },
+                  }}
+                />
+              ))}
+            </RadioGroup>
+          </FormControl>
+        </Stack>
       </Stack>
 
       <Stack gap={3} sx={{ pt: 2 }}>

@@ -23,8 +23,10 @@ import ArrowUpIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowUp";
 import ArrowDownIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowDown";
 import DownloadIcon from "@diligentcorp/atlas-react-bundle/icons/Download";
 
-import { type RiskHeatmapLevel, ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
+import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
+import { cyberRisks } from "../data/cyberRisks.js";
 import ResidualRisksMatrix from "../components/ResidualRisksMatrix.js";
+import { buildCyberRiskHeatmapAggregates } from "../utils/cyberRiskMatrixAggregates.js";
 
 // ---------------------------------------------------------------------------
 // KPI data
@@ -70,24 +72,10 @@ const kpiItems: KpiItem[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Residual risks heat map data (5 x 5, Likelihood vs Impact)
+// Residual risks heat map data (5 x 5, Likelihood vs Impact) from library risks
 // ---------------------------------------------------------------------------
 
-const heatmapGrid: number[][] = [
-  [12, 10, 9, 8, 7],
-  [11, 9, 7, 6, 5],
-  [10, 8, 8, 5, 7],
-  [14, 9, 7, 6, 6],
-  [16, 12, 9, 7, 8],
-];
-
-const heatmapLegend: { label: string; level: RiskHeatmapLevel; count: number }[] = [
-  { label: "101\u2013125 Very high", level: "veryHigh", count: 20 },
-  { label: "76\u2013100 High", level: "high", count: 40 },
-  { label: "51\u201375 Medium", level: "medium", count: 48 },
-  { label: "26\u201350 Low", level: "low", count: 66 },
-  { label: "1\u201325 Very low", level: "veryLow", count: 42 },
-];
+const { grid: heatmapGrid, legend: heatmapLegend } = buildCyberRiskHeatmapAggregates(cyberRisks);
 
 // ---------------------------------------------------------------------------
 // Most exposed assets data

@@ -125,9 +125,11 @@ export default function ResidualRisksMatrix({
                   tl || tr || br || bl
                     ? `${tl}px ${tr}px ${br}px ${bl}px`
                     : 0;
+                const hasRisks = count > 0;
                 return (
                   <Box
                     key={`${rowIdx}-${colIdx}`}
+                    aria-label={hasRisks ? `${count} risks` : "No risks"}
                     sx={({ tokens: t }) => ({
                       gridColumn: colIdx + 2,
                       gridRow: rowIdx + 1,
@@ -138,25 +140,30 @@ export default function ResidualRisksMatrix({
                       justifyContent: "center",
                       minHeight: 48,
                       minWidth: 48,
+                      opacity: hasRisks ? 1 : 0.3,
                     })}
                   >
-                    <Typography
-                      component="span"
-                      sx={({ tokens: t }) => ({
-                        fontFamily: t.semantic.font.text.sm.fontFamily.value,
-                        fontSize: t.semantic.font.text.sm.fontSize.value,
-                        lineHeight: t.semantic.font.text.sm.lineHeight.value,
-                        letterSpacing: t.semantic.font.text.sm.letterSpacing.value,
-                        fontWeight: 800,
-                        color: isVeryHigh
-                          ? t.semantic.color.type.inverse.value
-                          : level === "low" || level === "medium" || level === "high"
-                            ? t.core.color.gray["1000"].value
-                            : "rgba(255, 255, 255, 1)",
-                      })}
-                    >
-                      {count}
-                    </Typography>
+                    {hasRisks ? (
+                      <Link
+                        href="#"
+                        underline="hover"
+                        aria-label={`${count} risks — open details`}
+                        sx={({ tokens: t }) => ({
+                          fontFamily: t.semantic.font.text.sm.fontFamily.value,
+                          fontSize: t.semantic.font.text.sm.fontSize.value,
+                          lineHeight: t.semantic.font.text.sm.lineHeight.value,
+                          letterSpacing: t.semantic.font.text.sm.letterSpacing.value,
+                          fontWeight: 800,
+                          color: isVeryHigh
+                            ? t.semantic.color.type.inverse.value
+                            : level === "low" || level === "medium" || level === "high"
+                              ? t.core.color.gray["1000"].value
+                              : "rgba(255, 255, 255, 1)",
+                        })}
+                      >
+                        {count}
+                      </Link>
+                    ) : null}
                   </Box>
                 );
               })

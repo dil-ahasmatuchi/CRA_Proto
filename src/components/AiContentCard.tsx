@@ -38,6 +38,8 @@ export type AiContentCardAssessmentPresetProps = {
   description?: string;
   /** Label above the radio group */
   assessmentTypeLabel?: string;
+  /** When true, only the gradient title and description are shown (no radio group). */
+  omitAssessmentType?: boolean;
   /** Row of radio options: value and user-visible label */
   assessmentOptions?: { value: string; label: string }[];
   /** Initially selected option `value` (uncontrolled only) */
@@ -153,12 +155,14 @@ export function AiContentCardAssessmentPreset({
   title = "Choose how AI helps",
   description = "Pick an assessment type so we can tailor AI suggestions to your workflow.",
   assessmentTypeLabel = "Assessment type",
+  omitAssessmentType = false,
   assessmentOptions = [...DEFAULT_OPTIONS],
   defaultAssessmentValue = "full",
   assessmentValue: controlledValue,
   onAssessmentChange,
 }: AiContentCardAssessmentPresetProps) {
   const groupId = useId();
+  const sectionTitleId = `${groupId}-heading`;
   const labelId = `${groupId}-label`;
   const [uncontrolled, setUncontrolled] = useState(defaultAssessmentValue);
   const isControlled = controlledValue !== undefined && onAssessmentChange !== undefined;
@@ -168,7 +172,7 @@ export function AiContentCardAssessmentPreset({
   return (
     <Stack
       component="section"
-      aria-labelledby={labelId}
+      aria-labelledby={sectionTitleId}
       gap={3}
       alignItems="flex-start"
       sx={{ width: "100%" }}
@@ -189,6 +193,7 @@ export function AiContentCardAssessmentPreset({
             <AiSparkleIcon size="lg" />
           </Box>
           <Typography
+            id={sectionTitleId}
             component="h2"
             sx={({ tokens: t }) => ({
               m: 0,
@@ -221,55 +226,57 @@ export function AiContentCardAssessmentPreset({
         </Typography>
       </Stack>
 
-      <Stack gap={0} alignItems="flex-start" sx={{ width: "100%" }}>
-        <Typography
-          id={labelId}
-          component="p"
-          variant="labelSm"
-          sx={({ tokens: t }) => ({
-            m: 0,
-            fontWeight: t.semantic.fontWeight.emphasis.value,
-            color: t.semantic.color.type.default.value,
-          })}
-        >
-          {assessmentTypeLabel}
-        </Typography>
-
-        <FormControl sx={{ width: "100%" }}>
-          <RadioGroup
-            row
-            name={`${groupId}-assessment`}
-            value={assessment}
-            onChange={(_, v) => setAssessment(v)}
-            aria-labelledby={labelId}
-            sx={{
-              flexWrap: "wrap",
-              gap: 2,
-              columnGap: 2,
-              rowGap: 1,
-            }}
+      {omitAssessmentType ? null : (
+        <Stack gap={0} alignItems="flex-start" sx={{ width: "100%" }}>
+          <Typography
+            id={labelId}
+            component="p"
+            variant="labelSm"
+            sx={({ tokens: t }) => ({
+              m: 0,
+              fontWeight: t.semantic.fontWeight.emphasis.value,
+              color: t.semantic.color.type.default.value,
+            })}
           >
-            {assessmentOptions.map((opt) => (
-              <FormControlLabel
-                key={opt.value}
-                value={opt.value}
-                control={<Radio />}
-                label={opt.label}
-                sx={{
-                  mr: 0,
-                  ml: 0,
-                  "& .MuiFormControlLabel-label": ({ tokens: t }) => ({
-                    fontSize: t.semantic.font.text.md.fontSize.value,
-                    lineHeight: t.semantic.font.text.md.lineHeight.value,
-                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                    color: t.semantic.color.type.default.value,
-                  }),
-                }}
-              />
-            ))}
-          </RadioGroup>
-        </FormControl>
-      </Stack>
+            {assessmentTypeLabel}
+          </Typography>
+
+          <FormControl sx={{ width: "100%" }}>
+            <RadioGroup
+              row
+              name={`${groupId}-assessment`}
+              value={assessment}
+              onChange={(_, v) => setAssessment(v)}
+              aria-labelledby={labelId}
+              sx={{
+                flexWrap: "wrap",
+                gap: 2,
+                columnGap: 2,
+                rowGap: 1,
+              }}
+            >
+              {assessmentOptions.map((opt) => (
+                <FormControlLabel
+                  key={opt.value}
+                  value={opt.value}
+                  control={<Radio />}
+                  label={opt.label}
+                  sx={{
+                    mr: 0,
+                    ml: 0,
+                    "& .MuiFormControlLabel-label": ({ tokens: t }) => ({
+                      fontSize: t.semantic.font.text.md.fontSize.value,
+                      lineHeight: t.semantic.font.text.md.lineHeight.value,
+                      letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                      color: t.semantic.color.type.default.value,
+                    }),
+                  }}
+                />
+              ))}
+            </RadioGroup>
+          </FormControl>
+        </Stack>
+      )}
     </Stack>
   );
 }

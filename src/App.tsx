@@ -15,7 +15,7 @@ import ThreatsPage from "./pages/ThreatsPage.js";
 import ThreatDetailPage from "./pages/ThreatDetailPage.js";
 import AssessmentsPage from "./pages/AssessmentsPage.js";
 import AssessmentDetailsTab from "./pages/AssessmentDetailsTab.js";
-import AssessmentScenarioDetailsPage from "./pages/AssessmentScenarioDetailsPage.js";
+import ScoringRationalePage from "./pages/ScoringRationalePage.js";
 import OverviewPage from "./pages/OverviewPage.js";
 import ControlsPage from "./pages/ControlsPage.js";
 import RisksPage from "./pages/RisksPage.js";
@@ -137,7 +137,7 @@ export default function App() {
         />
         <Route
           path="cyber-risk/cyber-risk-assessments/new/scenario/:scenarioId"
-          element={<AssessmentScenarioDetailsPage />}
+          element={<ScoringRationalePage />}
         />
         <Route
           path="cyber-risk/file-import"

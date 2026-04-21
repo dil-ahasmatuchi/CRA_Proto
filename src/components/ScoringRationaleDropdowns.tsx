@@ -24,16 +24,19 @@ export type ScoringRationaleDropdownsControlled = {
 export type ScoringRationaleDropdownsProps = {
   /** Section heading (semantic title / H4 md emphasis). */
   title?: string;
+  /** When false, the block heading is not rendered. */
+  showTitle?: boolean;
   /** When set, dropdowns are controlled (e.g. scenario page with override flow). */
   controlled?: ScoringRationaleDropdownsControlled;
 };
 
 /**
  * Surface-variant container with a row of scoring metric dropdowns, matching the
- * scenario scoring rationale layout in {@link AssessmentScenarioDetailsPage}.
+ * scenario scoring rationale layout in {@link ScoringRationalePage}.
  */
 export default function ScoringRationaleDropdowns({
   title = "Scoring rationale",
+  showTitle = true,
   controlled,
 }: ScoringRationaleDropdownsProps) {
   const [impact, setImpact] = useState<ScoreValue>(SCORE_OPTIONS[2] ?? null);
@@ -75,20 +78,22 @@ export default function ScoringRationaleDropdowns({
           alignItems: "stretch",
         }}
       >
-        <Typography
-          component="h2"
-          sx={({ tokens: t }) => ({
-            m: 0,
-            fontFamily: t.semantic.font.title.h4Md.fontFamily.value,
-            fontSize: t.semantic.font.title.h4Md.fontSize.value,
-            lineHeight: t.semantic.font.title.h4Md.lineHeight.value,
-            letterSpacing: t.semantic.font.title.h4Md.letterSpacing.value,
-            fontWeight: t.semantic.fontWeight.emphasis.value,
-            color: t.semantic.color.type.default.value,
-          })}
-        >
-          {title}
-        </Typography>
+        {showTitle ? (
+          <Typography
+            component="h2"
+            sx={({ tokens: t }) => ({
+              m: 0,
+              fontFamily: t.semantic.font.title.h4Md.fontFamily.value,
+              fontSize: t.semantic.font.title.h4Md.fontSize.value,
+              lineHeight: t.semantic.font.title.h4Md.lineHeight.value,
+              letterSpacing: t.semantic.font.title.h4Md.letterSpacing.value,
+              fontWeight: t.semantic.fontWeight.emphasis.value,
+              color: t.semantic.color.type.default.value,
+            })}
+          >
+            {title}
+          </Typography>
+        ) : null}
         <Stack direction="row" gap={2}>
           <ScoringMetricField label="Asset criticality" value={i} onChange={onImpact} />
           <ScoringMetricField label="Threat severity" value={th} onChange={onThreat} />

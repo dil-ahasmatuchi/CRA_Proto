@@ -14,7 +14,7 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useNavigationType, useParams } from "react-router";
 
 import CalendarIcon from "@diligentcorp/atlas-react-bundle/icons/Calendar";
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
@@ -132,19 +132,24 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 export default function AssessmentDetailsTab() {
   const location = useLocation();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
   const { assessmentId: routeAssessmentId } = useParams();
   const { presets } = useTheme();
   const { AutocompletePresets } = presets;
 
   const isReturningFromScenario =
     (location.state as { craReturnToScoring?: boolean } | null)?.craReturnToScoring === true;
-  const [initialDraft] = useState(() =>
-    isReturningFromScenario ? loadCraNewAssessmentDraft() : null,
-  );
+
   const mockFromRoute =
     routeAssessmentId != null && routeAssessmentId !== ""
       ? getRiskAssessmentById(routeAssessmentId)
       : undefined;
+
+  const [initialDraft] = useState(() => {
+    if (routeAssessmentId != null && routeAssessmentId !== "") return null;
+    if (mockFromRoute != null) return null;
+    return loadCraNewAssessmentDraft();
+  });
 
   const [activeTab, setActiveTab] = useState(() => {
     if (initialDraft) return initialDraft.activeTab;
@@ -208,10 +213,12 @@ export default function AssessmentDetailsTab() {
 
   const aiScoringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /** Clear stale draft on fresh entry to `/new`, but not when the user pops back (browser-style back preserves remounted state + draft). */
   const needsInitialDraftClear =
     !routeAssessmentId &&
     mockFromRoute == null &&
-    !isReturningFromScenario;
+    !isReturningFromScenario &&
+    navigationType !== "POP";
 
   useLayoutEffect(() => {
     if (!needsInitialDraftClear) return;
@@ -541,7 +548,10 @@ export default function AssessmentDetailsTab() {
               </Stack>
             </Stack>
 
-            <NewCyberRiskAssessmentMethodSection />
+            <NewCyberRiskAssessmentMethodSection
+              scoringType={scoringType}
+              onScoringTypeChange={setScoringType}
+            />
           </Stack>
         </TabPanel>
 
@@ -565,10 +575,10 @@ export default function AssessmentDetailsTab() {
         >
           <AssessmentScoringTab
             assessmentName={name}
+            returnToAssessmentPath={location.pathname}
             includedAssetIds={includedScopeAssetIds}
             aiScoringPhase={aiScoringPhase}
             scoringType={scoringType}
-            onScoringTypeChange={setScoringType}
             showAiScoringAction={showAiScoringAction}
             onAiScoringClick={handleAiScoringClick}
             onGoToScope={() => setActiveTab(SCOPE_TAB_INDEX)}

@@ -81,5 +81,8 @@ export {
   riskAssessments,
   getRiskAssessmentById,
   getRiskAssessmentsForThreatId,
+  addRiskAssessment,
+  subscribeRiskAssessments,
+  getRiskAssessmentsSnapshotVersion,
 } from "./riskAssessments.js";
 export { mitigationPlans, getMitigationPlanById } from "./mitigationPlans.js";

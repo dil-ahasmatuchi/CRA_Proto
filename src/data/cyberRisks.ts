@@ -138,7 +138,7 @@ function buildCyberRisks(): MockCyberRisk[] {
 
   const out: MockCyberRisk[] = [];
 
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < RISK_SEEDS.length; i++) {
     const seed = RISK_SEEDS[i]!;
     const threatIds = selectThreatIdsForCyberRisk(seed.name, i);
     const assetIds = unionAssetIdsForThreats(threatIds);
@@ -147,8 +147,11 @@ function buildCyberRisks(): MockCyberRisk[] {
 
     const buIdx = Number(assets.find((a) => a.id === assetIds[0])?.businessUnitId.replace(/^BU-0*/, "") || "4");
     const ownerIdx = OWNER_ROTATION[i % OWNER_ROTATION.length]!;
-    const impact = (2 + (i % 4)) as FivePointScaleValue;
-    const likelihood = 6 + ((i * 5) % 20);
+
+    // Seeded RNG for random-looking distribution (Impact 1-5, Likelihood 1-25)
+    const rng = mulberry32(888 + i * 13);
+    const impact = (1 + Math.floor(rng() * 5)) as FivePointScaleValue;
+    const likelihood = 1 + Math.floor(rng() * 25);
     const score = impact * likelihood;
 
     const controlIds = controlIdsForRiskIndex(i);

@@ -75,7 +75,7 @@ export function rangeUpperBound(v: ScoreValue): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function RagSwatch({ rag }: { rag: RagDataVizKey }) {
+export function RagSwatch({ rag }: { rag: RagDataVizKey }) {
   return (
     <Box
       sx={({ tokens: t }) => ({

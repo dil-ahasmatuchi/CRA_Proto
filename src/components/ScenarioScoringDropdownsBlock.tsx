@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Box,
   Button,
   Dialog,
   DialogActions,
@@ -129,9 +128,16 @@ function OverrideRationaleDialog({
 export type ScenarioScoringDropdownsBlockProps = {
   /** Block title (e.g. Inherent scores / Residual scores / Scoring rationale). */
   title: string;
+  /** When false, the gray panel heading above the dropdowns is omitted. */
+  showBlockTitle?: boolean;
   initialScores: ScenarioScoringInitialScores;
-  /** Appends override rationale text into the shared scenario rationale field. */
-  onAppendScoringRationale: (appended: string) => void;
+  /** Appends override rationale text into the shared scenario rationale field. `previousScores` is the metrics before applying the pending override. */
+  onAppendScoringRationale: (
+    appended: string,
+    context: { previousScores: ScenarioScoringInitialScores },
+  ) => void;
+  /** Called whenever the five metric scores change (for parent save/history). */
+  onScoresChange?: (scores: ScenarioScoringInitialScores) => void;
 };
 
 /**
@@ -140,8 +146,10 @@ export type ScenarioScoringDropdownsBlockProps = {
  */
 export default function ScenarioScoringDropdownsBlock({
   title,
+  showBlockTitle = true,
   initialScores,
   onAppendScoringRationale,
+  onScoresChange,
 }: ScenarioScoringDropdownsBlockProps) {
   const [impact, setImpact] = useState<ScoreValue>(initialScores.impact);
   const [threat, setThreat] = useState<ScoreValue>(initialScores.threat);
@@ -310,6 +318,13 @@ export default function ScenarioScoringDropdownsBlock({
   const handleOverrideConfirm = useCallback(
     (rationale: string) => {
       if (!pendingOverride) return;
+      const previousScores: ScenarioScoringInitialScores = {
+        impact,
+        threat,
+        vulnerability,
+        likelihood,
+        cyberRiskScore,
+      };
       const { field, newValue } = pendingOverride;
       if (field === "impact") {
         setImpact(newValue);
@@ -325,21 +340,48 @@ export default function ScenarioScoringDropdownsBlock({
         setCyberRiskOverridden(true);
       }
       const update = `Update: ${rationale}`;
-      onAppendScoringRationale(update);
+      onAppendScoringRationale(update, { previousScores });
       setPendingOverride(null);
       advanceCraPhaseToScoringIfEligible();
     },
-    [pendingOverride, onAppendScoringRationale],
+    [
+      impact,
+      threat,
+      vulnerability,
+      likelihood,
+      cyberRiskScore,
+      pendingOverride,
+      onAppendScoringRationale,
+    ],
   );
 
   const handleOverrideDiscard = useCallback(() => {
     setPendingOverride(null);
   }, []);
 
+  useEffect(() => {
+    if (!onScoresChange) return;
+    onScoresChange({
+      impact,
+      threat,
+      vulnerability,
+      likelihood,
+      cyberRiskScore,
+    });
+  }, [
+    impact,
+    threat,
+    vulnerability,
+    likelihood,
+    cyberRiskScore,
+    onScoresChange,
+  ]);
+
   return (
     <>
       <ScoringRationaleDropdowns
         title={title}
+        showTitle={showBlockTitle}
         controlled={{
           impact,
           threat,

@@ -19,6 +19,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import type { Theme } from "@mui/material/styles";
 import { visuallyHidden } from "@mui/utils";
 import { useNavigate } from "react-router";
 
@@ -28,7 +29,6 @@ import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
 import AiContentCard, { AiContentCardAssessmentPreset } from "../components/AiContentCard.js";
 import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
-import DoubleScoreCell from "../components/DoubleScoreCell.js";
 
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import { fivePointLabelToRag, getLikelihoodLabel, getCyberRiskScoreLabel } from "../data/types.js";
@@ -60,12 +60,6 @@ type AggregationMethod = "highest" | "average";
 
 const SCENARIO_DETAIL_PATH = "/cyber-risk/cyber-risk-assessments/new/scenario";
 
-const SCORING_TYPE_OPTIONS = [
-  { value: "inherent", label: "Inherent" },
-  { value: "residual", label: "Residual" },
-  { value: "inherent_residual", label: "Inherent + Residual" },
-] as const;
-
 /** Name column is fixed width (sticky first column). */
 const SCORING_NAME_COL_WIDTH_PX = 400;
 
@@ -78,7 +72,7 @@ const SCORING_LIKELIHOOD_MIN_PX = 110;
 const SCORING_CYBER_RISK_SCORE_MIN_PX = 134;
 
 /**
- * Metric columns use intrinsic width from cell content (single vs double legend).
+ * Metric columns use intrinsic width from cell content.
  * `width: 0.01%` is a common auto-table hint so extra horizontal space is not assigned here first.
  */
 const scoringMetricThSx = {
@@ -112,7 +106,7 @@ const scoringLikelihoodMetricTdSx = { ...scoringMetricTdSx, minWidth: SCORING_LI
 const scoringCyberRiskScoreMetricThSx = { ...scoringMetricThSx, minWidth: SCORING_CYBER_RISK_SCORE_MIN_PX };
 const scoringCyberRiskScoreMetricTdSx = { ...scoringMetricTdSx, minWidth: SCORING_CYBER_RISK_SCORE_MIN_PX };
 
-const scoringNameHeadCellSx = ({ tokens: t }) => ({
+const scoringNameHeadCellSx = ({ tokens: t }: Theme) => ({
   position: "sticky" as const,
   left: 0,
   zIndex: 3,
@@ -127,7 +121,7 @@ const scoringNameHeadCellSx = ({ tokens: t }) => ({
   overflow: "visible" as const,
 });
 
-const scoringNameBodyCellSx = ({ tokens: t }) => ({
+const scoringNameBodyCellSx = ({ tokens: t }: Theme) => ({
   position: "sticky" as const,
   left: 0,
   zIndex: 2,
@@ -199,19 +193,12 @@ const scoreTableCellContentSx = {
   boxSizing: "border-box" as const,
 };
 
-function ThreatVulnLikelihoodCrsCell({
-  showDouble,
-  value,
-}: {
-  showDouble: boolean;
-  value: ScoreValue;
-}) {
-  const content = showDouble ? (
-    <DoubleScoreCell inherent={value} residual={value} />
-  ) : (
-    <RiskLegendCell value={value} />
+function MetricLegendCell({ value }: { value: ScoreValue }) {
+  return (
+    <Box sx={scoreTableCellContentSx}>
+      <RiskLegendCell value={value} />
+    </Box>
   );
-  return <Box sx={scoreTableCellContentSx}>{content}</Box>;
 }
 
 function toFivePointScore(value: number, label: FivePointScaleLabel): ScoreValue {
@@ -464,10 +451,11 @@ function MetricScoreSkeleton() {
 type AssessmentScoringTabProps = {
   /** Passed to the scenario detail page for breadcrumbs. */
   assessmentName?: string;
+  /** Current CRA assessment URL; used when returning from scenario scoring rationale. */
+  returnToAssessmentPath: string;
   includedAssetIds: Set<string>;
   aiScoringPhase: AiScoringPhase;
   scoringType: CraScoringTypeChoice;
-  onScoringTypeChange: (value: CraScoringTypeChoice) => void;
   /** Scoring or overdue phase: show AI scoring CTA above the table. */
   showAiScoringAction: boolean;
   onAiScoringClick: () => void;
@@ -477,10 +465,10 @@ type AssessmentScoringTabProps = {
 
 export default function AssessmentScoringTab({
   assessmentName = "",
+  returnToAssessmentPath,
   includedAssetIds,
   aiScoringPhase,
   scoringType,
-  onScoringTypeChange,
   showAiScoringAction,
   onAiScoringClick,
   onGoToScope,
@@ -493,7 +481,6 @@ export default function AssessmentScoringTab({
     [includedAssetIds],
   );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const showDoubleScoreColumns = scoringType === "inherent_residual";
 
   useEffect(() => {
     const riskIds = scoringRows.filter((r) => r.kind === "cyberRisk").map((r) => r.id);
@@ -507,10 +494,11 @@ export default function AssessmentScoringTab({
           assessmentName: assessmentName.trim() || undefined,
           scoringType,
           aiScoringPhase,
+          returnToAssessmentPath,
         },
       });
     },
-    [navigate, assessmentName, scoringType, aiScoringPhase],
+    [navigate, assessmentName, scoringType, aiScoringPhase, returnToAssessmentPath],
   );
 
   const toggleGroup = useCallback((groupId: string) => {
@@ -623,12 +611,9 @@ export default function AssessmentScoringTab({
             footerLoading={aiScoringPhase === "processing"}
           >
             <AiContentCardAssessmentPreset
+              omitAssessmentType
               title="AI scoring"
-              description="Assessments will be scored using (Impact x Likelihood). Impact is determined by Asset criticality and Likelihood is determined by (Vulnerability severity x Threat severity). Review and adjust values in the table below before approving the assessment."
-              assessmentTypeLabel="Scoring type"
-              assessmentOptions={[...SCORING_TYPE_OPTIONS]}
-            assessmentValue={scoringType}
-            onAssessmentChange={(v) => onScoringTypeChange(v as CraScoringTypeChoice)}
+              description="Assessments will be scored using (Impact x Likelihood). Impact is determined by Asset criticality and Likelihood is determined by (Vulnerability severity x Threat severity). Set scoring type on the Details tab. Review and adjust values in the table below before approving the assessment."
             />
           </AiContentCard>
         )
@@ -884,8 +869,7 @@ export default function AssessmentScoringTab({
                           </Box>
                         </TableCell>
                         <TableCell sx={scoringThreatMetricTdSx}>
-                          <ThreatVulnLikelihoodCrsCell
-                            showDouble={showDoubleScoreColumns}
+                          <MetricLegendCell
                             value={
                               idleMode
                                 ? null
@@ -898,8 +882,7 @@ export default function AssessmentScoringTab({
                           />
                         </TableCell>
                         <TableCell sx={scoringVulnerabilityMetricTdSx}>
-                          <ThreatVulnLikelihoodCrsCell
-                            showDouble={showDoubleScoreColumns}
+                          <MetricLegendCell
                             value={
                               idleMode
                                 ? null
@@ -912,8 +895,7 @@ export default function AssessmentScoringTab({
                           />
                         </TableCell>
                         <TableCell sx={scoringLikelihoodMetricTdSx}>
-                          <ThreatVulnLikelihoodCrsCell
-                            showDouble={showDoubleScoreColumns}
+                          <MetricLegendCell
                             value={
                               idleMode
                                 ? null
@@ -926,8 +908,7 @@ export default function AssessmentScoringTab({
                           />
                         </TableCell>
                         <TableCell sx={scoringCyberRiskScoreMetricTdSx}>
-                          <ThreatVulnLikelihoodCrsCell
-                            showDouble={showDoubleScoreColumns}
+                          <MetricLegendCell
                             value={
                               idleMode
                                 ? null

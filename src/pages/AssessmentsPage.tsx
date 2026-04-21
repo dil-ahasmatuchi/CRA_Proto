@@ -27,7 +27,8 @@ import {
   QuickFilterControl,
   Toolbar,
 } from "@mui/x-data-grid-pro";
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
+import { useMemo, useSyncExternalStore } from "react";
 import { Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -45,7 +46,12 @@ import AssessmentStatus, {
   assessmentStatusColorForCanvas,
 } from "../components/AssessmentStatus.js";
 import type { AssessmentStatus as AssessmentStatusValue } from "../data/types.js";
-import { riskAssessments } from "../data/riskAssessments.js";
+import {
+  addRiskAssessment,
+  getRiskAssessmentsSnapshotVersion,
+  riskAssessments,
+  subscribeRiskAssessments,
+} from "../data/riskAssessments.js";
 import { getUserById } from "../data/users.js";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -64,30 +70,42 @@ interface AssessmentRow {
   ownerInitials: string;
 }
 
-const assessmentRows: AssessmentRow[] = riskAssessments.map((a) => {
-  const u = getUserById(a.ownerId);
-  return {
-    id: a.id,
-    assessmentId: a.id,
-    name: a.name,
-    status: a.status,
-    cyberRisks: a.cyberRiskIds.length,
-    assets: a.assetIds.length,
-    threats: a.threatIds.length,
-    vulnerabilities: a.vulnerabilityIds.length,
-    scenarios: a.scenarioIds.length,
-    owner: u?.fullName ?? "—",
-    ownerInitials: u?.initials ?? "—",
-  };
-});
-
-const statusData = {
-  draft: assessmentRows.filter((r) => r.status === "Draft").length,
-  scoping: assessmentRows.filter((r) => r.status === "Scoping").length,
-  inProgress: assessmentRows.filter((r) => r.status === "Scoring").length,
-  approved: assessmentRows.filter((r) => r.status === "Approved").length,
-  overdue: assessmentRows.filter((r) => r.status === "Overdue").length,
+type AssessmentStatusCounts = {
+  draft: number;
+  scoping: number;
+  inProgress: number;
+  approved: number;
+  overdue: number;
 };
+
+function buildAssessmentRows(): AssessmentRow[] {
+  return riskAssessments.map((a) => {
+    const u = getUserById(a.ownerId);
+    return {
+      id: a.id,
+      assessmentId: a.id,
+      name: a.name,
+      status: a.status,
+      cyberRisks: a.cyberRiskIds.length,
+      assets: a.assetIds.length,
+      threats: a.threatIds.length,
+      vulnerabilities: a.vulnerabilityIds.length,
+      scenarios: a.scenarioIds.length,
+      owner: u?.fullName ?? "—",
+      ownerInitials: u?.initials ?? "—",
+    };
+  });
+}
+
+function buildAssessmentStatusCounts(rows: AssessmentRow[]): AssessmentStatusCounts {
+  return {
+    draft: rows.filter((r) => r.status === "Draft").length,
+    scoping: rows.filter((r) => r.status === "Scoping").length,
+    inProgress: rows.filter((r) => r.status === "Scoring").length,
+    approved: rows.filter((r) => r.status === "Approved").length,
+    overdue: rows.filter((r) => r.status === "Overdue").length,
+  };
+}
 
 const STATUS_CHART_ORDER: AssessmentStatusValue[] = [
   "Draft",
@@ -97,7 +115,10 @@ const STATUS_CHART_ORDER: AssessmentStatusValue[] = [
   "Overdue",
 ];
 
-function countForAssessmentStatus(status: AssessmentStatusValue): number {
+function countForAssessmentStatus(
+  status: AssessmentStatusValue,
+  statusData: AssessmentStatusCounts,
+): number {
   switch (status) {
     case "Draft":
       return statusData.draft;
@@ -124,7 +145,7 @@ const businessUnitData = [
 
 const BUSINESS_UNIT_COUNT = businessUnitData.length;
 
-function AssessmentsByStatusCard() {
+function AssessmentsByStatusCard({ statusData }: { statusData: AssessmentStatusCounts }) {
   const { tokens } = useTheme();
 
   const total =
@@ -136,7 +157,7 @@ function AssessmentsByStatusCard() {
 
   const legendItems = STATUS_CHART_ORDER.map((status) => ({
     label: status,
-    value: countForAssessmentStatus(status),
+    value: countForAssessmentStatus(status, statusData),
     color: assessmentStatusColorForCanvas(status, tokens),
   }));
 
@@ -505,7 +526,7 @@ function CustomToolbar() {
   );
 }
 
-function AssessmentsDataGrid() {
+function AssessmentsDataGrid({ rows }: { rows: AssessmentRow[] }) {
   const columns: GridColDef<AssessmentRow>[] = [
     {
       field: "assessmentId",
@@ -587,7 +608,7 @@ function AssessmentsDataGrid() {
   return (
     <Box sx={{ width: "100%" }}>
       <DataGridPro
-        rows={assessmentRows}
+        rows={rows}
         columns={columns}
         pagination
         pageSizeOptions={[5, 10, 25]}
@@ -613,6 +634,26 @@ function AssessmentsDataGrid() {
 }
 
 export default function AssessmentsPage() {
+  const navigate = useNavigate();
+  const catalogVersion = useSyncExternalStore(
+    subscribeRiskAssessments,
+    getRiskAssessmentsSnapshotVersion,
+    () => 0,
+  );
+
+  const { assessmentRows, statusData } = useMemo(() => {
+    const rows = buildAssessmentRows();
+    return {
+      assessmentRows: rows,
+      statusData: buildAssessmentStatusCounts(rows),
+    };
+  }, [catalogVersion]);
+
+  const handleNewAssessment = () => {
+    const created = addRiskAssessment();
+    navigate(`/cyber-risk/cyber-risk-assessments/${created.id}`);
+  };
+
   return (
     <Container sx={{ py: 2 }}>
       <Stack gap={6}>
@@ -635,11 +676,7 @@ export default function AssessmentsPage() {
             </OverflowBreadcrumbs>
           }
           moreButton={
-            <Button
-              variant="contained"
-              component={NavLink}
-              to="/cyber-risk/cyber-risk-assessments/new"
-            >
+            <Button variant="contained" onClick={handleNewAssessment}>
               New cyber risk assessment
             </Button>
           }
@@ -653,12 +690,12 @@ export default function AssessmentsPage() {
           })}
         >
           <Stack direction="row" gap={3} sx={{ minHeight: 460, width: "100%" }}>
-            <AssessmentsByStatusCard />
+            <AssessmentsByStatusCard statusData={statusData} />
             <AssessmentCoverageCard />
           </Stack>
         </Box>
 
-        <AssessmentsDataGrid />
+        <AssessmentsDataGrid rows={assessmentRows} />
       </Stack>
     </Container>
   );

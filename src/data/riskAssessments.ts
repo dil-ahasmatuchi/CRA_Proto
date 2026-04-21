@@ -2,6 +2,7 @@ import { padId } from "./types.js";
 import type { MockCyberRiskAssessment, AssessmentStatus } from "./types.js";
 import { cyberRisks } from "./cyberRisks.js";
 import { threats } from "./threats.js";
+import { users } from "./users.js";
 import { vulnerabilities } from "./vulnerabilities.js";
 import { scenarios } from "./scenarios.js";
 
@@ -111,11 +112,73 @@ function buildAssessmentRow(meta: Meta, index: number): MockCyberRiskAssessment 
   };
 }
 
+/** Mutable catalog (session lifetime); newest `CRA-*` numeric id first for list UIs. */
 export const riskAssessments: MockCyberRiskAssessment[] = ASSESSMENT_META.map((m, i) =>
   buildAssessmentRow(m, i),
 );
 
+function craNumericSuffix(id: string): number {
+  const m = /^CRA-(\d+)$/.exec(id);
+  return m ? Number.parseInt(m[1]!, 10) : 0;
+}
+
+riskAssessments.sort((a, b) => craNumericSuffix(b.id) - craNumericSuffix(a.id));
+
 const assessmentById = new Map(riskAssessments.map((a) => [a.id, a]));
+
+const riskAssessmentListeners = new Set<() => void>();
+let riskAssessmentsSnapshotVersion = 0;
+
+function notifyRiskAssessmentListeners(): void {
+  riskAssessmentsSnapshotVersion += 1;
+  for (const cb of riskAssessmentListeners) cb();
+}
+
+export function subscribeRiskAssessments(onStoreChange: () => void): () => void {
+  riskAssessmentListeners.add(onStoreChange);
+  return () => {
+    riskAssessmentListeners.delete(onStoreChange);
+  };
+}
+
+export function getRiskAssessmentsSnapshotVersion(): number {
+  return riskAssessmentsSnapshotVersion;
+}
+
+function nextCraNumericId(): number {
+  let max = 0;
+  for (const a of riskAssessments) {
+    max = Math.max(max, craNumericSuffix(a.id));
+  }
+  return max + 1;
+}
+
+/**
+ * Adds a new draft assessment at the front of the catalog (threats-style in-memory session store).
+ * Call `subscribeRiskAssessments` from UI to refresh lists.
+ */
+export function addRiskAssessment(): MockCyberRiskAssessment {
+  const defaultOwnerId = users[0]?.id ?? "USR-001";
+  const n = nextCraNumericId();
+  const newRow: MockCyberRiskAssessment = {
+    id: padId("CRA", n),
+    name: "New cyber risk assessment",
+    ownerId: defaultOwnerId,
+    status: "Draft",
+    assessmentType: "Cyber risk assessment",
+    startDate: "",
+    dueDate: "",
+    assetIds: [],
+    cyberRiskIds: [],
+    threatIds: [],
+    vulnerabilityIds: [],
+    scenarioIds: [],
+  };
+  riskAssessments.unshift(newRow);
+  assessmentById.set(newRow.id, newRow);
+  notifyRiskAssessmentListeners();
+  return newRow;
+}
 
 export function getRiskAssessmentById(id: string): MockCyberRiskAssessment | undefined {
   return assessmentById.get(id);

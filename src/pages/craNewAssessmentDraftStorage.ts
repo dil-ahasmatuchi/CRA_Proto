@@ -11,14 +11,16 @@ export type AssessmentPhase =
 /** AI scoring flow on the Scoring tab (Scoring phase / Overdue). */
 export type AiScoringPhase = "idle" | "processing" | "complete";
 
-/** Scoring type chosen on the Scoring tab AI card (drives scenario detail layout). */
-export type CraScoringTypeChoice = "inherent" | "residual" | "inherent_residual";
+/** Scoring type chosen on the Details tab (drives navigation context to scenario detail). */
+export type CraScoringTypeChoice = "inherent" | "residual";
 
 /** `navigate` state when opening a scenario from the new CRA scoring table. */
 export type CraScenarioDetailLocationState = {
   assessmentName?: string;
   scoringType?: CraScoringTypeChoice;
   aiScoringPhase?: AiScoringPhase;
+  /** CRA assessment route to return to (e.g. `/cyber-risk/cyber-risk-assessments/new` or `.../:id`). */
+  returnToAssessmentPath?: string;
 };
 
 type ScopeSubView =
@@ -49,7 +51,7 @@ export type CraNewAssessmentPersistedDraft = {
   includedScopeAssetIds: string[];
   /** AI scoring CTA/table state; `processing` is not restored after reload. */
   aiScoringPhase: AiScoringPhase;
-  /** AI card scoring type (Inherent / Residual / Inherent + Residual). */
+  /** Scoring type (Inherent vs Residual). */
   scoringType: CraScoringTypeChoice;
 };
 
@@ -68,7 +70,13 @@ function isAiScoringPhase(v: unknown): v is AiScoringPhase {
 }
 
 function isCraScoringTypeChoice(v: unknown): v is CraScoringTypeChoice {
-  return v === "inherent" || v === "residual" || v === "inherent_residual";
+  return v === "inherent" || v === "residual";
+}
+
+function normalizeCraScoringTypeChoice(v: unknown): CraScoringTypeChoice {
+  if (v === "inherent_residual") return "residual";
+  if (isCraScoringTypeChoice(v)) return v;
+  return "residual";
 }
 
 function isScopeSubView(v: unknown): v is ScopeSubView {
@@ -111,9 +119,7 @@ function sanitizeDraft(raw: Partial<CraNewAssessmentPersistedDraft>): CraNewAsse
   if (aiScoringPhase === "processing") {
     aiScoringPhase = "idle";
   }
-  const scoringType: CraScoringTypeChoice = isCraScoringTypeChoice(raw.scoringType)
-    ? raw.scoringType
-    : "residual";
+  const scoringType = normalizeCraScoringTypeChoice(raw.scoringType);
   return {
     activeTab,
     assessmentPhase,
