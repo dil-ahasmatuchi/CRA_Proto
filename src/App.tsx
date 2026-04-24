@@ -19,6 +19,7 @@ import ScoringRationalePage from "./pages/ScoringRationalePage.js";
 import OverviewPage from "./pages/OverviewPage.js";
 import ControlsPage from "./pages/ControlsPage.js";
 import RisksPage from "./pages/RisksPage.js";
+import CyberRiskDetailPage from "./pages/CyberRiskDetailPage.js";
 import MitigationPlansPage from "./pages/MitigationPlansPage.js";
 import VulnerabilitiesPage from "./pages/VulnerabilitiesPage.js";
 import VulnerabilityDetailPage from "./pages/VulnerabilityDetailPage.js";
@@ -96,6 +97,10 @@ export default function App() {
           element={<OverviewPage />}
         />
         <Route
+          path="cyber-risk/cyber-risks/:riskId"
+          element={<CyberRiskDetailPage />}
+        />
+        <Route
           path="cyber-risk/cyber-risks"
           element={<RisksPage />}
         />
@@ -160,6 +165,15 @@ export default function App() {
 
         <Route path="settings" element={<SettingsPage />} />
         <Route
+          path="settings/general"
+          element={
+            <GenericPage
+              title="General settings"
+              breadcrumbParent="Settings"
+            />
+          }
+        />
+        <Route
           path="settings/platform-integrations"
           element={
             <GenericPage
@@ -178,9 +192,12 @@ export default function App() {
           }
         />
         <Route
-          path="settings/label"
+          path="settings/vulnerability-settings"
           element={
-            <GenericPage title="Label" breadcrumbParent="Settings" />
+            <GenericPage
+              title="Vulnerability settings"
+              breadcrumbParent="Settings"
+            />
           }
         />
       </Route>

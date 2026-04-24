@@ -162,6 +162,8 @@ export interface MockAssetRelationships {
   threatIds: string[];
   cyberRiskIds: string[];
   scenarioIds: string[];
+  /** Controls attached to this asset (asset-centric; independent of a specific risk instance). */
+  controlIds: string[];
 }
 
 export interface MockAsset {
@@ -175,6 +177,8 @@ export interface MockAsset {
   status: AssetStatus;
   vulnerabilityIds: string[];
   threatIds: string[];
+  /** Mirror of `relationships.controlIds`; populated when controls catalog is built. */
+  controlIds: string[];
   relationships: MockAssetRelationships;
 }
 
@@ -316,7 +320,11 @@ export interface MockControl {
   controlType: ControlType;
   keyControl: boolean;
   controlFrequency: ControlFrequency;
-  cyberRiskIds: string[];
+  /** Assets this control mitigates (ISO-style: control on asset, not on a single risk row). */
+  assetIds: string[];
+  /** 1–5 control effectiveness for residual treatment strength (mock). */
+  effectiveness: FivePointScaleValue;
+  effectivenessLabel: FivePointScaleLabel;
 }
 
 export interface MockCyberRiskRelationships {
@@ -324,7 +332,6 @@ export interface MockCyberRiskRelationships {
   threatIds: string[];
   vulnerabilityIds: string[];
   scenarioIds: string[];
-  controlIds: string[];
   mitigationPlanIds: string[];
   assessmentIds: string[];
 }
@@ -335,17 +342,23 @@ export interface MockCyberRisk {
   ownerId: string;
   status: CyberRiskStatus;
   businessUnitId: string;
+  /** Inherent likelihood (1–25) before control treatment. */
   likelihood: number;
   likelihoodLabel: FivePointScaleLabel;
   impact: FivePointScaleValue;
   impactLabel: FivePointScaleLabel;
+  /** Inherent score = impact × likelihood (pre-controls). */
   cyberRiskScore: number;
   cyberRiskScoreLabel: FivePointScaleLabel;
+  /** Likelihood after treatment from controls on linked assets. */
+  residualLikelihood: number;
+  residualLikelihoodLabel: FivePointScaleLabel;
+  residualCyberRiskScore: number;
+  residualCyberRiskScoreLabel: FivePointScaleLabel;
   assetIds: string[];
   threatIds: string[];
   vulnerabilityIds: string[];
   scenarioIds: string[];
-  controlIds: string[];
   mitigationPlanIds: string[];
   relationships: MockCyberRiskRelationships;
 }
@@ -396,6 +409,9 @@ export interface MockCyberRiskAssessment {
   scenarioIds: string[];
   /** Library cyber risk ids excluded from scope while assets remain included. */
   excludedScopeCyberRiskIds?: string[];
+  excludedScopeThreatIds?: string[];
+  excludedScopeVulnerabilityIds?: string[];
+  excludedScopeControlIds?: string[];
 }
 
 export interface MockMitigationPlan {

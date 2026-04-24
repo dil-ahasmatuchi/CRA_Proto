@@ -8,9 +8,14 @@ import type { MockCyberRisk, CyberRiskStatus, FivePointScaleValue } from "./type
 import { keywordSimilarity, mulberry32 } from "./relationshipHeuristics.js";
 import { threats } from "./threats.js";
 import { vulnerabilities } from "./vulnerabilities.js";
-import { assets } from "./assets.js";
+import { assets, getAssetById } from "./assets.js";
+import { getControlById } from "./controls.js";
+import { markCatalogDirty } from "./persistence/catalogStore.js";
 
 const OWNER_ROTATION = [7, 9, 14, 15, 20, 33, 39, 49, 1, 5] as const;
+
+/** Max share of inherent likelihood removed when mean active control effectiveness is 5/5. */
+const RESIDUAL_LIKELIHOOD_ALPHA = 0.35;
 
 /**
  * Exactly 20 library cyber risks. Threat links use keyword overlap (risk name vs threat title/domain) plus
@@ -44,6 +49,54 @@ const threatById = new Map(threats.map((t) => [t.id, t]));
 
 function dedupePush(arr: string[], id: string): void {
   if (!arr.includes(id)) arr.push(id);
+}
+
+/** Mean effectiveness (1–5) of Active controls among the given ids; 0 if none. */
+function meanActiveControlEffectiveness(controlIds: readonly string[]): number {
+  let sum = 0;
+  let n = 0;
+  for (const cid of controlIds) {
+    const c = getControlById(cid);
+    if (!c || c.status !== "Active") continue;
+    const eff =
+      typeof c.effectiveness === "number" && c.effectiveness >= 1 && c.effectiveness <= 5
+        ? c.effectiveness
+        : 3;
+    sum += eff;
+    n += 1;
+  }
+  return n === 0 ? 0 : sum / n;
+}
+
+/** Union of control ids on all assets linked to the risk (asset-centric controls). */
+function controlIdsOnRiskAssets(assetIds: readonly string[] | undefined): string[] {
+  const set = new Set<string>();
+  const aids = Array.isArray(assetIds) ? assetIds : [];
+  for (const aid of aids) {
+    const a = getAssetById(aid);
+    if (!a) continue;
+    const cids = Array.isArray(a.controlIds) ? a.controlIds : [];
+    for (const cid of cids) set.add(cid);
+  }
+  return [...set];
+}
+
+/** Residual likelihood from inherent and mean active control effectiveness on linked assets. */
+export function applyResidualCyberRiskScores(risk: MockCyberRisk): void {
+  const likelihood =
+    typeof risk.likelihood === "number" && !Number.isNaN(risk.likelihood) ? risk.likelihood : 1;
+  const impact =
+    typeof risk.impact === "number" && risk.impact >= 1 && risk.impact <= 5 ? risk.impact : 1;
+  const strength = meanActiveControlEffectiveness(controlIdsOnRiskAssets(risk.assetIds));
+  const residualLikelihood = Math.max(
+    1,
+    Math.min(25, Math.round(likelihood * (1 - RESIDUAL_LIKELIHOOD_ALPHA * (strength / 5)))),
+  );
+  risk.residualLikelihood = residualLikelihood;
+  risk.residualLikelihoodLabel = getLikelihoodLabel(residualLikelihood);
+  const residualScore = impact * residualLikelihood;
+  risk.residualCyberRiskScore = residualScore;
+  risk.residualCyberRiskScoreLabel = getCyberRiskScoreLabel(residualScore);
 }
 
 /** Pick a variable number of threats by similarity to the risk name (reproducible per index). */
@@ -113,12 +166,6 @@ function vulnerabilityIdsForAssets(assetIds: string[]): string[] {
   return [...set].sort();
 }
 
-/** Five controls per cyber risk → CTL (5*i+1)..(5*i+5) covers CTL-001..CTL-100. */
-function controlIdsForRiskIndex(i: number): string[] {
-  const base = 5 * i;
-  return [1, 2, 3, 4, 5].map((k) => padId("CTL", base + k));
-}
-
 function mitigationPlanIdsForRiskIndex(i: number): string[] {
   return [padId("MP", 1 + (i % 15)), padId("MP", 1 + ((i + 7) % 15))];
 }
@@ -154,7 +201,6 @@ function buildCyberRisks(): MockCyberRisk[] {
     const likelihood = 1 + Math.floor(rng() * 25);
     const score = impact * likelihood;
 
-    const controlIds = controlIdsForRiskIndex(i);
     const mitigationPlanIds = mitigationPlanIdsForRiskIndex(i);
 
     const risk: MockCyberRisk = {
@@ -169,18 +215,20 @@ function buildCyberRisks(): MockCyberRisk[] {
       likelihoodLabel: getLikelihoodLabel(likelihood),
       cyberRiskScore: score,
       cyberRiskScoreLabel: getCyberRiskScoreLabel(score),
+      residualLikelihood: likelihood,
+      residualLikelihoodLabel: getLikelihoodLabel(likelihood),
+      residualCyberRiskScore: score,
+      residualCyberRiskScoreLabel: getCyberRiskScoreLabel(score),
       assetIds,
       threatIds,
       vulnerabilityIds,
       scenarioIds,
-      controlIds,
       mitigationPlanIds,
       relationships: {
         assetIds,
         threatIds,
         vulnerabilityIds,
         scenarioIds,
-        controlIds,
         mitigationPlanIds,
         assessmentIds: [],
       },
@@ -213,6 +261,10 @@ function buildCyberRisks(): MockCyberRisk[] {
     usedThreatIds.add(t.id);
   }
 
+  for (const r of out) {
+    applyResidualCyberRiskScores(r);
+  }
+
   return out;
 }
 
@@ -231,20 +283,28 @@ export function replaceCyberRisksFromPersistence(next: MockCyberRisk[]): void {
   cyberRisks.length = 0;
   cyberRisks.push(...next);
   rebuildCyberRiskIndex();
+  for (const r of cyberRisks) {
+    applyResidualCyberRiskScores(r);
+  }
   syncIndirectLinksFromCyberRisks();
 }
 
-/** Propagate control and mitigation plan ids from linked cyber risks onto threats and vulnerabilities. */
+/** Propagate control ids from linked assets; mitigation plan ids from linked cyber risks onto threats and vulnerabilities. */
 function syncIndirectLinksFromCyberRisks(): void {
   for (const t of threats) {
     t.relationships.controlIds.length = 0;
     t.relationships.mitigationPlanIds.length = 0;
+    for (const aid of t.assetIds) {
+      const a = getAssetById(aid);
+      if (!a) continue;
+      const cids = Array.isArray(a.controlIds) ? a.controlIds : [];
+      for (const cid of cids) {
+        if (!t.relationships.controlIds.includes(cid)) t.relationships.controlIds.push(cid);
+      }
+    }
     for (const crid of t.cyberRiskIds) {
       const r = riskById.get(crid);
       if (!r) continue;
-      for (const cid of r.controlIds) {
-        if (!t.relationships.controlIds.includes(cid)) t.relationships.controlIds.push(cid);
-      }
       for (const mid of r.mitigationPlanIds) {
         if (!t.relationships.mitigationPlanIds.includes(mid)) t.relationships.mitigationPlanIds.push(mid);
       }
@@ -253,12 +313,17 @@ function syncIndirectLinksFromCyberRisks(): void {
   for (const v of vulnerabilities) {
     v.relationships.controlIds.length = 0;
     v.relationships.mitigationPlanIds.length = 0;
+    for (const aid of v.assetIds) {
+      const a = getAssetById(aid);
+      if (!a) continue;
+      const cids = Array.isArray(a.controlIds) ? a.controlIds : [];
+      for (const cid of cids) {
+        if (!v.relationships.controlIds.includes(cid)) v.relationships.controlIds.push(cid);
+      }
+    }
     for (const crid of v.cyberRiskIds) {
       const r = riskById.get(crid);
       if (!r) continue;
-      for (const cid of r.controlIds) {
-        if (!v.relationships.controlIds.includes(cid)) v.relationships.controlIds.push(cid);
-      }
       for (const mid of r.mitigationPlanIds) {
         if (!v.relationships.mitigationPlanIds.includes(mid)) v.relationships.mitigationPlanIds.push(mid);
       }
@@ -270,4 +335,16 @@ syncIndirectLinksFromCyberRisks();
 
 export function getCyberRiskById(id: string): MockCyberRisk | undefined {
   return riskById.get(id);
+}
+
+export function updateCyberRisk(id: string, patch: Partial<MockCyberRisk>): void {
+  const r = riskById.get(id);
+  if (!r) return;
+  const { relationships, ...rest } = patch;
+  Object.assign(r, rest);
+  if (relationships) {
+    Object.assign(r.relationships, relationships);
+  }
+  syncIndirectLinksFromCyberRisks();
+  markCatalogDirty();
 }

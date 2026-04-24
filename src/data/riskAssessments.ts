@@ -4,9 +4,9 @@ import {
   assessmentScopedCyberRisks,
   assessmentScopedScenarios,
   assessmentScopedThreats,
+  assessmentScopedVulnerabilities,
 } from "./assessmentScopeRollup.js";
 import { users } from "./users.js";
-import { vulnerabilities } from "./vulnerabilities.js";
 import { markCatalogDirty } from "./persistence/catalogStore.js";
 import { scenarios } from "./scenarios.js";
 
@@ -22,13 +22,20 @@ function dedupeIdsPreserveOrder(ids: string[]): string[] {
   return out;
 }
 
+export type ComputeAssessmentRollupOptions = {
+  excludedScopeCyberRiskIds?: readonly string[];
+  excludedScopeThreatIds?: readonly string[];
+  excludedScopeVulnerabilityIds?: readonly string[];
+  excludedScopeControlIds?: readonly string[];
+};
+
 /**
  * Recompute linked cyber risk / threat / vulnerability / scenario ids from in-scope assets
- * and optional excluded cyber risk ids (assessment scope UI).
+ * and optional scope exclusions (assessment scope UI).
  */
 export function computeAssessmentRollupForAssetIds(
   assetIds: readonly string[],
-  excludedScopeCyberRiskIds?: readonly string[],
+  options?: ComputeAssessmentRollupOptions,
 ): Pick<
   MockCyberRiskAssessment,
   | "assetIds"
@@ -37,8 +44,14 @@ export function computeAssessmentRollupForAssetIds(
   | "vulnerabilityIds"
   | "scenarioIds"
   | "excludedScopeCyberRiskIds"
+  | "excludedScopeThreatIds"
+  | "excludedScopeVulnerabilityIds"
+  | "excludedScopeControlIds"
 > {
-  const excluded = new Set(excludedScopeCyberRiskIds ?? []);
+  const excludedCr = new Set(options?.excludedScopeCyberRiskIds ?? []);
+  const excludedThreat = new Set(options?.excludedScopeThreatIds ?? []);
+  const excludedVuln = new Set(options?.excludedScopeVulnerabilityIds ?? []);
+  const excludedControl = new Set(options?.excludedScopeControlIds ?? []);
   const sortedAssetIds = dedupeIdsPreserveOrder([...assetIds]);
   if (sortedAssetIds.length === 0) {
     return {
@@ -47,21 +60,24 @@ export function computeAssessmentRollupForAssetIds(
       threatIds: [],
       vulnerabilityIds: [],
       scenarioIds: [],
-      excludedScopeCyberRiskIds: dedupeIdsPreserveOrder([...excluded]),
+      excludedScopeCyberRiskIds: dedupeIdsPreserveOrder([...excludedCr]),
+      excludedScopeThreatIds: dedupeIdsPreserveOrder([...excludedThreat]),
+      excludedScopeVulnerabilityIds: dedupeIdsPreserveOrder([...excludedVuln]),
+      excludedScopeControlIds: dedupeIdsPreserveOrder([...excludedControl]),
     };
   }
   const assetSet = new Set(sortedAssetIds);
   const cyberRiskIds = dedupeIdsPreserveOrder(
-    assessmentScopedCyberRisks(assetSet, excluded).map((cr) => cr.id),
+    assessmentScopedCyberRisks(assetSet, excludedCr).map((cr) => cr.id),
   );
   const threatIds = dedupeIdsPreserveOrder(
-    assessmentScopedThreats(assetSet, excluded).map((t) => t.id),
+    assessmentScopedThreats(assetSet, excludedCr, excludedThreat).map((t) => t.id),
   );
   const vulnerabilityIds = dedupeIdsPreserveOrder(
-    vulnerabilities.filter((v) => assetSet.has(v.relationships.assetId)).map((v) => v.id),
+    assessmentScopedVulnerabilities(assetSet, excludedVuln).map((v) => v.id),
   );
   const scenarioIds = dedupeIdsPreserveOrder(
-    assessmentScopedScenarios(assetSet, excluded).map((s) => s.id),
+    assessmentScopedScenarios(assetSet, excludedCr).map((s) => s.id),
   );
   return {
     assetIds: sortedAssetIds,
@@ -69,7 +85,10 @@ export function computeAssessmentRollupForAssetIds(
     threatIds,
     vulnerabilityIds,
     scenarioIds,
-    excludedScopeCyberRiskIds: dedupeIdsPreserveOrder([...excluded]),
+    excludedScopeCyberRiskIds: dedupeIdsPreserveOrder([...excludedCr]),
+    excludedScopeThreatIds: dedupeIdsPreserveOrder([...excludedThreat]),
+    excludedScopeVulnerabilityIds: dedupeIdsPreserveOrder([...excludedVuln]),
+    excludedScopeControlIds: dedupeIdsPreserveOrder([...excludedControl]),
   };
 }
 
@@ -135,7 +154,7 @@ const ASSESSMENT_META: Meta[] = [
 function buildAssessmentRow(meta: Meta, index: number): MockCyberRiskAssessment {
   const assetIdxs = pickAssetIdxs(index);
   const assetIds = assetIdxs.map((n) => padId("AST", n));
-  const rollup = computeAssessmentRollupForAssetIds(assetIds, []);
+  const rollup = computeAssessmentRollupForAssetIds(assetIds);
 
   return {
     id: padId("CRA", index + 1),
@@ -151,6 +170,9 @@ function buildAssessmentRow(meta: Meta, index: number): MockCyberRiskAssessment 
     vulnerabilityIds: rollup.vulnerabilityIds,
     scenarioIds: rollup.scenarioIds,
     excludedScopeCyberRiskIds: [],
+    excludedScopeThreatIds: [],
+    excludedScopeVulnerabilityIds: [],
+    excludedScopeControlIds: [],
   };
 }
 
@@ -239,6 +261,9 @@ export function addRiskAssessment(): MockCyberRiskAssessment {
     vulnerabilityIds: [],
     scenarioIds: [],
     excludedScopeCyberRiskIds: [],
+    excludedScopeThreatIds: [],
+    excludedScopeVulnerabilityIds: [],
+    excludedScopeControlIds: [],
   };
   riskAssessments.unshift(newRow);
   assessmentById.set(newRow.id, newRow);

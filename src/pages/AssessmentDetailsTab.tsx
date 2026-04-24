@@ -38,6 +38,9 @@ import {
 import {
   assessmentScopedScenarios,
   candidateScopedCyberRisks,
+  candidateScopedControls,
+  candidateScopedThreats,
+  candidateScopedVulnerabilities,
 } from "../data/assessmentScopeRollup.js";
 import {
   computeAssessmentRollupForAssetIds,
@@ -219,6 +222,26 @@ export default function AssessmentDetailsTab() {
     return new Set();
   });
 
+  const [excludedScopeThreatIds, setExcludedScopeThreatIds] = useState<Set<string>>(() => {
+    if (initialDraft) return new Set(initialDraft.excludedScopeThreatIds ?? []);
+    if (mockFromRoute) return new Set(mockFromRoute.excludedScopeThreatIds ?? []);
+    return new Set();
+  });
+
+  const [excludedScopeVulnerabilityIds, setExcludedScopeVulnerabilityIds] = useState<Set<string>>(
+    () => {
+      if (initialDraft) return new Set(initialDraft.excludedScopeVulnerabilityIds ?? []);
+      if (mockFromRoute) return new Set(mockFromRoute.excludedScopeVulnerabilityIds ?? []);
+      return new Set();
+    },
+  );
+
+  const [excludedScopeControlIds, setExcludedScopeControlIds] = useState<Set<string>>(() => {
+    if (initialDraft) return new Set(initialDraft.excludedScopeControlIds ?? []);
+    if (mockFromRoute) return new Set(mockFromRoute.excludedScopeControlIds ?? []);
+    return new Set();
+  });
+
   const [aiScoringPhase, setAiScoringPhase] = useState<AiScoringPhase>(() => {
     if (mockFromRoute) return "idle";
     if (initialDraft) return initialDraft.aiScoringPhase;
@@ -284,10 +307,133 @@ export default function AssessmentDetailsTab() {
     });
   }, [includedScopeAssetIds]);
 
-  const removeCyberRiskFromAssessment = useCallback((cyberRiskId: string) => {
+  /** Drop threat / vulnerability / control exclusions that no longer apply when asset scope changes. */
+  useEffect(() => {
+    const threatCand = new Set(candidateScopedThreats(includedScopeAssetIds).map((t) => t.id));
+    setExcludedScopeThreatIds((prev) => {
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (threatCand.has(id)) next.add(id);
+      }
+      if (next.size === prev.size) {
+        for (const id of prev) {
+          if (!next.has(id)) return next;
+        }
+        return prev;
+      }
+      return next;
+    });
+
+    const vulnCand = new Set(candidateScopedVulnerabilities(includedScopeAssetIds).map((v) => v.id));
+    setExcludedScopeVulnerabilityIds((prev) => {
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (vulnCand.has(id)) next.add(id);
+      }
+      if (next.size === prev.size) {
+        for (const id of prev) {
+          if (!next.has(id)) return next;
+        }
+        return prev;
+      }
+      return next;
+    });
+
+    const controlCand = new Set(candidateScopedControls(includedScopeAssetIds).map((c) => c.id));
+    setExcludedScopeControlIds((prev) => {
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (controlCand.has(id)) next.add(id);
+      }
+      if (next.size === prev.size) {
+        for (const id of prev) {
+          if (!next.has(id)) return next;
+        }
+        return prev;
+      }
+      return next;
+    });
+  }, [includedScopeAssetIds]);
+
+  const setCyberRiskScopeIncluded = useCallback((cyberRiskId: string, included: boolean) => {
     setExcludedScopeCyberRiskIds((prev) => {
       const next = new Set(prev);
-      next.add(cyberRiskId);
+      if (included) next.delete(cyberRiskId);
+      else next.add(cyberRiskId);
+      return next;
+    });
+  }, []);
+
+  const bulkSetCyberRisksScopeIncluded = useCallback((cyberRiskIds: string[], included: boolean) => {
+    setExcludedScopeCyberRiskIds((prev) => {
+      const next = new Set(prev);
+      for (const id of cyberRiskIds) {
+        if (included) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const setThreatScopeIncluded = useCallback((threatId: string, included: boolean) => {
+    setExcludedScopeThreatIds((prev) => {
+      const next = new Set(prev);
+      if (included) next.delete(threatId);
+      else next.add(threatId);
+      return next;
+    });
+  }, []);
+
+  const bulkSetThreatsScopeIncluded = useCallback((threatIds: string[], included: boolean) => {
+    setExcludedScopeThreatIds((prev) => {
+      const next = new Set(prev);
+      for (const id of threatIds) {
+        if (included) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const setVulnerabilityScopeIncluded = useCallback((vulnerabilityId: string, included: boolean) => {
+    setExcludedScopeVulnerabilityIds((prev) => {
+      const next = new Set(prev);
+      if (included) next.delete(vulnerabilityId);
+      else next.add(vulnerabilityId);
+      return next;
+    });
+  }, []);
+
+  const bulkSetVulnerabilitiesScopeIncluded = useCallback(
+    (vulnerabilityIds: string[], included: boolean) => {
+      setExcludedScopeVulnerabilityIds((prev) => {
+        const next = new Set(prev);
+        for (const id of vulnerabilityIds) {
+          if (included) next.delete(id);
+          else next.add(id);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const setControlScopeIncluded = useCallback((controlId: string, included: boolean) => {
+    setExcludedScopeControlIds((prev) => {
+      const next = new Set(prev);
+      if (included) next.delete(controlId);
+      else next.add(controlId);
+      return next;
+    });
+  }, []);
+
+  const bulkSetControlsScopeIncluded = useCallback((controlIds: string[], included: boolean) => {
+    setExcludedScopeControlIds((prev) => {
+      const next = new Set(prev);
+      for (const id of controlIds) {
+        if (included) next.delete(id);
+        else next.add(id);
+      }
       return next;
     });
   }, []);
@@ -339,10 +485,12 @@ export default function AssessmentDetailsTab() {
       const row = getRiskAssessmentById(catalogAssessmentId);
       if (row) {
         const trimmedName = name.trim();
-        const rollup = computeAssessmentRollupForAssetIds(
-          [...includedScopeAssetIds],
-          [...excludedScopeCyberRiskIds],
-        );
+        const rollup = computeAssessmentRollupForAssetIds([...includedScopeAssetIds], {
+          excludedScopeCyberRiskIds: [...excludedScopeCyberRiskIds],
+          excludedScopeThreatIds: [...excludedScopeThreatIds],
+          excludedScopeVulnerabilityIds: [...excludedScopeVulnerabilityIds],
+          excludedScopeControlIds: [...excludedScopeControlIds],
+        });
         updateRiskAssessment(catalogAssessmentId, {
           name: trimmedName || row.name,
           ownerId: ownerIds[0] ?? row.ownerId,
@@ -368,6 +516,9 @@ export default function AssessmentDetailsTab() {
         scopeSubView,
         includedScopeAssetIds: [...includedScopeAssetIds],
         excludedScopeCyberRiskIds: [...excludedScopeCyberRiskIds],
+        excludedScopeThreatIds: [...excludedScopeThreatIds],
+        excludedScopeVulnerabilityIds: [...excludedScopeVulnerabilityIds],
+        excludedScopeControlIds: [...excludedScopeControlIds],
         aiScoringPhase,
         scoringType,
       });
@@ -384,6 +535,9 @@ export default function AssessmentDetailsTab() {
     scopeSubView,
     includedScopeAssetIds,
     excludedScopeCyberRiskIds,
+    excludedScopeThreatIds,
+    excludedScopeVulnerabilityIds,
+    excludedScopeControlIds,
     aiScoringPhase,
     scoringType,
   ]);
@@ -638,7 +792,17 @@ export default function AssessmentDetailsTab() {
             onScopeSubViewChange={setScopeSubView}
             includedAssetIds={includedScopeAssetIds}
             excludedScopeCyberRiskIds={excludedScopeCyberRiskIds}
-            onRemoveCyberRiskFromAssessment={removeCyberRiskFromAssessment}
+            onSetCyberRiskScopeIncluded={setCyberRiskScopeIncluded}
+            onBulkCyberRisksScopeIncluded={bulkSetCyberRisksScopeIncluded}
+            excludedScopeThreatIds={excludedScopeThreatIds}
+            onSetThreatScopeIncluded={setThreatScopeIncluded}
+            onBulkThreatsScopeIncluded={bulkSetThreatsScopeIncluded}
+            excludedScopeVulnerabilityIds={excludedScopeVulnerabilityIds}
+            onSetVulnerabilityScopeIncluded={setVulnerabilityScopeIncluded}
+            onBulkVulnerabilitiesScopeIncluded={bulkSetVulnerabilitiesScopeIncluded}
+            excludedScopeControlIds={excludedScopeControlIds}
+            onSetControlScopeIncluded={setControlScopeIncluded}
+            onBulkControlsScopeIncluded={bulkSetControlsScopeIncluded}
             onToggleAssetIncluded={toggleAssetIncluded}
             onBulkAssetIdsIncluded={bulkSetAssetsIncluded}
           />

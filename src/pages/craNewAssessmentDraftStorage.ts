@@ -99,6 +99,15 @@ function sanitizeDraft(raw: Partial<CraNewAssessmentPersistedDraft>): CraNewAsse
   const excludedScopeCyberRiskIds = Array.isArray(raw.excludedScopeCyberRiskIds)
     ? (raw.excludedScopeCyberRiskIds as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
+  const excludedScopeThreatIds = Array.isArray(raw.excludedScopeThreatIds)
+    ? (raw.excludedScopeThreatIds as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
+  const excludedScopeVulnerabilityIds = Array.isArray(raw.excludedScopeVulnerabilityIds)
+    ? (raw.excludedScopeVulnerabilityIds as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
+  const excludedScopeControlIds = Array.isArray(raw.excludedScopeControlIds)
+    ? (raw.excludedScopeControlIds as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
   let aiScoringPhase: AiScoringPhase = isAiScoringPhase(raw.aiScoringPhase)
     ? raw.aiScoringPhase
     : "idle";
@@ -118,6 +127,9 @@ function sanitizeDraft(raw: Partial<CraNewAssessmentPersistedDraft>): CraNewAsse
     scopeSubView,
     includedScopeAssetIds,
     excludedScopeCyberRiskIds,
+    excludedScopeThreatIds,
+    excludedScopeVulnerabilityIds,
+    excludedScopeControlIds,
     aiScoringPhase,
     scoringType,
   };
@@ -144,6 +156,9 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
       scopeSubView: o.scopeSubView as ScopeSubView,
       includedScopeAssetIds: o.includedScopeAssetIds as string[],
       excludedScopeCyberRiskIds: o.excludedScopeCyberRiskIds as string[] | undefined,
+      excludedScopeThreatIds: o.excludedScopeThreatIds as string[] | undefined,
+      excludedScopeVulnerabilityIds: o.excludedScopeVulnerabilityIds as string[] | undefined,
+      excludedScopeControlIds: o.excludedScopeControlIds as string[] | undefined,
       aiScoringPhase: o.aiScoringPhase as AiScoringPhase,
       scoringType: o.scoringType as CraScoringTypeChoice | undefined,
     });

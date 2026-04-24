@@ -2,14 +2,21 @@ import { useState } from "react";
 import { PageHeader, OverflowBreadcrumbs } from "@diligentcorp/atlas-react-bundle";
 import FolderIcon from "@diligentcorp/atlas-react-bundle/icons/Folder";
 import { Box, Button, Stack, Tab, Tabs, useTheme } from "@mui/material";
+import { DataGridPro, type GridColDef } from "@mui/x-data-grid-pro";
 import { NavLink, useLocation } from "react-router";
 
+import FilterSideSheet from "../components/FilterSideSheet.js";
+import NewToolbar from "../components/NewToolbar.js";
 import MitigationPlanSideSheet from "../components/MitigationPlanSideSheet.js";
 import { TableTree } from "../components/TableTree.js";
 import ScopedRiskSS from "../components/ScopedRiskSS.js";
 import LabelScoreLegend from "../components/LabelScoreLegend.js";
 import LabelValue from "../components/LabelValue.js";
 import PageLayout from "../components/PageLayout.js";
+import AICard, {
+  AICardAssessmentPreset,
+  AICardScoringDescription,
+} from "../components/AICard.js";
 import { ScopeCard } from "../components/ScopeCard.js";
 import { assets } from "../data/assets.js";
 import { cyberRisks } from "../data/cyberRisks.js";
@@ -41,10 +48,22 @@ function TabPanel({
 
 const TAB_LABELS = ["Tab 1", "Tab 2", "Tab 3"] as const;
 
+type ActivityTab3Row = { id: string; label: string };
+
+const ACTIVITY_TAB3_GRID_ROWS: ActivityTab3Row[] = [
+  { id: "row-1", label: "Sample activity item A" },
+  { id: "row-2", label: "Sample activity item B" },
+];
+
+const activityTab3Columns: GridColDef<ActivityTab3Row>[] = [
+  { field: "label", headerName: "Label", flex: 1, minWidth: 200 },
+];
+
 export default function ActivityPage() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(0);
   const [isSideSheetOpen, setIsSideSheetOpen] = useState(false);
+  const [isFilterSideSheetOpen, setIsFilterSideSheetOpen] = useState(false);
   const [isScopedRiskSSOpen, setIsScopedRiskSSOpen] = useState(false);
   const { presets } = useTheme();
   const { TabsPresets } = presets;
@@ -145,6 +164,12 @@ export default function ActivityPage() {
           relatedAssetNames={relatedAssetNames}
         />
 
+        <FilterSideSheet
+          open={isFilterSideSheetOpen}
+          onClose={() => setIsFilterSideSheetOpen(false)}
+          onApply={() => setIsFilterSideSheetOpen(false)}
+        />
+
         <ScopedRiskSS
           open={isScopedRiskSSOpen}
           onClose={() => setIsScopedRiskSSOpen(false)}
@@ -175,11 +200,49 @@ export default function ActivityPage() {
                 countNoun="Assets"
                 cardActionAriaLabel="Filled variant: assets included (activity preview)"
               />
+              <AICard>
+                <AICardAssessmentPreset
+                  omitAssessmentType
+                  title="AI scoring"
+                  description={<AICardScoringDescription />}
+                  actionLabel="Start AI scoring"
+                  onAction={() => {}}
+                />
+              </AICard>
+              <AICard>
+                <AICardAssessmentPreset
+                  title="Choose how AI helps"
+                  description="Pick an assessment type so we can tailor AI suggestions to your workflow."
+                  actionLabel="Generate with AI"
+                  onAction={() => {}}
+                />
+              </AICard>
             </Stack>
           </Box>
         </TabPanel>
         <TabPanel value={activeTab} index={2}>
-          <Box sx={{ py: 2 }}>
+          <Box sx={{ py: 2, width: "100%" }}>
+            <Box sx={{ width: "100%", mb: 2 }}>
+              <DataGridPro
+                rows={ACTIVITY_TAB3_GRID_ROWS}
+                columns={activityTab3Columns}
+                disableRowSelectionOnClick
+                hideFooter
+                showToolbar
+                slots={{
+                  toolbar: () => (
+                    <NewToolbar onOpenFilters={() => setIsFilterSideSheetOpen(true)} />
+                  ),
+                }}
+                slotProps={{
+                  main: {
+                    "aria-label":
+                      "Activity tab 3 preview table. Column headers contain action menus.",
+                  },
+                }}
+                sx={{ border: 0 }}
+              />
+            </Box>
             <Stack gap={2}>
               <LabelScoreLegend
                 label="Risk level"

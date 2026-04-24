@@ -91,15 +91,15 @@ export default function Navigation() {
         onClose={() => setSettingsOpen(false)}
       >
         <SettingsIcon slot="icon" />
-        <RoutedNavLink
-          to="/settings/platform-integrations"
-          label="Platform integrations"
-        />
+        <RoutedNavLink to="/settings/general" label="General settings" />
         <RoutedNavLink
           to="/settings/cyber-risk-settings"
           label="Cyber risk settings"
         />
-        <RoutedNavLink to="/settings/label" label="Label" />
+        <RoutedNavLink
+          to="/settings/vulnerability-settings"
+          label="Vulnerability settings"
+        />
       </NavSection>
     </>
   );

@@ -17,7 +17,11 @@ import {
   type GridColDef,
   type GridRenderCellParams,
 } from "@mui/x-data-grid-pro";
+import { useState } from "react";
 import { NavLink } from "react-router";
+
+import FilterSideSheet from "../components/FilterSideSheet.js";
+import NewToolbar from "../components/NewToolbar.js";
 
 import ArrowUpIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowUp";
 import ArrowDownIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowDown";
@@ -25,8 +29,7 @@ import DownloadIcon from "@diligentcorp/atlas-react-bundle/icons/Download";
 
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import { cyberRisks } from "../data/cyberRisks.js";
-import ResidualRisksMatrix from "../components/ResidualRisksMatrix.js";
-import { buildCyberRiskHeatmapAggregates } from "../utils/cyberRiskMatrixAggregates.js";
+import RisksMatrix from "../components/RisksMatrix.js";
 
 // ---------------------------------------------------------------------------
 // KPI data
@@ -70,12 +73,6 @@ const kpiItems: KpiItem[] = [
     trendSentiment: "positive",
   },
 ];
-
-// ---------------------------------------------------------------------------
-// Residual risks heat map data (5 x 5, Likelihood vs Impact) from library risks
-// ---------------------------------------------------------------------------
-
-const { grid: heatmapGrid, legend: heatmapLegend } = buildCyberRiskHeatmapAggregates(cyberRisks);
 
 // ---------------------------------------------------------------------------
 // Most exposed assets data
@@ -293,6 +290,8 @@ function ScoreChipCell({ value }: { value: ScoreChip }) {
 }
 
 function MostExposedAssetsTable() {
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
   const columns: GridColDef<CriticalAssetRow>[] = [
     {
       field: "assetName",
@@ -353,6 +352,12 @@ function MostExposedAssetsTable() {
           columns={columns}
           disableRowSelectionOnClick
           hideFooter
+          showToolbar
+          slots={{
+            toolbar: () => (
+              <NewToolbar onOpenFilters={() => setIsFilterOpen(true)} />
+            ),
+          }}
           slotProps={{
             main: {
               "aria-label":
@@ -362,6 +367,13 @@ function MostExposedAssetsTable() {
           sx={{ border: 0 }}
         />
       </Box>
+      <FilterSideSheet
+        open={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        onApply={() => setIsFilterOpen(false)}
+        titleId="overview-most-exposed-filters-title"
+        contentAriaLabel="Most exposed assets filters"
+      />
     </Stack>
   );
 }
@@ -417,21 +429,8 @@ export default function OverviewPage() {
           ))}
         </Stack>
 
-        {/* Inherent + residual risk matrices */}
-        <Stack direction="row" gap={3} sx={{ alignItems: "stretch" }}>
-          <ResidualRisksMatrix
-            title="Inherent risks"
-            grid={heatmapGrid}
-            legend={heatmapLegend}
-            sx={{ flex: "1 1 50%", minWidth: 0 }}
-          />
-          <ResidualRisksMatrix
-            title="Residual risks"
-            grid={heatmapGrid}
-            legend={heatmapLegend}
-            sx={{ flex: "1 1 50%", minWidth: 0 }}
-          />
-        </Stack>
+        {/* Cyber risk heat map: Likelihood vs Impact (Inherent / Residual toggle) */}
+        <RisksMatrix risks={cyberRisks} sx={{ width: "100%", maxWidth: "100%" }} />
 
         {/* Most exposed assets */}
         <MostExposedAssetsTable />

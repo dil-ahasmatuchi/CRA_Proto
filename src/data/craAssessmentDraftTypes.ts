@@ -32,6 +32,10 @@ export type CraNewAssessmentPersistedDraft = {
   includedScopeAssetIds: string[];
   /** Cyber risk library ids explicitly removed from this assessment (still in candidate set from assets). */
   excludedScopeCyberRiskIds: string[];
+  /** Threat library ids explicitly excluded while still linked to candidate scope. */
+  excludedScopeThreatIds: string[];
+  excludedScopeVulnerabilityIds: string[];
+  excludedScopeControlIds: string[];
   aiScoringPhase: AiScoringPhase;
   scoringType: CraScoringTypeChoice;
 };

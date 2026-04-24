@@ -1,6 +1,6 @@
 # Assessment details (`AssessmentDetailsTab`)
 
-Source: [`src/pages/AssessmentDetailsTab.tsx`](../src/pages/AssessmentDetailsTab.tsx) (uses [`AssessmentDetailHeader`](../src/components/AssessmentDetailHeader.tsx) and tab content components).
+Source: `[src/pages/AssessmentDetailsTab.tsx](../src/pages/AssessmentDetailsTab.tsx)` (uses `[AssessmentDetailHeader](../src/components/AssessmentDetailHeader.tsx)` and tab content components).
 
 The document has **three** main sections: **Description**, **Flows**, and **Main actions & page elements**.
 
@@ -21,7 +21,7 @@ Routes:
 
 ### Add new assessment
 
-User opens **New assessment** from the assessments list. The page loads with default name, empty custom ID, default owners, **Draft** phase, and the **Details** tab. Edits are persisted to **`cra_new_assessment_draft_v1`** in `localStorage` on change (save handler). Including assets in scope can auto-advance phase from **Draft** toward **Scoping** (see implementation in the tab file). **Move to scoping** / **Move to scoring** advance phase and switch tabs; **Approve assessment** marks the assessment approved and opens **Results**.
+User opens **New assessment** from the assessments list. The page loads with default name, empty custom ID, default owners, **Draft** phase, and the **Details** tab. Edits are persisted to `**cra_new_assessment_draft_v1`** in `localStorage` on change (save handler). Including assets in scope can auto-advance phase from **Draft** toward **Scoping** (see implementation in the tab file). **Move to scoping** / **Move to scoring** advance phase and switch tabs; **Approve assessment** marks the assessment approved and opens **Results**.
 
 ### View assessment details
 
@@ -39,14 +39,16 @@ User changes **Details** fields (name, custom ID, type, owners, due date, method
 
 Generic product intent (aligned with the header controls):
 
-| Action | Role | Effect (intended) |
-|--------|------|---------------------|
-| **Save** | Primary button | Persists progress (in this prototype: writes the new-assessment draft to `localStorage`; no-op when viewing a fixed `:assessmentId` from mock data). |
-| **More** | Tertiary icon button | Reserved for overflow actions; **`AssessmentDetailsTab` does not pass `onMoreClick`**, so the control is present but **not wired** to a menu in the prototype. Intended actions can include **Delete assessment**. |
-| **Move to scoping** | Tertiary text button (label varies by phase) | From **Draft**: sets phase to **Scoping** and switches to the **Scope** tab. |
-| **Move to scoring** | Tertiary text button | From **Scoping**: sets phase to **Scoring** (internal phase `inProgress`) and switches to the **Scoring** tab. |
-| **Approve assessment** | Tertiary text button | From **Scoring** / **Overdue** (when AI scoring run is complete): sets phase to **Approved** and switches to the **Results** tab. |
-| **Back to scoring** | Shown when phase is **Approved** | Returns to **Scoring** phase and tab for further edits. |
+
+| Action                 | Role                                         | Effect (intended)                                                                                                                                                                                                  |
+| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Save**               | Primary button                               | Persists progress (in this prototype: writes the new-assessment draft to `localStorage`; no-op when viewing a fixed `:assessmentId` from mock data).                                                               |
+| **More**               | Tertiary icon button                         | Reserved for overflow actions; `**AssessmentDetailsTab` does not pass `onMoreClick`**, so the control is present but **not wired** to a menu in the prototype. Intended actions can include **Delete assessment**. |
+| **Move to scoping**    | Tertiary text button (label varies by phase) | From **Draft**: sets phase to **Scoping** and switches to the **Scope** tab.                                                                                                                                       |
+| **Move to scoring**    | Tertiary text button                         | From **Scoping**: sets phase to **Scoring** (internal phase `inProgress`) and switches to the **Scoring** tab.                                                                                                     |
+| **Approve assessment** | Tertiary text button                         | From **Scoring** / **Overdue** (when AI scoring run is complete): sets phase to **Approved** and switches to the **Results** tab.                                                                                  |
+| **Back to scoring**    | Shown when phase is **Approved**             | Returns to **Scoring** phase and tab for further edits.                                                                                                                                                            |
+
 
 **Status dropdown** (chip + menu): displays current status and allows changing to selectable lifecycle states (**Draft**, **Scoping**, **Scoring**). **Approved** and **Overdue** appear in the list but are **not selectable** (informational).
 
@@ -106,7 +108,9 @@ Top to bottom, main header layout (from `AssessmentDetailHeader` + `PageHeader`)
 - **Overview** — Cards for **Assets**, **Cyber risks**, **Threats**, **Vulnerabilities** (counts, **Include** / **Open** style actions per card; **Include assets** on the assets card).
 - **Drill-down subviews** — Choosing a catalog opens a **detail** layout: header shows subview **title** / **subtitle**, extended breadcrumbs, **Cancel** / **Done**, and content such as:
   - **Assets** — Data grid (include toggles, filters, toolbar).
-  - **Cyber risks**, **Threats**, **Vulnerabilities** — Scoped lists tied to included assets.
+  - **Cyber risks** — Data grid of risks linked to included assets; **Included** / **Not included** column (same pattern as assets), toolbar filters, and bulk header toggle; exclusions persist as `excludedScopeCyberRiskIds` in draft/catalog.
+  - **Threats**, **Controls** — Same inclusion column, filters, and bulk header; rows are candidates from linked cyber risks; toggles are disabled when no linked cyber risk is in effective scope; exclusions persist as `excludedScopeThreatIds` / `excludedScopeControlIds`.
+  - **Vulnerabilities** — Same inclusion UX; exclusions persist as `excludedScopeVulnerabilityIds`.
 
 (Subview state is `scopeSubView`; returning to overview clears drill-down when leaving the Scope tab.)
 

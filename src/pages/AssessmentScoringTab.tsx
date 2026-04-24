@@ -27,10 +27,10 @@ import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
-import AiContentCard, {
-  AiContentCardAssessmentPreset,
-  AiContentCardScoringDescription,
-} from "../components/AiContentCard.js";
+import AICard, {
+  AICardAssessmentPreset,
+  AICardScoringDescription,
+} from "../components/AICard.js";
 import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
 
 import { getAssetById } from "../data/assets.js";
@@ -618,6 +618,9 @@ export default function AssessmentScoringTab({
     return (
       <Stack
         sx={({ tokens: t }) => ({
+          width: "100%",
+          minWidth: 0,
+          alignItems: "stretch",
           gap: t.core.spacing["3"].value,
           pt: t.core.spacing["3"].value,
           pb: t.core.spacing["4"].value,
@@ -631,6 +634,9 @@ export default function AssessmentScoringTab({
   return (
     <Stack
       sx={({ tokens: t }) => ({
+        width: "100%",
+        minWidth: 0,
+        alignItems: "stretch",
         gap: t.core.spacing["3"].value,
         pt: t.core.spacing["3"].value,
         pb: t.core.spacing["4"].value,
@@ -645,7 +651,6 @@ export default function AssessmentScoringTab({
             role={undefined}
             sx={({ tokens: t }) => ({
               width: "100%",
-              maxWidth: 1280,
               alignSelf: "stretch",
               backgroundColor: "var(--lens-component-avatar-purple-background-color)",
               color: "var(--lens-component-accordion-active-color)",
@@ -657,16 +662,16 @@ export default function AssessmentScoringTab({
             You can review and edit each individual scenario scoring and rationale.
           </Alert>
         ) : (
-          <AiContentCard>
-            <AiContentCardAssessmentPreset
+          <AICard>
+            <AICardAssessmentPreset
               omitAssessmentType
               title="AI scoring"
-              description={<AiContentCardScoringDescription />}
-              actionLabel="Start AI Scoring."
+              description={<AICardScoringDescription />}
+              actionLabel="Start AI scoring"
               onAction={onAiScoringClick}
               actionLoading={aiScoringPhase === "processing"}
             />
-          </AiContentCard>
+          </AICard>
         )
       ) : null}
       {scoringRows.length === 0 ? (

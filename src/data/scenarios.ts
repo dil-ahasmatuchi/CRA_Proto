@@ -147,6 +147,8 @@ function buildScenarios(): MockScenario[] {
         const asset = assetById.get(assetId);
         if (!asset) continue;
 
+        const assetControlIds = [...(Array.isArray(asset.controlIds) ? asset.controlIds : [])];
+
         seq += 1;
         const scenarioThreatIds = [tid];
         const scenarioVulnIds = threat.vulnerabilityIds.filter((vid) => {
@@ -207,7 +209,7 @@ function buildScenarios(): MockScenario[] {
             assetId,
             threatIds: scenarioThreatIds,
             vulnerabilityIds: scenarioVulnIds,
-            controlIds: risk.controlIds,
+            controlIds: [...assetControlIds],
             mitigationPlanIds: risk.mitigationPlanIds,
           },
         });

@@ -1,10 +1,13 @@
-import { padId } from "./types.js";
+import { padId, getFivePointLabel } from "./types.js";
 import type {
+  MockAsset,
   MockControl,
   ControlStatus,
   ControlType,
   ControlFrequency,
+  FivePointScaleValue,
 } from "./types.js";
+import { assets, getAssetById } from "./assets.js";
 
 const STATUS: ControlStatus[] = ["Active", "Active", "Active", "Draft"];
 const TYPES: ControlType[] = ["Preventive", "Detective"];
@@ -19,7 +22,38 @@ const FREQS: ControlFrequency[] = [
 
 const OWNER_ROTATION = [7, 9, 14, 15, 20, 33, 39, 49, 1, 5, 28, 13, 17, 22, 40, 11, 36, 44, 6, 31];
 
-/** 100 controls: each block of five maps to one cyber risk CR-001..CR-020. */
+function dedupePush(arr: string[], id: string): void {
+  if (!arr.includes(id)) arr.push(id);
+}
+
+/** Clears and repopulates `asset.controlIds` / `relationships.controlIds` from the controls catalog. */
+export function wireControlsToAssets(): void {
+  for (const a of assets) {
+    if (!Array.isArray(a.controlIds)) {
+      (a as MockAsset).controlIds = [];
+    } else {
+      a.controlIds.length = 0;
+    }
+    if (!Array.isArray(a.relationships.controlIds)) {
+      a.relationships.controlIds = [];
+    } else {
+      a.relationships.controlIds.length = 0;
+    }
+  }
+  for (const c of controls) {
+    const assetIds = Array.isArray(c.assetIds) ? c.assetIds : [];
+    for (const aid of assetIds) {
+      const a = getAssetById(aid);
+      if (!a) continue;
+      if (!Array.isArray(a.controlIds)) (a as MockAsset).controlIds = [];
+      if (!Array.isArray(a.relationships.controlIds)) a.relationships.controlIds = [];
+      dedupePush(a.controlIds, c.id);
+      dedupePush(a.relationships.controlIds, c.id);
+    }
+  }
+}
+
+/** 100 controls: each attached to one asset (rotating AST-001..AST-150), asset-centric. */
 function buildControls(): MockControl[] {
   const out: MockControl[] = [];
   const prefixes = [
@@ -76,7 +110,9 @@ function buildControls(): MockControl[] {
   ];
 
   for (let i = 0; i < 100; i++) {
-    const crNum = Math.floor(i / 5) + 1;
+    const assetNum = (i % 150) + 1;
+    const assetId = padId("AST", assetNum);
+    const effectiveness = ((i % 5) + 1) as FivePointScaleValue;
     const name = `${prefixes[i % prefixes.length]} control`;
     out.push({
       id: padId("CTL", i + 1),
@@ -86,13 +122,17 @@ function buildControls(): MockControl[] {
       controlType: TYPES[i % 2]!,
       keyControl: i % 3 !== 0,
       controlFrequency: FREQS[i % FREQS.length]!,
-      cyberRiskIds: [padId("CR", crNum)],
+      assetIds: [assetId],
+      effectiveness,
+      effectivenessLabel: getFivePointLabel(effectiveness),
     });
   }
   return out;
 }
 
 export const controls: MockControl[] = buildControls();
+
+wireControlsToAssets();
 
 const controlById = new Map(controls.map((c) => [c.id, c]));
 
@@ -103,10 +143,26 @@ function rebuildControlIndex(): void {
   }
 }
 
+/** Backfill asset-centric fields for catalogs saved before controls were keyed by `assetIds`. */
+function normalizePersistedControl(c: MockControl, index: number): void {
+  if (!Array.isArray(c.assetIds) || c.assetIds.length === 0) {
+    const m = /^CTL-0*(\d+)$/i.exec(c.id);
+    const n = m ? Math.max(1, parseInt(m[1]!, 10)) : index + 1;
+    c.assetIds = [padId("AST", ((n - 1) % 150) + 1)];
+  }
+  const raw = c.effectiveness;
+  const ok = typeof raw === "number" && raw >= 1 && raw <= 5;
+  const eff = (ok ? raw : (index % 5) + 1) as FivePointScaleValue;
+  c.effectiveness = eff;
+  c.effectivenessLabel = getFivePointLabel(eff);
+}
+
 export function replaceControlsFromPersistence(next: MockControl[]): void {
   controls.length = 0;
   controls.push(...next);
+  controls.forEach((c, i) => normalizePersistedControl(c, i));
   rebuildControlIndex();
+  wireControlsToAssets();
 }
 
 export function getControlById(id: string): MockControl | undefined {

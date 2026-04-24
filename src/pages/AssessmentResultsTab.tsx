@@ -33,7 +33,7 @@ import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
 import MitigationPlanSideSheet from "../components/MitigationPlanSideSheet.js";
-import ResidualRisksMatrix from "../components/ResidualRisksMatrix.js";
+import RisksMatrix from "../components/RisksMatrix.js";
 import { assets } from "../data/assets.js";
 import { type CraRagKey } from "../data/craScoringScenarioLibrary.js";
 import {
@@ -47,7 +47,6 @@ import {
   ragDataVizColor,
   resolveColorForCanvas,
 } from "../data/ragDataVisualization.js";
-import { buildCyberRiskHeatmapAggregates } from "../utils/cyberRiskMatrixAggregates.js";
 import { assessmentScopedCyberRisks } from "../data/assessmentScopeRollup.js";
 
 ChartJS.register(ArcElement, Tooltip, ChartLegend);
@@ -572,11 +571,8 @@ export default function AssessmentResultsTab({
     return out;
   }, [expandedGroups, cyberResultRows]);
 
-  const cyberRiskHeatmap = useMemo(
-    () =>
-      buildCyberRiskHeatmapAggregates(
-        assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds),
-      ),
+  const scopedCyberRisks = useMemo(
+    () => assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds),
     [includedAssetIds, excludedScopeCyberRiskIds],
   );
 
@@ -668,11 +664,8 @@ export default function AssessmentResultsTab({
             alignItems="stretch"
             sx={{ width: "100%" }}
           >
-            <ResidualRisksMatrix
-              title="Cyber risks"
-              grid={cyberRiskHeatmap.grid}
-              legend={cyberRiskHeatmap.legend}
-              moreButtonAriaLabel="More options for cyber risks chart"
+            <RisksMatrix
+              risks={scopedCyberRisks}
               sx={({ tokens: t }) => ({
                 flex: { lg: "1.5 1 0" },
                 minWidth: 0,

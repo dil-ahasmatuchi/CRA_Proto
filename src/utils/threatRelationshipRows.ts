@@ -19,7 +19,7 @@ import type {
 } from "../data/types.js";
 import { getVulnerabilityById } from "../data/vulnerabilities.js";
 
-const CYBER_RISKS_LIST_PATH = "/cyber-risk/cyber-risks";
+const CYBER_RISK_DETAIL_PATH = "/cyber-risk/cyber-risks";
 
 function formatMetaIdForDisplay(id: string): string {
   return id.replace(/-/g, " - ");
@@ -110,12 +110,13 @@ function cyberRiskToRow(r: MockCyberRisk): RelationLinkedObjectRowProps {
   const heat = SCORE_LABEL_TO_HEATMAP[r.cyberRiskScoreLabel];
   const ragKey = RISK_HEATMAP_LEVEL_TO_RAG[heat];
   const scoreLabel = `${r.cyberRiskScore} - ${r.cyberRiskScoreLabel}`;
+  const detailHref = `${CYBER_RISK_DETAIL_PATH}/${encodeURIComponent(r.id)}`;
   return {
     itemKey: r.id,
     objectId: formatMetaIdForDisplay(r.id),
     objectName: r.name,
-    idHref: CYBER_RISKS_LIST_PATH,
-    nameHref: CYBER_RISKS_LIST_PATH,
+    idHref: detailHref,
+    nameHref: detailHref,
     status: { label: r.status, color: cyberRiskStatusColor(r.status) },
     trailing: {
       label: "Cyber risk score",

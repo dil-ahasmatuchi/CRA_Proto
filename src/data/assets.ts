@@ -205,6 +205,7 @@ function emptyAssetRelationships(): MockAsset["relationships"] {
     threatIds: [],
     cyberRiskIds: [],
     scenarioIds: [],
+    controlIds: [],
   };
 }
 
@@ -220,6 +221,7 @@ export const assets: MockAsset[] = raw.map(
     status,
     vulnerabilityIds: [],
     threatIds: [],
+    controlIds: [],
     relationships: emptyAssetRelationships(),
   }),
 );
@@ -233,10 +235,23 @@ function rebuildAssetIndex(): void {
   }
 }
 
+/** Ensures fields added after schema v1 so older localStorage snapshots do not throw at runtime. */
+export function normalizeCatalogAssetsInPlace(): void {
+  for (const a of assets) {
+    if (!Array.isArray(a.controlIds)) {
+      (a as MockAsset).controlIds = [];
+    }
+    if (!Array.isArray(a.relationships.controlIds)) {
+      a.relationships.controlIds = [];
+    }
+  }
+}
+
 export function replaceAssetsFromPersistence(next: MockAsset[]): void {
   assets.length = 0;
   assets.push(...next);
   rebuildAssetIndex();
+  normalizeCatalogAssetsInPlace();
 }
 
 export function getAssetById(id: string): MockAsset | undefined {

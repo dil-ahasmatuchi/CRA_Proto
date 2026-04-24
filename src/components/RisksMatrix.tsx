@@ -1,37 +1,35 @@
+import { useMemo, useState } from "react";
 import {
   Box,
-  Button,
   Card,
   CardContent,
   CardHeader,
   Link,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
   type SxProps,
   type Theme,
 } from "@mui/material";
 
-import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
-
+import type { MockCyberRisk } from "../data/types.js";
+import {
+  buildCyberRiskHeatmapAggregates,
+  type CyberRiskHeatmapScoreBasis,
+} from "../utils/cyberRiskMatrixAggregates.js";
 import {
   ragDataVizColor,
   type RiskHeatmapLevel,
   RISK_HEATMAP_LEVEL_TO_RAG,
 } from "../data/ragDataVisualization.js";
 
-export interface RiskHeatmapLegendItem {
-  label: string;
-  level: RiskHeatmapLevel;
-  count: number;
-}
+export type { RiskHeatmapLegendItem } from "../utils/cyberRiskMatrixAggregates.js";
 
-export interface ResidualRisksMatrixProps {
-  title: string;
-  grid: number[][];
-  legend: RiskHeatmapLegendItem[];
+export interface RisksMatrixProps {
+  risks: readonly MockCyberRisk[];
   yAxisLabel?: string;
   xAxisLabel?: string;
-  moreButtonAriaLabel?: string;
   sx?: SxProps<Theme>;
 }
 
@@ -45,15 +43,19 @@ export function getCellLevel(rowIdx: number, colIdx: number): RiskHeatmapLevel {
   return "veryHigh";
 }
 
-export default function ResidualRisksMatrix({
-  title,
-  grid,
-  legend,
+export default function RisksMatrix({
+  risks,
   yAxisLabel = "Likelihood",
   xAxisLabel = "Impact",
-  moreButtonAriaLabel,
   sx,
-}: ResidualRisksMatrixProps) {
+}: RisksMatrixProps) {
+  const [basis, setBasis] = useState<CyberRiskHeatmapScoreBasis>("inherent");
+
+  const { grid, legend } = useMemo(
+    () => buildCyberRiskHeatmapAggregates(risks, basis),
+    [risks, basis],
+  );
+
   const gridRows = grid.length;
   const gridCols = grid[0]?.length ?? 0;
   const r = 6;
@@ -64,17 +66,26 @@ export default function ResidualRisksMatrix({
         sx={{ display: "flex" }}
         title={
           <Typography variant="h4" component="h2" fontWeight={600}>
-            {title}
+            Cyber risks
           </Typography>
         }
         action={
-          <Button
-            variant="text"
+          <ToggleButtonGroup
+            exclusive
             size="small"
-            aria-label={moreButtonAriaLabel ?? `More options for ${title.toLowerCase()}`}
+            value={basis}
+            onChange={(_e, value: CyberRiskHeatmapScoreBasis | null) => {
+              if (value != null) setBasis(value);
+            }}
+            aria-label="Cyber risk score basis"
           >
-            <MoreIcon aria-hidden />
-          </Button>
+            <ToggleButton value="inherent" aria-label="Inherent cyber risk score">
+              Inherent
+            </ToggleButton>
+            <ToggleButton value="residual" aria-label="Residual cyber risk score">
+              Residual
+            </ToggleButton>
+          </ToggleButtonGroup>
         }
       />
       <CardContent sx={{ pt: 0 }}>
@@ -122,9 +133,7 @@ export default function ResidualRisksMatrix({
                 const br = rowIdx === lastRow && colIdx === lastCol ? r : 0;
                 const bl = rowIdx === lastRow && colIdx === 0 ? r : 0;
                 const cellBorderRadius =
-                  tl || tr || br || bl
-                    ? `${tl}px ${tr}px ${br}px ${bl}px`
-                    : 0;
+                  tl || tr || br || bl ? `${tl}px ${tr}px ${br}px ${bl}px` : 0;
                 const hasRisks = count > 0;
                 return (
                   <Box
@@ -166,7 +175,7 @@ export default function ResidualRisksMatrix({
                     ) : null}
                   </Box>
                 );
-              })
+              }),
             )}
 
             <Box

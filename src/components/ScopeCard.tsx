@@ -35,15 +35,15 @@ export function ScopeCard({
 
   const inner = (
     <CardContent
-      sx={{
+      sx={({ tokens: t }) => ({
         flex: 1,
         width: "100%",
         boxSizing: "border-box",
-        pt: 2,
-        px: 3,
-        pb: 3,
-        "&:last-child": { pb: 3 },
-      }}
+        pt: t.core.spacing["3"].value,
+        px: t.core.spacing["3"].value,
+        pb: t.core.spacing["3"].value,
+        "&:last-child": { pb: t.core.spacing["3"].value },
+      })}
     >
       <Box
         sx={{
