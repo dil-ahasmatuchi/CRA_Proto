@@ -23,7 +23,7 @@ import {
   type GridRenderCellParams,
 } from "@mui/x-data-grid-pro";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
-import MitigationPlanSideSheet from "../components/MitigationPlanSideSheet.js";
+import MitigationPlanPageSideSheet from "../components/MitigationPlanPageSideSheet.js";
 import ResultsHero from "../components/ResultsHero.js";
 import { assets } from "../data/assets.js";
 import { type CraRagKey } from "../data/craScoringScenarioLibrary.js";
@@ -573,7 +573,7 @@ export default function AssessmentResultsTab({
         {assetsSectionExpanded ? <AssetsResultsGrid rows={assetResultRows} /> : null}
       </SectionHeader>
 
-      <MitigationPlanSideSheet
+      <MitigationPlanPageSideSheet
         open={sideSheetOpen}
         onClose={() => setSideSheetOpen(false)}
         cyberRiskName={sideSheetCyberRiskName}

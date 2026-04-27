@@ -6,10 +6,12 @@ import {
 import { Container, Stack } from "@mui/material";
 import { NavLink, useSearchParams } from "react-router";
 
+import type { BusinessUnitOption } from "../components/BusinessUnitDropdown.js";
 import FilterRisks from "../components/FilterRisks.js";
 import FilterSideSheet from "../components/FilterSideSheet.js";
 import RisksHeroSection from "../components/RisksHeroSection.js";
 import RisksTable from "../components/RisksTable.js";
+import { getBusinessUnitById } from "../data/businessUnits.js";
 import type { MatrixSelectionPayload } from "../components/RisksMatrix.js";
 import {
   applyMatrixFiltersToSearchParams,
@@ -69,6 +71,25 @@ export default function RisksPage() {
     () => applyCyberRiskFilters(allRows, appliedFilters),
     [allRows, appliedFilters],
   );
+
+  const heroBusinessUnit = useMemo((): BusinessUnitOption | null => {
+    const id = appliedFilters.businessUnitId;
+    if (id == null) return null;
+    const bu = getBusinessUnitById(id);
+    return { id, label: bu?.name ?? id };
+  }, [appliedFilters.businessUnitId]);
+
+  const handleBusinessUnitChange = useCallback((next: BusinessUnitOption | null) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (next) {
+        p.set("bu", next.id);
+      } else {
+        p.delete("bu");
+      }
+      return p;
+    });
+  }, [setSearchParams]);
 
   const hasCommittedFilters = useMemo(
     () => hasAnyFilterSelected(appliedFilters),
@@ -160,7 +181,11 @@ export default function RisksPage() {
           }
         />
 
-        <RisksHeroSection onMatrixSelection={handleMatrixSelection} />
+        <RisksHeroSection
+          onMatrixSelection={handleMatrixSelection}
+          businessUnit={heroBusinessUnit}
+          onBusinessUnitChange={handleBusinessUnitChange}
+        />
 
         <RisksTable
           rows={filteredRows}

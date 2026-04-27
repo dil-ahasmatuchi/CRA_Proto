@@ -29,6 +29,7 @@ import {
   saveCraNewAssessmentDraft,
   type AiScoringPhase,
   type AssessmentPhase,
+  type CraScenarioScoreAggregationMethod,
   type CraScoringTypeChoice,
 } from "./craNewAssessmentDraftStorage.js";
 import {
@@ -245,6 +246,12 @@ export default function AssessmentDetailsTab() {
     return "residual";
   });
 
+  const [scenarioScoreAggregationMethod, setScenarioScoreAggregationMethod] =
+    useState<CraScenarioScoreAggregationMethod>(() => {
+      if (initialDraft) return initialDraft.scenarioScoreAggregationMethod;
+      return "highest";
+    });
+
   const aiScoringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Clear stale draft on fresh entry to `/new`, but not when the user pops back (browser-style back preserves remounted state + draft). */
@@ -452,7 +459,15 @@ export default function AssessmentDetailsTab() {
     if (assessmentPhase !== "draft") return;
     if (includedScopeAssetIds.size === 0) return;
     setAssessmentPhase("scoping");
+    setScenarioScoreAggregationMethod("highest");
   }, [assessmentPhase, includedScopeAssetIds]);
+
+  const handleAssessmentPhaseChange = useCallback((phase: AssessmentPhase) => {
+    setAssessmentPhase(phase);
+    if (phase === "scoping") {
+      setScenarioScoreAggregationMethod("highest");
+    }
+  }, []);
 
   const showAiScoringAction = useMemo(() => {
     if (assessmentPhase === "inProgress" || assessmentPhase === "overdue") return true;
@@ -513,6 +528,7 @@ export default function AssessmentDetailsTab() {
         excludedScopeControlIds: [...excludedScopeControlIds],
         aiScoringPhase,
         scoringType,
+        scenarioScoreAggregationMethod,
       });
     }
   }, [
@@ -532,6 +548,7 @@ export default function AssessmentDetailsTab() {
     excludedScopeControlIds,
     aiScoringPhase,
     scoringType,
+    scenarioScoreAggregationMethod,
   ]);
 
   const handleAiScoringClick = useCallback(() => {
@@ -620,9 +637,7 @@ export default function AssessmentDetailsTab() {
             mockFromRoute ? joinUserFullNames([mockFromRoute.ownerId]) : "—"
           }
           assessmentPhase={assessmentPhase}
-          onPhaseChange={(phase) => {
-            setAssessmentPhase(phase);
-          }}
+          onPhaseChange={handleAssessmentPhaseChange}
           activeTab={activeTab}
           onActiveTabChange={setActiveTab}
           scopeDetail={scopeDetail}
@@ -630,6 +645,7 @@ export default function AssessmentDetailsTab() {
           onScopeDetailDone={() => setScopeSubView("overview")}
           onSave={isApproved ? undefined : handleSaveDraft}
           aiScoringPhase={aiScoringPhase}
+          onResetScores={() => setScenarioScoreAggregationMethod("highest")}
         />
 
         <TabPanel value={activeTab} index={0}>
@@ -775,6 +791,8 @@ export default function AssessmentDetailsTab() {
           <AssessmentScoringTab
             assessmentName={name}
             returnToAssessmentPath={location.pathname}
+            aggregationMethod={scenarioScoreAggregationMethod}
+            onAggregationMethodChange={setScenarioScoreAggregationMethod}
             includedAssetIds={includedScopeAssetIds}
             excludedScopeCyberRiskIds={excludedScopeCyberRiskIds}
             assessmentPhase={assessmentPhase}

@@ -289,6 +289,16 @@ export function replaceCyberRisksFromPersistence(next: MockCyberRisk[]): void {
   syncIndirectLinksFromCyberRisks();
 }
 
+/** Relabel stored scale fields from active band configuration (no residual score math). */
+export function refreshAllCyberRiskScaleLabelsFromConfig(): void {
+  for (const r of cyberRisks) {
+    r.cyberRiskScoreLabel = getCyberRiskScoreLabel(r.cyberRiskScore);
+    r.residualCyberRiskScoreLabel = getCyberRiskScoreLabel(r.residualCyberRiskScore);
+    r.likelihoodLabel = getLikelihoodLabel(r.likelihood);
+    r.residualLikelihoodLabel = getLikelihoodLabel(r.residualLikelihood);
+  }
+}
+
 /** Propagate control ids from linked assets; mitigation plan ids from linked cyber risks onto threats and vulnerabilities. */
 function syncIndirectLinksFromCyberRisks(): void {
   for (const t of threats) {

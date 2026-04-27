@@ -3,6 +3,7 @@ import { replaceBusinessUnitsFromPersistence } from "../businessUnits.js";
 import { replaceControlsFromPersistence } from "../controls.js";
 import { replaceCyberRisksFromPersistence } from "../cyberRisks.js";
 import { replaceMitigationPlansFromPersistence } from "../mitigationPlans.js";
+import { sanitizeCraNewAssessmentDraft } from "../../pages/craNewAssessmentDraftStorage.js";
 import {
   hydratePersistedCraDraft,
   loadRawCatalogJson,
@@ -35,7 +36,9 @@ export function applyPersistedCatalog(catalog: PersistedCatalogV1): void {
   setScenarioOverridesFromPersistence(catalog.scenarioOverrides);
   rebuildScenariosFromGraph();
   replaceRiskAssessmentsFromPersistence(catalog.riskAssessments);
-  hydratePersistedCraDraft(catalog.craDraft ?? null);
+  hydratePersistedCraDraft(
+    catalog.craDraft != null ? sanitizeCraNewAssessmentDraft(catalog.craDraft) : null,
+  );
 }
 
 

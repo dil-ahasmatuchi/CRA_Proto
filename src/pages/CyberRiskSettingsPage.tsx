@@ -5,7 +5,7 @@ import PageLayout from "../components/PageLayout.js";
 import Placeholder from "../components/Placeholder.js";
 import RiskSettingsHeader from "../components/RiskSettingsHeader.js";
 
-const TAB_LABELS = ["Scoring scales", "Scoring Formulas", "Aggregation"] as const;
+const TAB_LABELS = ["Scoring scales", "Aggregation"] as const;
 
 export default function CyberRiskSettingsPage() {
   const [tab, setTab] = useState(0);

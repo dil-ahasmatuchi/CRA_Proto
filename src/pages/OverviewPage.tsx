@@ -17,7 +17,7 @@ import {
   type GridColDef,
   type GridRenderCellParams,
 } from "@mui/x-data-grid-pro";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { NavLink } from "react-router";
 
 import FilterSideSheet from "../components/FilterSideSheet.js";
@@ -27,7 +27,9 @@ import ArrowUpIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowUp";
 import ArrowDownIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowDown";
 import DownloadIcon from "@diligentcorp/atlas-react-bundle/icons/Download";
 
+import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
+import { fivePointLabelToRag, getCyberRiskScoreLabel } from "../data/types.js";
 import OverviewHero from "../components/OverviewHero.js";
 
 // ---------------------------------------------------------------------------
@@ -89,7 +91,20 @@ interface CriticalAssetRow {
   cyberRiskScore: ScoreChip;
 }
 
-const criticalAssetRows: CriticalAssetRow[] = [
+function cyberRiskProductChip(product: number): ScoreChip {
+  const label = getCyberRiskScoreLabel(product);
+  return {
+    numeric: String(product),
+    label,
+    rag: fivePointLabelToRag(label),
+  };
+}
+
+type CriticalAssetRowSeed = Omit<CriticalAssetRow, "cyberRiskScore"> & {
+  cyberRiskScoreProduct: number;
+};
+
+const criticalAssetRowSeeds: CriticalAssetRowSeed[] = [
   {
     id: 1,
     assetName: "Customer database",
@@ -97,7 +112,7 @@ const criticalAssetRows: CriticalAssetRow[] = [
     criticality: { numeric: "5", label: "Very high", rag: "neg05" },
     vulnerabilities: 4,
     threats: 6,
-    cyberRiskScore: { numeric: "115", label: "Very high", rag: "neg05" },
+    cyberRiskScoreProduct: 115,
   },
   {
     id: 2,
@@ -106,7 +121,7 @@ const criticalAssetRows: CriticalAssetRow[] = [
     criticality: { numeric: "5", label: "Very high", rag: "neg05" },
     vulnerabilities: 6,
     threats: 3,
-    cyberRiskScore: { numeric: "110", label: "Very high", rag: "neg05" },
+    cyberRiskScoreProduct: 110,
   },
   {
     id: 3,
@@ -115,7 +130,7 @@ const criticalAssetRows: CriticalAssetRow[] = [
     criticality: { numeric: "5", label: "Very high", rag: "neg05" },
     vulnerabilities: 2,
     threats: 5,
-    cyberRiskScore: { numeric: "105", label: "Very high", rag: "neg05" },
+    cyberRiskScoreProduct: 105,
   },
   {
     id: 4,
@@ -124,7 +139,7 @@ const criticalAssetRows: CriticalAssetRow[] = [
     criticality: { numeric: "5", label: "Very high", rag: "neg05" },
     vulnerabilities: 1,
     threats: 3,
-    cyberRiskScore: { numeric: "100", label: "High", rag: "neg03" },
+    cyberRiskScoreProduct: 100,
   },
   {
     id: 5,
@@ -133,7 +148,7 @@ const criticalAssetRows: CriticalAssetRow[] = [
     criticality: { numeric: "4", label: "High", rag: "neg03" },
     vulnerabilities: 3,
     threats: 5,
-    cyberRiskScore: { numeric: "95", label: "High", rag: "neg03" },
+    cyberRiskScoreProduct: 95,
   },
   {
     id: 6,
@@ -142,7 +157,7 @@ const criticalAssetRows: CriticalAssetRow[] = [
     criticality: { numeric: "5", label: "Very high", rag: "neg05" },
     vulnerabilities: 5,
     threats: 3,
-    cyberRiskScore: { numeric: "90", label: "High", rag: "neg03" },
+    cyberRiskScoreProduct: 90,
   },
   {
     id: 7,
@@ -151,7 +166,7 @@ const criticalAssetRows: CriticalAssetRow[] = [
     criticality: { numeric: "4", label: "High", rag: "neg03" },
     vulnerabilities: 3,
     threats: 4,
-    cyberRiskScore: { numeric: "80", label: "High", rag: "neg03" },
+    cyberRiskScoreProduct: 80,
   },
   {
     id: 8,
@@ -160,7 +175,7 @@ const criticalAssetRows: CriticalAssetRow[] = [
     criticality: { numeric: "4", label: "High", rag: "neg03" },
     vulnerabilities: 1,
     threats: 2,
-    cyberRiskScore: { numeric: "72", label: "Medium", rag: "neu03" },
+    cyberRiskScoreProduct: 72,
   },
   {
     id: 9,
@@ -169,7 +184,7 @@ const criticalAssetRows: CriticalAssetRow[] = [
     criticality: { numeric: "4", label: "High", rag: "neg03" },
     vulnerabilities: 3,
     threats: 4,
-    cyberRiskScore: { numeric: "68", label: "Medium", rag: "neu03" },
+    cyberRiskScoreProduct: 68,
   },
   {
     id: 10,
@@ -178,7 +193,7 @@ const criticalAssetRows: CriticalAssetRow[] = [
     criticality: { numeric: "3", label: "Medium", rag: "neu03" },
     vulnerabilities: 2,
     threats: 2,
-    cyberRiskScore: { numeric: "55", label: "Medium", rag: "neu03" },
+    cyberRiskScoreProduct: 55,
   },
 ];
 
@@ -288,7 +303,7 @@ function ScoreChipCell({ value }: { value: ScoreChip }) {
   );
 }
 
-function MostExposedAssetsTable() {
+function MostExposedAssetsTable({ rows }: { rows: CriticalAssetRow[] }) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const columns: GridColDef<CriticalAssetRow>[] = [
@@ -347,7 +362,7 @@ function MostExposedAssetsTable() {
       </Typography>
       <Box sx={{ width: "100%" }}>
         <DataGridPro
-          rows={criticalAssetRows}
+          rows={rows}
           columns={columns}
           disableRowSelectionOnClick
           hideFooter
@@ -382,6 +397,16 @@ function MostExposedAssetsTable() {
 // ===========================================================================
 
 export default function OverviewPage() {
+  const { cyberScoreBands } = useCyberRiskScoringConfig();
+  const criticalAssetRows = useMemo(
+    () =>
+      criticalAssetRowSeeds.map(({ cyberRiskScoreProduct, ...rest }) => ({
+        ...rest,
+        cyberRiskScore: cyberRiskProductChip(cyberRiskScoreProduct),
+      })),
+    [cyberScoreBands],
+  );
+
   return (
     <Container sx={{ py: 2 }}>
       <Stack gap={3}>
@@ -432,7 +457,7 @@ export default function OverviewPage() {
         <OverviewHero />
 
         {/* Most exposed assets */}
-        <MostExposedAssetsTable />
+        <MostExposedAssetsTable rows={criticalAssetRows} />
       </Stack>
     </Container>
   );

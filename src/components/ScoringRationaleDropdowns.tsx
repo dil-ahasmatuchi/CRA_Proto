@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 
+import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
 import ScoringMetricField, {
-  CYBER_RISK_SCORE_OPTIONS,
-  LIKELIHOOD_OPTIONS,
+  getActiveCyberRiskScoreOptions,
+  getActiveLikelihoodOptions,
   SCORE_OPTIONS,
   type ScoreValue,
 } from "./ScoringMetricField.js";
@@ -39,12 +40,18 @@ export default function ScoringRationaleDropdowns({
   showTitle = true,
   controlled,
 }: ScoringRationaleDropdownsProps) {
+  const { cyberScoreBands, likelihoodBands } = useCyberRiskScoringConfig();
+  const likelihoodOptions = useMemo(() => getActiveLikelihoodOptions(), [likelihoodBands]);
+  const cyberRiskOptions = useMemo(() => getActiveCyberRiskScoreOptions(), [cyberScoreBands]);
+
   const [impact, setImpact] = useState<ScoreValue>(SCORE_OPTIONS[2] ?? null);
   const [threat, setThreat] = useState<ScoreValue>(SCORE_OPTIONS[2] ?? null);
   const [vulnerability, setVulnerability] = useState<ScoreValue>(SCORE_OPTIONS[2] ?? null);
-  const [likelihood, setLikelihood] = useState<ScoreValue>(LIKELIHOOD_OPTIONS[2] ?? null);
+  const [likelihood, setLikelihood] = useState<ScoreValue>(
+    () => getActiveLikelihoodOptions()[2] ?? null,
+  );
   const [cyberRiskScore, setCyberRiskScore] = useState<ScoreValue>(
-    CYBER_RISK_SCORE_OPTIONS[2] ?? null,
+    () => getActiveCyberRiskScoreOptions()[2] ?? null,
   );
 
   const c = controlled;
@@ -106,13 +113,13 @@ export default function ScoringRationaleDropdowns({
             label="Likelihood"
             value={l}
             onChange={onLikelihood}
-            options={LIKELIHOOD_OPTIONS}
+            options={likelihoodOptions}
           />
           <ScoringMetricField
             label="Cyber risk score"
             value={crs}
             onChange={onCrs}
-            options={CYBER_RISK_SCORE_OPTIONS}
+            options={cyberRiskOptions}
           />
         </Stack>
       </Stack>

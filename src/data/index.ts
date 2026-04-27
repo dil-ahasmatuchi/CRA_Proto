@@ -104,7 +104,10 @@ export { mitigationPlans, getMitigationPlanById } from "./mitigationPlans.js";
 export { objectives, getObjectiveById } from "./objectives.js";
 export { processes, getProcessById } from "./processes.js";
 
-export type { CraNewAssessmentPersistedDraft } from "./craAssessmentDraftTypes.js";
+export type {
+  CraNewAssessmentPersistedDraft,
+  CraScenarioScoreAggregationMethod,
+} from "./craAssessmentDraftTypes.js";
 
 export {
   markCatalogDirty,

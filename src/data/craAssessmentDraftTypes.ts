@@ -11,6 +11,9 @@ export type AiScoringPhase = "idle" | "processing" | "complete";
 
 export type CraScoringTypeChoice = "inherent" | "residual";
 
+/** How parent cyber-risk rows aggregate scenario scores in the Scoring tab. */
+export type CraScenarioScoreAggregationMethod = "highest" | "average";
+
 export type ScopeSubView =
   | "overview"
   | "assets"
@@ -38,4 +41,5 @@ export type CraNewAssessmentPersistedDraft = {
   excludedScopeControlIds: string[];
   aiScoringPhase: AiScoringPhase;
   scoringType: CraScoringTypeChoice;
+  scenarioScoreAggregationMethod: CraScenarioScoreAggregationMethod;
 };

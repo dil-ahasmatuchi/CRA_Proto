@@ -1,8 +1,6 @@
 import { useMemo } from "react";
-import { Button, Card, CardContent, CardHeader, Stack, Typography } from "@mui/material";
+import { Card, CardContent, Stack } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-
-import ExportIcon from "@diligentcorp/atlas-react-bundle/icons/Export";
 
 import AssetsByCyberRiskScoreDonut from "./AssetsByCyberRiskScoreDonut.js";
 import RisksMatrix, { type AssessmentMatrixMode } from "./RisksMatrix.js";
@@ -38,41 +36,6 @@ export default function ResultsHero({ scopedRisks, assetResultRows, scoringType 
         border: "none",
       })}
     >
-      <CardHeader
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          "& .MuiCardHeader-content": {
-            width: "fit-content",
-            flex: "0 0 auto",
-          },
-          "& .MuiCardHeader-action": {
-            flex: 1,
-            minWidth: 0,
-            display: "flex",
-            justifyContent: "flex-end",
-            alignItems: "center",
-            margin: 0,
-          },
-        }}
-        title={
-          <Typography variant="h3" component="h2" sx={{ fontWeight: 600 }}>
-            Overview
-          </Typography>
-        }
-        action={
-          <Button
-            type="button"
-            variant="text"
-            size="medium"
-            startIcon={<ExportIcon aria-hidden />}
-            aria-label="Export assessment results overview"
-          >
-            Export
-          </Button>
-        }
-      />
       <CardContent>
         <Stack
           direction={{ xs: "column", lg: "row" }}

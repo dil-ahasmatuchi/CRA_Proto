@@ -25,7 +25,7 @@ export type AICardProps = {
 };
 
 export type AICardAssessmentPresetProps = {
-  /** Main heading (plain text in scoring layout; gradient when the legacy AI header is used). */
+  /** Main heading (AI gradient in all {@link AICardAssessmentPreset} title rows). */
   title?: string;
   /** Supporting body copy (plain string or rich layout). */
   description?: ReactNode;
@@ -173,18 +173,46 @@ const DEFAULT_SCORING_LOGIC_PATH = "/settings/cyber-risk-settings";
 export type AICardScoringDescriptionProps = {
   /** Destination for “View scoring logic and aggregation details”. Placeholder `#` is inert (click prevented). */
   scoringLogicHref?: string;
+  /**
+   * `before` — future tense (default). `after` — includes review guidance and past tense
+   * for completed AI scoring.
+   */
+  variant?: "before" | "after";
 };
 
 export type AICardAggregationMethodRowProps = {
   /** Destination for “View scoring logic and aggregation details”. Defaults to cyber risk settings. Placeholder `#` is inert (click prevented). */
   scoringLogicHref?: string;
+  /** Controlled value (use with `onValueChange`). When omitted, selection is stored locally. */
+  value?: "highest" | "average";
+  /** Fired when the user changes the aggregation method (controlled mode). */
+  onValueChange?: (value: "highest" | "average") => void;
+  /** Passed to the underlying `RadioGroup` `name` (e.g. to pair with a second group sharing the same React state). */
+  name?: string;
+  /** When true, radios are not interactive. */
+  disabled?: boolean;
 };
 
 /** Aggregation radios + scoring logic link (sibling to formulas block under the AI scoring section). */
 export function AICardAggregationMethodRow({
   scoringLogicHref = DEFAULT_SCORING_LOGIC_PATH,
+  value: controlledValue,
+  onValueChange,
+  name: radioName,
+  disabled = false,
 }: AICardAggregationMethodRowProps = {}) {
-  const [aggregationMethod, setAggregationMethod] = useState<"highest" | "average">("highest");
+  const [internal, setInternal] = useState<"highest" | "average">("highest");
+  const isControlled = controlledValue !== undefined && onValueChange !== undefined;
+  const aggregationMethod = isControlled ? controlledValue : internal;
+
+  const handleChange = (v: string) => {
+    if (v !== "highest" && v !== "average") return;
+    if (isControlled) {
+      onValueChange(v);
+    } else {
+      setInternal(v);
+    }
+  };
 
   return (
     <RadioButtonArray
@@ -193,10 +221,10 @@ export function AICardAggregationMethodRow({
         { value: "highest", label: "Highest" },
         { value: "average", label: "Weighted average" },
       ]}
+      name={radioName}
       value={aggregationMethod}
-      onChange={(v) => {
-        if (v === "highest" || v === "average") setAggregationMethod(v);
-      }}
+      onChange={handleChange}
+      disabled={disabled}
       showAction
       showIcon
       showActionText
@@ -207,7 +235,12 @@ export function AICardAggregationMethodRow({
 }
 
 /** Intro copy and formula chips for the CRA scoring tab AI card. */
-export function AICardScoringDescription(_props: AICardScoringDescriptionProps = {}) {
+export function AICardScoringDescription({ variant = "before" }: AICardScoringDescriptionProps = {}) {
+  const intro =
+    variant === "after"
+      ? "You can review and edit each individual scenario scoring and rationale. Assessments were scored using all available data in your library and the following formulas:"
+      : "Assessments will be scored using all available data in your library and the following formulas:";
+
   return (
     <Stack sx={{ width: "100%", color: "inherit", gap: "8px" }}>
       <Typography
@@ -222,7 +255,7 @@ export function AICardScoringDescription(_props: AICardScoringDescriptionProps =
           fontWeight: t.core.fontWeight.regular.value,
         })}
       >
-        Assessments will be scored using all available data in your library and the following formulas:
+        {intro}
       </Typography>
       <FormulasRow>
         <Box sx={{ flex: "0 0 264px", minWidth: 0 }}>
@@ -287,7 +320,7 @@ export default function AICard({ children }: AICardProps) {
  * Default assessment UI for {@link AICard}: gradient title, description,
  * optional inline AI action, and assessment type radio group.
  * When `omitAssessmentType` and `onAction` are both set, uses the scoring header
- * (plain title and action on one row).
+ * (AI gradient title and action on one row).
  */
 export function AICardAssessmentPreset({
   title = "Choose how AI helps",
@@ -320,6 +353,9 @@ export function AICardAssessmentPreset({
       sx={({ tokens: t }) => ({
         m: 0,
         color: t.semantic.color.type.default.value,
+        display: "flex",
+        flexDirection: "column",
+        gap: t.core.spacing["3"].value,
         ...(onAction && !useFigmaScoringHeader ? { flex: 1, minWidth: 0 } : {}),
         width: useFigmaScoringHeader ? "100%" : undefined,
       })}
@@ -337,9 +373,9 @@ export function AICardAssessmentPreset({
   const primaryActionButton = onAction ? (
     <Button
       type="button"
-      variant={useFigmaScoringHeader ? "text" : "outlined"}
+      variant="outlined"
       color="ai"
-      size={useFigmaScoringHeader ? "small" : "medium"}
+      size="medium"
       startIcon={actionLoading ? undefined : <AiSparkleIcon aria-hidden />}
       loading={actionLoading}
       loadingPosition="start"
@@ -348,64 +384,67 @@ export function AICardAssessmentPreset({
       }
       onClick={onAction}
       aria-busy={actionLoading}
-      sx={({ tokens: t }) => ({
+      sx={{
         flexShrink: 0,
         alignSelf: useFigmaScoringHeader ? "center" : "flex-start",
-        ...(useFigmaScoringHeader
-          ? {
-              px: t.core.spacing["1_5"].value,
-              py: t.core.spacing["0_5"].value,
-              minHeight: 32,
-              gap: t.core.spacing["1"].value,
-            }
-          : {}),
-      })}
+      }}
     >
       {actionLabel}
     </Button>
   ) : null;
 
-  const plainTitleTypography = (
-    <Typography
-      id={sectionTitleId}
+  /**
+   * Gradient text: clip must live on an `inline-block` span. Atlas / global
+   * `h2` rules and Emotion `sx` merge can override `color` on a single node, so
+   * we set the clip + fill on a child via the React `style` prop (highest
+   * specificity for these properties) and keep typography in `sx`.
+   */
+  const gradientTitleTypography = (
+    <Box
       component="h2"
+      id={sectionTitleId}
       sx={({ tokens: t }) => ({
         m: 0,
-        fontFamily: t.semantic.font.title.h4Md.fontFamily.value,
-        fontSize: t.semantic.font.title.h4Md.fontSize.value,
-        lineHeight: t.semantic.font.title.h4Md.lineHeight.value,
-        letterSpacing: t.semantic.font.title.h4Md.letterSpacing.value,
-        fontWeight: t.semantic.fontWeight.emphasis.value,
-        color: t.semantic.color.type.default.value,
+        p: 0,
+        minWidth: 0,
+        maxWidth: "100%",
+        border: "none",
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
-        minWidth: 0,
+        ...(useFigmaScoringHeader
+          ? {
+              flex: "1 1 auto",
+            }
+          : {}),
       })}
     >
-      {title}
-    </Typography>
-  );
-
-  const gradientTitleTypography = (
-    <Typography
-      id={sectionTitleId}
-      component="h2"
-      sx={({ tokens: t }) => ({
-        m: 0,
-        fontFamily: t.semantic.font.title.h4Md.fontFamily.value,
-        fontSize: t.semantic.font.title.h4Md.fontSize.value,
-        lineHeight: t.semantic.font.title.h4Md.lineHeight.value,
-        letterSpacing: t.semantic.font.title.h4Md.letterSpacing.value,
-        fontWeight: t.semantic.fontWeight.emphasis.value,
-        background: AI_TEXT_GRADIENT,
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-        backgroundClip: "text",
-      })}
-    >
-      {title}
-    </Typography>
+      <Box
+        component="span"
+        // Inline style beats Atlas `h2` and MUI `sx` merge for background-clip text.
+        style={{
+          display: "inline-block",
+          maxWidth: "100%",
+          backgroundImage: AI_TEXT_GRADIENT,
+          backgroundSize: "100% 100%",
+          backgroundRepeat: "no-repeat",
+          backgroundColor: "transparent",
+          WebkitBackgroundClip: "text",
+          backgroundClip: "text",
+          color: "transparent",
+          WebkitTextFillColor: "transparent",
+        }}
+        sx={({ tokens: t }) => ({
+          fontFamily: t.semantic.font.title.h4Md.fontFamily.value,
+          fontSize: t.semantic.font.title.h4Md.fontSize.value,
+          lineHeight: t.semantic.font.title.h4Md.lineHeight.value,
+          letterSpacing: t.semantic.font.title.h4Md.letterSpacing.value,
+          fontWeight: t.semantic.fontWeight.emphasis.value,
+        })}
+      >
+        {title}
+      </Box>
+    </Box>
   );
 
   return (
@@ -427,7 +466,7 @@ export function AICardAssessmentPreset({
             gap={2}
             sx={{ width: "100%" }}
           >
-            {plainTitleTypography}
+            {gradientTitleTypography}
             {primaryActionButton}
           </Stack>
           {typeof description === "string" ? (
@@ -449,22 +488,7 @@ export function AICardAssessmentPreset({
       ) : (
         <>
           <Stack gap={2} alignItems="flex-start" sx={{ width: "100%" }}>
-            <Stack direction="row" alignItems="center" gap={1} sx={{ width: "100%" }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 24,
-                  height: 24,
-                  flexShrink: 0,
-                }}
-                aria-hidden
-              >
-                <AiSparkleIcon size="lg" />
-              </Box>
-              {gradientTitleTypography}
-            </Stack>
+            {gradientTitleTypography}
 
             {onAction ? (
               <Stack

@@ -3,6 +3,7 @@ import type {
   AiScoringPhase,
   AssessmentPhase,
   CraNewAssessmentPersistedDraft,
+  CraScenarioScoreAggregationMethod,
   CraScoringTypeChoice,
   ScopeSubView,
 } from "../data/craAssessmentDraftTypes.js";
@@ -18,6 +19,7 @@ export type {
   AiScoringPhase,
   AssessmentPhase,
   CraNewAssessmentPersistedDraft,
+  CraScenarioScoreAggregationMethod,
   CraScoringTypeChoice,
   ScopeSubView,
 } from "../data/craAssessmentDraftTypes.js";
@@ -70,6 +72,16 @@ function normalizeCraScoringTypeChoice(v: unknown): CraScoringTypeChoice {
   return "residual";
 }
 
+function isCraScenarioScoreAggregationMethod(v: unknown): v is CraScenarioScoreAggregationMethod {
+  return v === "highest" || v === "average";
+}
+
+function normalizeScenarioScoreAggregationMethod(
+  v: unknown,
+): CraScenarioScoreAggregationMethod {
+  return isCraScenarioScoreAggregationMethod(v) ? v : "highest";
+}
+
 function isScopeSubView(v: unknown): v is ScopeSubView {
   return (
     v === "overview" ||
@@ -81,7 +93,9 @@ function isScopeSubView(v: unknown): v is ScopeSubView {
   );
 }
 
-function sanitizeDraft(raw: Partial<CraNewAssessmentPersistedDraft>): CraNewAssessmentPersistedDraft {
+export function sanitizeCraNewAssessmentDraft(
+  raw: Partial<CraNewAssessmentPersistedDraft>,
+): CraNewAssessmentPersistedDraft {
   let activeTab =
     typeof raw.activeTab === "number" && raw.activeTab >= 0 && raw.activeTab <= 3
       ? raw.activeTab
@@ -124,6 +138,9 @@ function sanitizeDraft(raw: Partial<CraNewAssessmentPersistedDraft>): CraNewAsse
     aiScoringPhase = "idle";
   }
   const scoringType = normalizeCraScoringTypeChoice(raw.scoringType);
+  const scenarioScoreAggregationMethod = normalizeScenarioScoreAggregationMethod(
+    raw.scenarioScoreAggregationMethod,
+  );
   return {
     activeTab,
     assessmentPhase,
@@ -141,19 +158,20 @@ function sanitizeDraft(raw: Partial<CraNewAssessmentPersistedDraft>): CraNewAsse
     excludedScopeControlIds,
     aiScoringPhase,
     scoringType,
+    scenarioScoreAggregationMethod,
   };
 }
 
 export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | null {
   const fromCatalog = getPersistedCraDraft();
-  if (fromCatalog) return fromCatalog;
+  if (fromCatalog) return sanitizeCraNewAssessmentDraft(fromCatalog);
   try {
     const item = sessionStorage.getItem(STORAGE_KEY);
     if (!item) return null;
     const parsed = JSON.parse(item) as unknown;
     if (parsed == null || typeof parsed !== "object") return null;
     const o = parsed as Record<string, unknown>;
-    const migrated = sanitizeDraft({
+    const migrated = sanitizeCraNewAssessmentDraft({
       activeTab: o.activeTab as number,
       assessmentPhase: o.assessmentPhase as AssessmentPhase,
       name: o.name as string,
@@ -170,6 +188,9 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
       excludedScopeControlIds: o.excludedScopeControlIds as string[] | undefined,
       aiScoringPhase: o.aiScoringPhase as AiScoringPhase,
       scoringType: o.scoringType as CraScoringTypeChoice | undefined,
+      scenarioScoreAggregationMethod: o.scenarioScoreAggregationMethod as
+        | CraScenarioScoreAggregationMethod
+        | undefined,
     });
     setPersistedCraDraft(migrated);
     try {
@@ -184,7 +205,7 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
 }
 
 export function saveCraNewAssessmentDraft(draft: CraNewAssessmentPersistedDraft): void {
-  setPersistedCraDraft(sanitizeDraft(draft));
+  setPersistedCraDraft(sanitizeCraNewAssessmentDraft(draft));
 }
 
 /**

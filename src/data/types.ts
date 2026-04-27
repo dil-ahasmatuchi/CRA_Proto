@@ -1,4 +1,11 @@
 import type { RagDataVizKey } from "./ragDataVisualization.js";
+import {
+  formatBandRangeEnDash,
+  getActiveCyberRiskScoreBands,
+  getActiveLikelihoodBands,
+  resolveCyberRiskScoreBandOrFallback,
+  resolveLikelihoodBandOrFallback,
+} from "./cyberRiskScoringScales.js";
 
 // ---------------------------------------------------------------------------
 // Scale types
@@ -489,35 +496,21 @@ export function getFivePointLabel(value: FivePointScaleValue): FivePointScaleLab
 }
 
 export function getLikelihoodLabel(value: number): FivePointScaleLabel {
-  if (value >= 21) return "Very high";
-  if (value >= 16) return "High";
-  if (value >= 11) return "Medium";
-  if (value >= 6) return "Low";
-  return "Very low";
+  return resolveLikelihoodBandOrFallback(value, getActiveLikelihoodBands()).name;
 }
 
 export function getLikelihoodRange(value: number): string {
-  if (value >= 21) return "21–25";
-  if (value >= 16) return "16–20";
-  if (value >= 11) return "11–15";
-  if (value >= 6) return "6–10";
-  return "1–5";
+  const row = resolveLikelihoodBandOrFallback(value, getActiveLikelihoodBands());
+  return formatBandRangeEnDash(row);
 }
 
 export function getCyberRiskScoreLabel(value: number): FivePointScaleLabel {
-  if (value >= 101) return "Very high";
-  if (value >= 76) return "High";
-  if (value >= 51) return "Medium";
-  if (value >= 26) return "Low";
-  return "Very low";
+  return resolveCyberRiskScoreBandOrFallback(value, getActiveCyberRiskScoreBands()).name;
 }
 
 export function getCyberRiskScoreRange(value: number): string {
-  if (value >= 101) return "101–125";
-  if (value >= 76) return "76–100";
-  if (value >= 51) return "51–75";
-  if (value >= 26) return "26–50";
-  return "1–25";
+  const row = resolveCyberRiskScoreBandOrFallback(value, getActiveCyberRiskScoreBands());
+  return formatBandRangeEnDash(row);
 }
 
 const FIVE_POINT_TO_RAG: Record<FivePointScaleLabel, RagDataVizKey> = {

@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Footer } from "@diligentcorp/atlas-react-bundle";
 import {
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -28,6 +29,8 @@ import ClearIcon from "@diligentcorp/atlas-react-bundle/icons/Clear";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
 
+import { cyberRisks } from "../data/cyberRisks.js";
+
 export const ISSUE_TYPE_OPTIONS = ["Issue", "Risk", "Control gap", "Finding"];
 export const SEVERITY_OPTIONS = [
   "1 - Very low",
@@ -54,6 +57,16 @@ export const RELATED_CONTROLS_OPTIONS = [
   "Business Impact Analysis",
 ];
 
+const CYBER_RISK_NAME_OPTIONS = cyberRisks.map((r) => r.name);
+
+function buildRiskAutocompleteOptions(extraName: string): string[] {
+  const trimmed = extraName.trim();
+  if (trimmed && !CYBER_RISK_NAME_OPTIONS.includes(trimmed)) {
+    return [trimmed, ...CYBER_RISK_NAME_OPTIONS];
+  }
+  return CYBER_RISK_NAME_OPTIONS;
+}
+
 function PlaceholderText({ text = "Choose an option" }: { text?: string }) {
   const {
     tokens: {
@@ -70,24 +83,26 @@ function PlaceholderText({ text = "Choose an option" }: { text?: string }) {
   );
 }
 
-export type MitigationPlanSideSheetProps = {
+export type MitigationPlanPageSideSheetProps = {
   open: boolean;
   onClose: () => void;
+  /** When set (e.g. opened from a cyber risk row), pre-fills the risk Autocomplete. */
   cyberRiskName: string;
   relatedAssetNames: string[];
 };
 
-export default function MitigationPlanSideSheet({
+export default function MitigationPlanPageSideSheet({
   open,
   onClose,
   cyberRiskName,
   relatedAssetNames,
-}: MitigationPlanSideSheetProps) {
+}: MitigationPlanPageSideSheetProps) {
   const { presets } = useTheme();
   const { SideSheetPresets } = presets;
   const { size, components } = SideSheetPresets;
   const { Header, Content } = components;
 
+  const [selectedRisk, setSelectedRisk] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [issueType, setIssueType] = useState("");
   const [severity, setSeverity] = useState("");
@@ -99,7 +114,19 @@ export default function MitigationPlanSideSheet({
   const [actionPlan, setActionPlan] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const riskAutocompleteOptions = useMemo(
+    () => buildRiskAutocompleteOptions(cyberRiskName),
+    [cyberRiskName],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const trimmed = cyberRiskName.trim();
+    setSelectedRisk(trimmed === "" ? null : trimmed);
+  }, [open, cyberRiskName]);
+
   const handleClose = useCallback(() => {
+    setSelectedRisk(null);
     setName("");
     setIssueType("");
     setSeverity("");
@@ -131,7 +158,6 @@ export default function MitigationPlanSideSheet({
     [],
   );
 
-  // Correction for handleRelatedControlsChange - it was setting assets instead of controls
   const handleRelatedControlsChangeFixed = useCallback(
     (event: SelectChangeEvent<string[]>) => {
       const value = event.target.value;
@@ -149,33 +175,33 @@ export default function MitigationPlanSideSheet({
       slotProps={{
         paper: {
           role: "dialog",
-          "aria-labelledby": "mitigation-side-sheet-title",
+          "aria-labelledby": "mitigation-page-side-sheet-title",
         },
       }}
     >
       <Header
         variant="default"
         onClose={handleClose}
-        title="Add issue ticket"
+        title="Add mitigation plan"
         componentProps={{
           closeButton: { "aria-label": "Close side sheet" },
-          title: { component: "h2", id: "mitigation-side-sheet-title" },
+          title: { component: "h2", id: "mitigation-page-side-sheet-title" },
         }}
-      >
-        <Typography
-          sx={({ tokens: t }) => ({
-            fontSize: t.semantic.font.text.md.fontSize.value,
-            lineHeight: t.semantic.font.text.md.lineHeight.value,
-            letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-            color: t.semantic.color.type.default.value,
-          })}
-        >
-          {cyberRiskName}
-        </Typography>
-      </Header>
+      />
 
       <Content ariaLabel="Mitigation plan form">
         <Stack gap={3}>
+          <FormControl fullWidth>
+            <FormLabel htmlFor="mp-page-related-risk">Related risk</FormLabel>
+            <Autocomplete
+              id="mp-page-related-risk"
+              options={riskAutocompleteOptions}
+              value={selectedRisk}
+              onChange={(_, newValue) => setSelectedRisk(newValue)}
+              renderInput={(params) => <TextField {...params} placeholder="Search risks" />}
+            />
+          </FormControl>
+
           {/* Row 1: Name + Issue type */}
           <Stack direction="row" gap={3}>
             <FormControl sx={{ flex: 7 }}>
@@ -506,7 +532,7 @@ export default function MitigationPlanSideSheet({
         }
         primaryAction={
           <Button variant="contained" onClick={handleClose}>
-            Add issue
+            Add mitigation plan
           </Button>
         }
       />

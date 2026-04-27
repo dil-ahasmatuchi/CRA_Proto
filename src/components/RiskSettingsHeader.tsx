@@ -79,14 +79,9 @@ export default function RiskSettingsHeader({ tab, onTabChange }: RiskSettingsHea
           aria-controls="cyber-risk-settings-panel-0"
         />
         <Tab
-          label="Scoring Formulas"
+          label="Aggregation"
           id="cyber-risk-settings-tab-1"
           aria-controls="cyber-risk-settings-panel-1"
-        />
-        <Tab
-          label="Aggregation"
-          id="cyber-risk-settings-tab-2"
-          aria-controls="cyber-risk-settings-panel-2"
         />
       </Tabs>
     </Stack>

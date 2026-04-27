@@ -1,5 +1,9 @@
 import { assets } from "../data/assets.js";
 import { cyberRisks } from "../data/cyberRisks.js";
+import {
+  formatBandRangeSpaced,
+  getActiveCyberRiskScoreBands,
+} from "../data/cyberRiskScoringScales.js";
 import type { RagDataVizKey } from "../data/ragDataVisualization.js";
 import { getCyberRiskScoreLabel, type FivePointScaleLabel } from "../data/types.js";
 
@@ -10,17 +14,18 @@ export type AssetCyberRiskDonutSegment = {
   colorKey: RagDataVizKey;
 };
 
-const BAND_SPEC: readonly {
+function bandSpecFromActiveCyber(): readonly {
   range: string;
   label: FivePointScaleLabel;
   colorKey: RagDataVizKey;
-}[] = [
-  { range: "101 - 125", label: "Very high", colorKey: "neg05" },
-  { range: "76 - 100", label: "High", colorKey: "neg03" },
-  { range: "51 - 75", label: "Medium", colorKey: "neu03" },
-  { range: "26 - 50", label: "Low", colorKey: "pos04" },
-  { range: "1 - 25", label: "Very low", colorKey: "pos05" },
-] as const;
+}[] {
+  const bands = [...getActiveCyberRiskScoreBands()].sort((a, b) => b.level - a.level);
+  return bands.map((row) => ({
+    range: formatBandRangeSpaced(row),
+    label: row.name,
+    colorKey: row.rag,
+  }));
+}
 
 /**
  * For each in-scope asset, the worst (max) inherent cyber risk score across linked in-scope
@@ -55,7 +60,7 @@ export function buildAssetCyberRiskDonutSegments(
     counts[label] += 1;
   }
 
-  return BAND_SPEC.map((row) => ({
+  return bandSpecFromActiveCyber().map((row) => ({
     range: row.range,
     label: row.label,
     colorKey: row.colorKey,
@@ -86,7 +91,7 @@ export function buildAssetCyberRiskDonutSegmentsFromAssessmentAssetRows(
     const lab = row.cyberRiskScore.label as FivePointScaleLabel;
     counts[lab] += 1;
   }
-  return BAND_SPEC.map((row) => ({
+  return bandSpecFromActiveCyber().map((row) => ({
     range: row.range,
     label: row.label,
     colorKey: row.colorKey,

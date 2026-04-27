@@ -686,23 +686,6 @@ function ScopeOverviewCards({
   const wrapHeaderIcon = (icon: React.ReactElement) =>
     CardHeaderIcon ? <CardHeaderIcon icon={icon} /> : icon;
 
-  const editScopeAction = (
-    <Button
-      variant="text"
-      size="medium"
-      onClick={onEditAssetsScope}
-      aria-label="Include assets"
-      sx={({ tokens: t }) => ({
-        fontWeight: 600,
-        color: t.semantic.color.type.default.value,
-        textTransform: "none",
-        whiteSpace: "nowrap",
-      })}
-    >
-      Include assets
-    </Button>
-  );
-
   return (
     <Stack gap={3} sx={{ pt: 3, pb: 4, width: "100%" }}>
       <Box
@@ -720,7 +703,8 @@ function ScopeOverviewCards({
           includedCount={includedAssets}
           totalCount={totalAssets}
           countNoun="Assets"
-          headerAction={editScopeAction}
+          onCardClick={onEditAssetsScope}
+          cardActionAriaLabel="Include assets: open the scoped assets view for this assessment"
         />
         <ScopeCard
           title="Cyber risks"

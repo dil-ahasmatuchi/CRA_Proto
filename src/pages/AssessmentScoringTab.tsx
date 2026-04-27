@@ -1,14 +1,8 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
-  AlertTitle,
   Box,
-  FormControl,
-  FormControlLabel,
   IconButton,
   Link,
-  Radio,
-  RadioGroup,
   Skeleton,
   Stack,
   Table,
@@ -20,7 +14,6 @@ import {
   Typography,
 } from "@mui/material";
 import type { Theme } from "@mui/material/styles";
-import { visuallyHidden } from "@mui/utils";
 import { useNavigate } from "react-router";
 
 import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
@@ -47,6 +40,7 @@ import {
   NEW_CRA_SCORING_TAB_INDEX,
   type AiScoringPhase,
   type AssessmentPhase,
+  type CraScenarioScoreAggregationMethod,
   type CraScoringTypeChoice,
 } from "./craNewAssessmentDraftStorage.js";
 import {
@@ -73,8 +67,6 @@ type ScoringRow = {
   likelihood: ScoreValue;
   cyberRiskScore: ScoreValue;
 };
-
-type AggregationMethod = "highest" | "average";
 
 /** Name column is fixed width (sticky first column). */
 const SCORING_NAME_COL_WIDTH_PX = 400;
@@ -364,7 +356,7 @@ function scoreFromAggregatedNumeric(
 function aggregateMetricForGroup(
   scenariosInGroup: ScoringRow[],
   metric: MetricKey,
-  method: AggregationMethod,
+  method: CraScenarioScoreAggregationMethod,
 ): ScoreValue {
   const withValue = scenariosInGroup.filter((s) => s[metric] != null);
   if (withValue.length === 0) return null;
@@ -502,6 +494,9 @@ type AssessmentScoringTabProps = {
   assessmentName?: string;
   /** Current CRA assessment URL; used when returning from scenario scoring rationale. */
   returnToAssessmentPath: string;
+  /** Parent-controlled aggregation for cyber-risk parent rows (persisted on the CRA draft). */
+  aggregationMethod: CraScenarioScoreAggregationMethod;
+  onAggregationMethodChange: (method: CraScenarioScoreAggregationMethod) => void;
   includedAssetIds: Set<string>;
   excludedScopeCyberRiskIds: Set<string>;
   /** Draft/Scoping: scoring table must not show catalog scenario scores yet. */
@@ -518,6 +513,8 @@ type AssessmentScoringTabProps = {
 export default function AssessmentScoringTab({
   assessmentName = "",
   returnToAssessmentPath,
+  aggregationMethod,
+  onAggregationMethodChange,
   includedAssetIds,
   excludedScopeCyberRiskIds,
   assessmentPhase,
@@ -530,8 +527,6 @@ export default function AssessmentScoringTab({
   const navigate = useNavigate();
   const scoresNotStartedYet =
     assessmentPhase === "draft" || assessmentPhase === "scoping";
-  const aggregationLabelId = useId();
-  const [aggregationMethod, setAggregationMethod] = useState<AggregationMethod | null>(null);
   const scoringRows = useMemo(
     () => buildScoringRowsForScope(includedAssetIds, excludedScopeCyberRiskIds),
     [includedAssetIds, excludedScopeCyberRiskIds],
@@ -595,7 +590,6 @@ export default function AssessmentScoringTab({
   const aggregatedByGroupId = useMemo(() => {
     const metrics: MetricKey[] = ["impact", "threat", "vulnerability", "likelihood", "cyberRiskScore"];
     const result = new Map<string, Record<MetricKey, ScoreValue>>();
-    if (aggregationMethod == null) return result;
     for (const [groupId, scenarios] of scenariosByGroupId) {
       const agg = {} as Record<MetricKey, ScoreValue>;
       for (const m of metrics) {
@@ -623,12 +617,6 @@ export default function AssessmentScoringTab({
     }
     return out;
   }, [expanded, scoringRows]);
-
-  const handleAggregationChange = useCallback((_event: React.ChangeEvent<HTMLInputElement>, value: string) => {
-    if (value === "highest" || value === "average") {
-      setAggregationMethod(value);
-    }
-  }, []);
 
   if (includedAssetIds.size === 0) {
     return (
@@ -659,41 +647,25 @@ export default function AssessmentScoringTab({
       })}
     >
       {showAiScoringAction ? (
-        aiScoringPhase === "complete" ? (
-          <Alert
-            severity="info"
-            icon={<AiSparkleIcon />}
-            aria-live="off"
-            role={undefined}
-            sx={({ tokens: t }) => ({
-              width: "100%",
-              alignSelf: "stretch",
-              backgroundColor: "var(--lens-component-avatar-purple-background-color)",
-              color: "var(--lens-component-accordion-active-color)",
-              py: t.core.spacing["2"].value,
-            })}
-          >
-            <Box sx={visuallyHidden}>AI</Box>
-            <AlertTitle>AI scoring is completed.</AlertTitle>
-            You can review and edit each individual scenario scoring and rationale.
-          </Alert>
-        ) : (
-          <AICard>
-            <AICardAssessmentPreset
-              omitAssessmentType
-              title="AI scoring"
-              description={
-                <>
-                  <AICardScoringDescription />
-                  <AICardAggregationMethodRow />
-                </>
-              }
-              actionLabel="Start AI scoring"
-              onAction={onAiScoringClick}
-              actionLoading={aiScoringPhase === "processing"}
-            />
-          </AICard>
-        )
+        <AICard>
+          <AICardAssessmentPreset
+            omitAssessmentType
+            title={aiScoringPhase === "complete" ? "AI scoring completed" : "AI scoring"}
+            description={
+              <>
+                <AICardScoringDescription variant={aiScoringPhase === "complete" ? "after" : "before"} />
+                <AICardAggregationMethodRow
+                  name="cra-aggregation-in-card"
+                  value={aggregationMethod}
+                  onValueChange={onAggregationMethodChange}
+                />
+              </>
+            }
+            actionLabel="Start AI scoring"
+            onAction={aiScoringPhase === "complete" ? undefined : onAiScoringClick}
+            actionLoading={aiScoringPhase === "processing"}
+          />
+        </AICard>
       ) : null}
       {scoringRows.length === 0 ? (
         <Typography
@@ -702,65 +674,6 @@ export default function AssessmentScoringTab({
         >
           No cyber risks or scenarios are linked to the selected assets. Adjust selections on the Scope tab if needed.
         </Typography>
-      ) : null}
-      {aiScoringPhase === "complete" ? (
-        <Stack gap={0} sx={{ width: "100%" }}>
-          <Typography
-            id={aggregationLabelId}
-            component="p"
-            sx={({ tokens: t }) => ({
-              m: 0,
-              fontFamily: t.semantic.font.label.sm.fontFamily.value,
-              fontSize: t.semantic.font.label.sm.fontSize.value,
-              lineHeight: t.semantic.font.label.sm.lineHeight.value,
-              letterSpacing: t.semantic.font.label.sm.letterSpacing.value,
-              fontWeight: t.semantic.fontWeight.emphasis.value,
-              color: t.semantic.color.type.default.value,
-            })}
-          >
-            Aggregation method
-          </Typography>
-          <FormControl variant="standard" fullWidth sx={{ mt: 0 }}>
-            <RadioGroup
-              row
-              aria-labelledby={aggregationLabelId}
-              name="new-cra-scoring-aggregation"
-              value={aggregationMethod ?? ""}
-              onChange={handleAggregationChange}
-            >
-              <FormControlLabel
-                value="highest"
-                control={<Radio />}
-                label="Highest"
-                slotProps={{
-                  typography: {
-                    sx: ({ tokens: t }) => ({
-                      fontSize: t.semantic.font.text.md.fontSize.value,
-                      lineHeight: t.semantic.font.text.md.lineHeight.value,
-                      letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                      color: t.semantic.color.type.default.value,
-                    }),
-                  },
-                }}
-              />
-              <FormControlLabel
-                value="average"
-                control={<Radio />}
-                label="Average"
-                slotProps={{
-                  typography: {
-                    sx: ({ tokens: t }) => ({
-                      fontSize: t.semantic.font.text.md.fontSize.value,
-                      lineHeight: t.semantic.font.text.md.lineHeight.value,
-                      letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                      color: t.semantic.color.type.default.value,
-                    }),
-                  },
-                }}
-              />
-            </RadioGroup>
-          </FormControl>
-        </Stack>
       ) : null}
 
       {scoringRows.length === 0 ? null : (

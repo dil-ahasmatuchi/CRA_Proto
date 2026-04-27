@@ -2,6 +2,7 @@ import {
   OverflowBreadcrumbs,
   PageHeader,
 } from "@diligentcorp/atlas-react-bundle";
+import DownloadIcon from "@diligentcorp/atlas-react-bundle/icons/Download";
 import { Button, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
 import { useRef } from "react";
 import { NavLink, useNavigate } from "react-router";
@@ -83,8 +84,12 @@ export type AssessmentDetailHeaderProps = {
   onScopeDetailDone: () => void;
   /** Primary Save action (main header only; not shown in scope-detail mode). */
   onSave?: () => void;
+  /** When the assessment is approved, called from the header "Export results" action. */
+  onExportResults?: () => void;
   /** When scoring/overdue, controls when the header shows "Approve assessment" (after AI run completes). */
   aiScoringPhase?: AiScoringPhase;
+  /** After "Reset scores" (approved → scoring); e.g. reset scenario score aggregation to default. */
+  onResetScores?: () => void;
 };
 
 export default function AssessmentDetailHeader({
@@ -103,7 +108,9 @@ export default function AssessmentDetailHeader({
   onScopeSubViewBack,
   onScopeDetailDone,
   onSave,
+  onExportResults,
   aiScoringPhase = "complete",
+  onResetScores,
 }: AssessmentDetailHeaderProps) {
   const navigate = useNavigate();
   const { presets, tokens } = useTheme();
@@ -182,16 +189,31 @@ export default function AssessmentDetailHeader({
 
   const primaryCta =
     assessmentPhase === "assessmentApproved" ? (
-      <Button
-        variant="text"
-        size="medium"
-        onClick={() => {
-          onPhaseChange("inProgress");
-          onActiveTabChange(SCORING_TAB_INDEX);
-        }}
-      >
-        Reset scores
-      </Button>
+      <>
+        <Button
+          variant="text"
+          size="medium"
+          onClick={() => {
+            onPhaseChange("inProgress");
+            onActiveTabChange(SCORING_TAB_INDEX);
+            onResetScores?.();
+          }}
+        >
+          Reset scores
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          size="medium"
+          startIcon={<DownloadIcon aria-hidden />}
+          aria-label="Export assessment results"
+          onClick={() => {
+            onExportResults?.();
+          }}
+        >
+          Export results
+        </Button>
+      </>
     ) : inProgressOrOverdue && aiScoringPhase !== "complete" ? null : (
       <Button
         variant="text"
@@ -228,7 +250,7 @@ export default function AssessmentDetailHeader({
       {primaryCta}
       {onSave ? (
         <Button variant="contained" size="medium" onClick={onSave}>
-          Save
+          Save changes
         </Button>
       ) : null}
     </Stack>

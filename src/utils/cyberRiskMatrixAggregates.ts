@@ -1,3 +1,7 @@
+import {
+  formatBandRangeEnDash,
+  getActiveCyberRiskScoreBands,
+} from "../data/cyberRiskScoringScales.js";
 import type { RiskHeatmapLevel } from "../data/ragDataVisualization.js";
 import { getCyberRiskScoreLabel } from "../data/types.js";
 import type { FivePointScaleLabel, MockCyberRisk } from "../data/types.js";
@@ -46,13 +50,13 @@ function scoreLabelToHeatmapLevel(label: FivePointScaleLabel): RiskHeatmapLevel 
   return map[label];
 }
 
-const LEGEND_SPEC: readonly { label: string; level: RiskHeatmapLevel }[] = [
-  { label: "101\u2013125 Very high", level: "veryHigh" },
-  { label: "76\u2013100 High", level: "high" },
-  { label: "51\u201375 Medium", level: "medium" },
-  { label: "26\u201350 Low", level: "low" },
-  { label: "1\u201325 Very low", level: "veryLow" },
-];
+function buildCyberScoreLegendSpec(): { label: string; level: RiskHeatmapLevel }[] {
+  const bands = [...getActiveCyberRiskScoreBands()].sort((a, b) => b.level - a.level);
+  return bands.map((b) => ({
+    label: `${formatBandRangeEnDash(b)} ${b.name}`,
+    level: scoreLabelToHeatmapLevel(b.name),
+  }));
+}
 
 export function buildCyberRiskHeatmapAggregates(
   risks: readonly MockCyberRisk[],
@@ -88,7 +92,7 @@ export function buildCyberRiskHeatmapAggregates(
     scoreCounts[level] += 1;
   }
 
-  const legend: RiskHeatmapLegendItem[] = LEGEND_SPEC.map((spec) => ({
+  const legend: RiskHeatmapLegendItem[] = buildCyberScoreLegendSpec().map((spec) => ({
     label: spec.label,
     level: spec.level,
     count: scoreCounts[spec.level],

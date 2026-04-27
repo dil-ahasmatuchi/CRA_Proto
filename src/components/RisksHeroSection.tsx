@@ -1,20 +1,11 @@
-import { useMemo, useState } from "react";
-import {
-  Autocomplete,
-  Card,
-  CardContent,
-  CardHeader,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { useMemo } from "react";
+import { Box, Card, CardContent, CardHeader, Stack, Typography } from "@mui/material";
 
-import AssetsByCyberRiskScoreDonut from "./AssetsByCyberRiskScoreDonut.js";
+import BusinessUnitDropdown, { type BusinessUnitOption } from "./BusinessUnitDropdown.js";
+import RiskStatusDonut from "./RiskStatusDonut.js";
 import RisksMatrix, { type MatrixSelectionPayload } from "./RisksMatrix.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 import { getBusinessUnitById } from "../data/businessUnits.js";
-
-type BusinessUnitOption = { id: string; label: string };
 
 function businessUnitOptionsFromRisks(): BusinessUnitOption[] {
   const ids = new Set(cyberRisks.map((r) => r.businessUnitId));
@@ -29,14 +20,18 @@ function businessUnitOptionsFromRisks(): BusinessUnitOption[] {
 type RisksHeroSectionProps = {
   /** When set, matrix/legend drill-in updates the cyber risks list (URL) without full navigation. */
   onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
+  /** Selected business unit for the overview (donut/matrix); drives table filtering when owned by the page. */
+  businessUnit: BusinessUnitOption | null;
+  onBusinessUnitChange: (value: BusinessUnitOption | null) => void;
 };
 
-/** Cyber risks overview: assets by cyber risk score donut, likelihood/impact matrix, business unit filter. */
-export default function RisksHeroSection({ onMatrixSelection }: RisksHeroSectionProps) {
+/** Cyber risks overview: workflow status donut, likelihood/impact matrix, business unit filter. */
+export default function RisksHeroSection({
+  onMatrixSelection,
+  businessUnit: selectedBusinessUnit,
+  onBusinessUnitChange,
+}: RisksHeroSectionProps) {
   const buOptions = useMemo(() => businessUnitOptionsFromRisks(), []);
-  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<BusinessUnitOption | null>(
-    null,
-  );
 
   const filteredRisks = useMemo(() => {
     if (!selectedBusinessUnit) {
@@ -77,67 +72,29 @@ export default function RisksHeroSection({ onMatrixSelection }: RisksHeroSection
           </Typography>
         }
         action={
-          <Autocomplete<BusinessUnitOption, false, false, false>
-            size="medium"
-            sx={{
-              width: 500,
-              minWidth: 0,
-              "& .MuiInputLabel-root": { paddingBottom: "0px" },
-            }}
+          <BusinessUnitDropdown
             options={buOptions}
             value={selectedBusinessUnit}
-            onChange={(_, newValue) => {
-              setSelectedBusinessUnit(newValue);
+            onChange={onBusinessUnitChange}
+            sx={{
+              minWidth: 0,
+              width: { xs: "100%", sm: "fit-content" },
             }}
-            getOptionLabel={(o) => o.label}
-            isOptionEqualToValue={(a, b) => a.id === b.id}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                fullWidth={false}
-                label="Business unit"
-                placeholder="All business units"
-                margin="none"
-                sx={{
-                  display: "flex",
-                  flexDirection: "row",
-                  gap: "8px",
-                  width: 500,
-                  minWidth: 0,
-                  "& .MuiInputBase-root": {
-                    width: "100%",
-                  },
-                  "& .MuiInputLabel-root": {
-                    paddingBottom: "0px",
-                  },
-                }}
-                slotProps={{
-                  inputLabel: {
-                    sx: {
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      alignItems: "center",
-                      width: 130,
-                      paddingBottom: "0px",
-                    },
-                  },
-                }}
-              />
-            )}
           />
         }
       />
       <CardContent>
         <Stack direction="row" gap={3} sx={{ alignItems: "stretch", width: "100%" }}>
-          <AssetsByCyberRiskScoreDonut
-            businessUnitId={buId}
+          <Box
             sx={{
-              flex: "1 1 50%",
+              flex: "0 0 auto",
               minWidth: 0,
-              width: "100%",
-              maxWidth: "100%",
+              display: "flex",
+              justifyContent: "center",
             }}
-          />
+          >
+            <RiskStatusDonut risks={filteredRisks} />
+          </Box>
           <RisksMatrix
             risks={filteredRisks}
             sx={{

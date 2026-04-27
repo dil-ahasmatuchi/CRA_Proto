@@ -313,6 +313,14 @@ export function rebuildScenariosFromGraph(): void {
   applyScenarioOverridesToRows();
 }
 
+/** Update stored likelihood / cyber risk labels from active scoring bands (rationale text unchanged). */
+export function refreshScenarioScaleLabelsFromConfig(): void {
+  for (const s of scenarios) {
+    s.likelihoodLabel = getLikelihoodLabel(s.likelihood);
+    s.cyberRiskScoreLabel = getCyberRiskScoreLabel(s.cyberRiskScore);
+  }
+}
+
 export function patchScenario(id: string, patch: Partial<MockScenario>): void {
   scenarioOverrides[id] = { ...scenarioOverrides[id], ...patch };
   const row = scenarioById.get(id);

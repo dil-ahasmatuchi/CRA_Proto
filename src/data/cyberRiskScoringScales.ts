@@ -48,7 +48,7 @@ export const DEFAULT_CYBER_RISK_SCORE_BANDS: ScoringBandRow[] = rowsFrom(
 );
 
 /**
- * Likelihood product bands (1–25). Aligns with {@link LIKELIHOOD_OPTIONS} in ScoringMetricField.
+ * Likelihood product bands (1–25). Aligns with {@link getActiveLikelihoodOptions} in ScoringMetricField.
  */
 export const DEFAULT_LIKELIHOOD_BANDS: ScoringBandRow[] = rowsFrom(
   [
@@ -69,4 +69,103 @@ export const DEFAULT_LIKELIHOOD_BANDS: ScoringBandRow[] = rowsFrom(
 
 export function deepCloneBands(rows: ScoringBandRow[]): ScoringBandRow[] {
   return rows.map((r) => ({ ...r }));
+}
+
+// ---------------------------------------------------------------------------
+// Active configuration (mirrored from React provider; defaults at load)
+// ---------------------------------------------------------------------------
+
+let activeCyberRiskScoreBands: ScoringBandRow[] = deepCloneBands(DEFAULT_CYBER_RISK_SCORE_BANDS);
+let activeLikelihoodBands: ScoringBandRow[] = deepCloneBands(DEFAULT_LIKELIHOOD_BANDS);
+
+export function getActiveCyberRiskScoreBands(): readonly ScoringBandRow[] {
+  return activeCyberRiskScoreBands;
+}
+
+export function getActiveLikelihoodBands(): readonly ScoringBandRow[] {
+  return activeLikelihoodBands;
+}
+
+export function setActiveCyberRiskScoreBands(rows: readonly ScoringBandRow[]): void {
+  activeCyberRiskScoreBands = deepCloneBands(rows as ScoringBandRow[]);
+}
+
+export function setActiveLikelihoodBands(rows: readonly ScoringBandRow[]): void {
+  activeLikelihoodBands = deepCloneBands(rows as ScoringBandRow[]);
+}
+
+/** Inclusive [from, to]; bands should be sorted by `from` ascending. */
+export function resolveBandForScore(
+  score: number,
+  bands: readonly ScoringBandRow[],
+): ScoringBandRow | undefined {
+  for (const row of bands) {
+    if (score >= row.from && score <= row.to) return row;
+  }
+  return undefined;
+}
+
+/** En dash range string for UI (matches existing “26–50” style). */
+export function formatBandRangeEnDash(row: ScoringBandRow): string {
+  return `${row.from}\u2013${row.to}`;
+}
+
+/** Space-separated range for donut legend (matches “51 - 75” style). */
+export function formatBandRangeSpaced(row: ScoringBandRow): string {
+  return `${row.from} - ${row.to}`;
+}
+
+export function resolveCyberRiskScoreBandOrFallback(
+  score: number,
+  bands: readonly ScoringBandRow[],
+): ScoringBandRow {
+  const hit = resolveBandForScore(score, bands);
+  if (hit) return hit;
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console -- prototype diagnostics
+    console.warn("[scoring] score outside configured bands; clamping", { score, bands });
+  }
+  if (bands.length === 0) {
+    return DEFAULT_CYBER_RISK_SCORE_BANDS[0]!;
+  }
+  const sorted = [...bands].sort((a, b) => a.from - b.from);
+  const first = sorted[0]!;
+  const last = sorted[sorted.length - 1]!;
+  if (score < first.from) return first;
+  return last;
+}
+
+export function resolveLikelihoodBandOrFallback(
+  value: number,
+  bands: readonly ScoringBandRow[],
+): ScoringBandRow {
+  const hit = resolveBandForScore(value, bands);
+  if (hit) return hit;
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console -- prototype diagnostics
+    console.warn("[scoring] likelihood outside configured bands; clamping", { value, bands });
+  }
+  if (bands.length === 0) {
+    return DEFAULT_LIKELIHOOD_BANDS[0]!;
+  }
+  const sorted = [...bands].sort((a, b) => a.from - b.from);
+  const first = sorted[0]!;
+  const last = sorted[sorted.length - 1]!;
+  if (value < first.from) return first;
+  return last;
+}
+
+export function bandRowFromToValid(row: ScoringBandRow): boolean {
+  return row.from <= row.to;
+}
+
+export function bandsAreContinuous(rows: readonly ScoringBandRow[]): boolean {
+  for (let i = 0; i < rows.length - 1; i += 1) {
+    if (rows[i]!.to + 1 !== rows[i + 1]!.from) return false;
+  }
+  return true;
+}
+
+export function bandsFullyValid(rows: readonly ScoringBandRow[]): boolean {
+  return rows.every(bandRowFromToValid) && bandsAreContinuous(rows);
 }

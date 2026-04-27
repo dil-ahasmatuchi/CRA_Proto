@@ -9,6 +9,13 @@ import {
   Typography,
 } from "@mui/material";
 
+import {
+  formatBandRangeEnDash,
+  getActiveCyberRiskScoreBands,
+  getActiveLikelihoodBands,
+  resolveCyberRiskScoreBandOrFallback,
+  resolveLikelihoodBandOrFallback,
+} from "../data/cyberRiskScoringScales.js";
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 
 /** Score payload for metric dropdowns (numeric band, label, RAG key). */
@@ -26,36 +33,38 @@ export const SCORE_OPTIONS: NonNullable<ScoreValue>[] = [
   { numeric: "5", label: "Very high", rag: "neg05" },
 ];
 
-export const LIKELIHOOD_OPTIONS: NonNullable<ScoreValue>[] = [
-  { numeric: "1–5", label: "Very low", rag: "pos05" },
-  { numeric: "6–10", label: "Low", rag: "pos04" },
-  { numeric: "11–15", label: "Medium", rag: "neu03" },
-  { numeric: "16–20", label: "High", rag: "neg03" },
-  { numeric: "21–25", label: "Very high", rag: "neg05" },
-];
+export function getActiveLikelihoodOptions(): NonNullable<ScoreValue>[] {
+  return getActiveLikelihoodBands().map((row) => ({
+    numeric: formatBandRangeEnDash(row),
+    label: row.name,
+    rag: row.rag,
+  }));
+}
 
-export const CYBER_RISK_SCORE_OPTIONS: NonNullable<ScoreValue>[] = [
-  { numeric: "1–25", label: "Very low", rag: "pos05" },
-  { numeric: "26–50", label: "Low", rag: "pos04" },
-  { numeric: "51–75", label: "Medium", rag: "neu03" },
-  { numeric: "76–100", label: "High", rag: "neg03" },
-  { numeric: "101–125", label: "Very high", rag: "neg05" },
-];
+export function getActiveCyberRiskScoreOptions(): NonNullable<ScoreValue>[] {
+  return getActiveCyberRiskScoreBands().map((row) => ({
+    numeric: formatBandRangeEnDash(row),
+    label: row.name,
+    rag: row.rag,
+  }));
+}
 
 export function likelihoodFromProduct(product: number): NonNullable<ScoreValue> {
-  if (product <= 5) return LIKELIHOOD_OPTIONS[0];
-  if (product <= 10) return LIKELIHOOD_OPTIONS[1];
-  if (product <= 15) return LIKELIHOOD_OPTIONS[2];
-  if (product <= 20) return LIKELIHOOD_OPTIONS[3];
-  return LIKELIHOOD_OPTIONS[4];
+  const row = resolveLikelihoodBandOrFallback(product, getActiveLikelihoodBands());
+  return {
+    numeric: formatBandRangeEnDash(row),
+    label: row.name,
+    rag: row.rag,
+  };
 }
 
 export function cyberRiskFromProduct(product: number): NonNullable<ScoreValue> {
-  if (product <= 25) return CYBER_RISK_SCORE_OPTIONS[0];
-  if (product <= 50) return CYBER_RISK_SCORE_OPTIONS[1];
-  if (product <= 75) return CYBER_RISK_SCORE_OPTIONS[2];
-  if (product <= 100) return CYBER_RISK_SCORE_OPTIONS[3];
-  return CYBER_RISK_SCORE_OPTIONS[4];
+  const row = resolveCyberRiskScoreBandOrFallback(product, getActiveCyberRiskScoreBands());
+  return {
+    numeric: formatBandRangeEnDash(row),
+    label: row.name,
+    rag: row.rag,
+  };
 }
 
 export function numericOf(v: ScoreValue): number {

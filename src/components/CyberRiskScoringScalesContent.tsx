@@ -1,9 +1,10 @@
 import { Box, Stack, Typography, useTheme } from "@mui/material";
 import { useCallback, useId, useMemo, useState } from "react";
 
+import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
 import {
-  DEFAULT_CYBER_RISK_SCORE_BANDS,
-  DEFAULT_LIKELIHOOD_BANDS,
+  bandsAreContinuous,
+  bandRowFromToValid,
   deepCloneBands,
   type ScoringBandRow,
 } from "../data/cyberRiskScoringScales.js";
@@ -27,35 +28,26 @@ function segmentsFromBands(rows: ScoringBandRow[]): ScoringRangeSegment[] {
 }
 
 function rowError(row: ScoringBandRow): string | undefined {
-  if (row.from > row.to) {
+  if (!bandRowFromToValid(row)) {
     return "“From” must be less than or equal to “To”.";
   }
   return undefined;
 }
 
 function runContinuityError(rows: ScoringBandRow[]): string | undefined {
-  for (let i = 0; i < rows.length - 1; i += 1) {
-    if (rows[i]!.to + 1 !== rows[i + 1]!.from) {
-      return "Adjust ranges so each band’s upper bound is one less than the next band’s lower bound (continuous scale).";
-    }
-  }
-  return undefined;
+  if (bandsAreContinuous(rows)) return undefined;
+  return "Adjust ranges so each band’s upper bound is one less than the next band’s lower bound (continuous scale).";
 }
 
 /**
  * Figma: Scoring scale configuration — Cyber risk score + Likelihood sections.
- * Prototype-only local state; no API persistence.
+ * Band rows are shared app-wide via {@link CyberRiskScoringConfigProvider} (prototype; no API persistence).
  */
 export default function CyberRiskScoringScalesContent() {
   const { tokens: t } = useTheme();
   const uid = useId();
-
-  const [cyberRows, setCyberRows] = useState<ScoringBandRow[]>(
-    () => deepCloneBands(DEFAULT_CYBER_RISK_SCORE_BANDS),
-  );
-  const [likeRows, setLikeRows] = useState<ScoringBandRow[]>(
-    () => deepCloneBands(DEFAULT_LIKELIHOOD_BANDS),
-  );
+  const { cyberScoreBands: cyberRows, setCyberScoreBands: setCyberRows, likelihoodBands: likeRows, setLikelihoodBands: setLikeRows } =
+    useCyberRiskScoringConfig();
   const [editCyber, setEditCyber] = useState(false);
   const [editLike, setEditLike] = useState(false);
   const [openCyber, setOpenCyber] = useState(true);

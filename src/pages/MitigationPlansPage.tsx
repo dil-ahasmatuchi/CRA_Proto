@@ -29,6 +29,7 @@ import {
   QuickFilterControl,
   Toolbar,
 } from "@mui/x-data-grid-pro";
+import { useState } from "react";
 import { NavLink } from "react-router";
 
 import AddIcon from "@diligentcorp/atlas-react-bundle/icons/Add";
@@ -46,6 +47,7 @@ interface MitigationPlanRow {
   ownerName: string;
   ownerInitials: string;
   relatedRiskName: string;
+  relatedControlsCount: number;
   dueDate: string;
   assets: number;
 }
@@ -68,6 +70,7 @@ const SEVERITY_RAG: Record<FivePointScaleValue, RagDataVizKey> = {
   5: "neg05",
 };
 
+import MitigationPlanPageSideSheet from "../components/MitigationPlanPageSideSheet.js";
 import MitigationPlanStatusChip from "../components/MitigationPlanStatusChip.js";
 
 const mitigationPlanRows: MitigationPlanRow[] = [
@@ -80,6 +83,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "Sarah Chen",
     ownerInitials: "SC",
     relatedRiskName: "Unauthorized network access",
+    relatedControlsCount: 4,
     dueDate: "Apr 30, 2026",
     assets: 12,
   },
@@ -92,6 +96,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "James Okoro",
     ownerInitials: "JO",
     relatedRiskName: "Credential compromise",
+    relatedControlsCount: 3,
     dueDate: "May 15, 2026",
     assets: 8,
   },
@@ -104,6 +109,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "Maria Lopez",
     ownerInitials: "ML",
     relatedRiskName: "Sensitive data exposure",
+    relatedControlsCount: 2,
     dueDate: "Jun 1, 2026",
     assets: 3,
   },
@@ -116,6 +122,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "Alex Novak",
     ownerInitials: "AN",
     relatedRiskName: "Supply chain vulnerability",
+    relatedControlsCount: 5,
     dueDate: "Apr 15, 2026",
     assets: 5,
   },
@@ -128,6 +135,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "Priya Sharma",
     ownerInitials: "PS",
     relatedRiskName: "Lateral movement in OT systems",
+    relatedControlsCount: 6,
     dueDate: "Jul 31, 2026",
     assets: 21,
   },
@@ -140,6 +148,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "David Kim",
     ownerInitials: "DK",
     relatedRiskName: "Social engineering attacks",
+    relatedControlsCount: 2,
     dueDate: "May 1, 2026",
     assets: 2,
   },
@@ -152,6 +161,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "Rachel Torres",
     ownerInitials: "RT",
     relatedRiskName: "Cloud misconfiguration",
+    relatedControlsCount: 4,
     dueDate: "Apr 20, 2026",
     assets: 9,
   },
@@ -164,6 +174,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "Michael Bryant",
     ownerInitials: "MB",
     relatedRiskName: "Malware propagation",
+    relatedControlsCount: 5,
     dueDate: "Jun 15, 2026",
     assets: 34,
   },
@@ -176,6 +187,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "Linda Zhao",
     ownerInitials: "LZ",
     relatedRiskName: "Business continuity failure",
+    relatedControlsCount: 1,
     dueDate: "May 30, 2026",
     assets: 15,
   },
@@ -188,6 +200,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "Ethan Patel",
     ownerInitials: "EP",
     relatedRiskName: "Credential theft via exposed secrets",
+    relatedControlsCount: 3,
     dueDate: "Apr 25, 2026",
     assets: 7,
   },
@@ -200,6 +213,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "Sarah Chen",
     ownerInitials: "SC",
     relatedRiskName: "Unauthorized access to legacy systems",
+    relatedControlsCount: 7,
     dueDate: "Feb 28, 2026",
     assets: 14,
   },
@@ -212,6 +226,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "James Okoro",
     ownerInitials: "JO",
     relatedRiskName: "Undetected lateral movement",
+    relatedControlsCount: 4,
     dueDate: "Mar 15, 2026",
     assets: 18,
   },
@@ -224,6 +239,7 @@ const mitigationPlanRows: MitigationPlanRow[] = [
     ownerName: "Priya Sharma",
     ownerInitials: "PS",
     relatedRiskName: "Third-party data breach",
+    relatedControlsCount: 3,
     dueDate: "Jan 31, 2026",
     assets: 6,
   },
@@ -380,6 +396,14 @@ function MitigationPlansDataGrid() {
       width: 260,
     },
     {
+      field: "relatedControlsCount",
+      headerName: "Controls",
+      width: 150,
+      type: "number",
+      align: "right",
+      headerAlign: "right",
+    },
+    {
       field: "assets",
       headerName: "Assets",
       width: 100,
@@ -425,6 +449,8 @@ function MitigationPlansDataGrid() {
 }
 
 export default function MitigationPlansPage() {
+  const [mitigationPlanSideSheetOpen, setMitigationPlanSideSheetOpen] = useState(false);
+
   return (
     <Container sx={{ py: 2 }}>
       <Stack gap={3}>
@@ -452,12 +478,22 @@ export default function MitigationPlansPage() {
             </OverflowBreadcrumbs>
           }
           moreButton={
-            <Button variant="contained" startIcon={<AddIcon />}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setMitigationPlanSideSheetOpen(true)}
+            >
               New mitigation plan
             </Button>
           }
         />
         <MitigationPlansDataGrid />
+        <MitigationPlanPageSideSheet
+          open={mitigationPlanSideSheetOpen}
+          onClose={() => setMitigationPlanSideSheetOpen(false)}
+          cyberRiskName=""
+          relatedAssetNames={[]}
+        />
       </Stack>
     </Container>
   );

@@ -7,7 +7,7 @@ import { NavLink, useLocation } from "react-router";
 
 import FilterSideSheet from "../components/FilterSideSheet.js";
 import NewToolbar from "../components/NewToolbar.js";
-import MitigationPlanSideSheet from "../components/MitigationPlanSideSheet.js";
+import MitigationPlanPageSideSheet from "../components/MitigationPlanPageSideSheet.js";
 import { TableTree } from "../components/TableTree.js";
 import ScopedRiskSS from "../components/ScopedRiskSS.js";
 import LabelScoreLegend from "../components/LabelScoreLegend.js";
@@ -168,7 +168,7 @@ export default function ActivityPage() {
           </Box>
         </TabPanel>
 
-        <MitigationPlanSideSheet
+        <MitigationPlanPageSideSheet
           open={isSideSheetOpen}
           onClose={() => setIsSideSheetOpen(false)}
           cyberRiskName="Ransomware attack on production databases"
@@ -218,11 +218,23 @@ export default function ActivityPage() {
                   description={
                     <>
                       <AICardScoringDescription />
-                      <AICardAggregationMethodRow />
+                      <AICardAggregationMethodRow name="activity-tab2-ai-scoring" />
                     </>
                   }
                   actionLabel="Start AI scoring"
                   onAction={() => {}}
+                />
+              </AICard>
+              <AICard>
+                <AICardAssessmentPreset
+                  omitAssessmentType
+                  title="AI scoring completed"
+                  description={
+                    <>
+                      <AICardScoringDescription variant="after" />
+                      <AICardAggregationMethodRow name="activity-tab2-ai-scoring-completed" />
+                    </>
+                  }
                 />
               </AICard>
               <AICard>
