@@ -12,16 +12,15 @@ import {
 import AssetsByCyberRiskScoreDonut from "./AssetsByCyberRiskScoreDonut.js";
 import RisksMatrix, { type MatrixSelectionPayload } from "./RisksMatrix.js";
 import { cyberRisks } from "../data/cyberRisks.js";
-import { getBusinessUnitById } from "../data/businessUnits.js";
+import { getOrgUnitById } from "../data/orgUnits.js";
+import type { OrgUnitOption } from "./OrgUnitDropdown.js";
 
-type BusinessUnitOption = { id: string; label: string };
-
-function businessUnitOptionsFromRisks(): BusinessUnitOption[] {
-  const ids = new Set(cyberRisks.map((r) => r.businessUnitId));
+function orgUnitOptionsFromRisks(): OrgUnitOption[] {
+  const ids = new Set(cyberRisks.map((r) => r.orgUnitId));
   return Array.from(ids)
     .map((id) => {
-      const bu = getBusinessUnitById(id);
-      return { id, label: bu?.name ?? id };
+      const ou = getOrgUnitById(id);
+      return { id, label: ou?.name ?? id };
     })
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 }
@@ -30,21 +29,19 @@ type OverviewHeroProps = {
   onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
 };
 
-/** Program overview: assets by cyber risk score donut, likelihood/impact matrix, business unit filter. */
+/** Program overview: assets by cyber risk score donut, likelihood/impact matrix, org. unit filter. */
 export default function OverviewHero({ onMatrixSelection }: OverviewHeroProps) {
-  const buOptions = useMemo(() => businessUnitOptionsFromRisks(), []);
-  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<BusinessUnitOption | null>(
-    null,
-  );
+  const ouOptions = useMemo(() => orgUnitOptionsFromRisks(), []);
+  const [selectedOrgUnit, setSelectedOrgUnit] = useState<OrgUnitOption | null>(null);
 
   const filteredRisks = useMemo(() => {
-    if (!selectedBusinessUnit) {
+    if (!selectedOrgUnit) {
       return cyberRisks;
     }
-    return cyberRisks.filter((r) => r.businessUnitId === selectedBusinessUnit.id);
-  }, [selectedBusinessUnit]);
+    return cyberRisks.filter((r) => r.orgUnitId === selectedOrgUnit.id);
+  }, [selectedOrgUnit]);
 
-  const buId = selectedBusinessUnit?.id ?? null;
+  const ouId = selectedOrgUnit?.id ?? null;
 
   return (
     <Card
@@ -76,17 +73,17 @@ export default function OverviewHero({ onMatrixSelection }: OverviewHeroProps) {
           </Typography>
         }
         action={
-          <Autocomplete<BusinessUnitOption, false, false, false>
+          <Autocomplete<OrgUnitOption, false, false, false>
             size="medium"
             sx={{
               width: 500,
               minWidth: 0,
               "& .MuiInputLabel-root": { paddingBottom: "0px" },
             }}
-            options={buOptions}
-            value={selectedBusinessUnit}
+            options={ouOptions}
+            value={selectedOrgUnit}
             onChange={(_, newValue) => {
-              setSelectedBusinessUnit(newValue);
+              setSelectedOrgUnit(newValue);
             }}
             getOptionLabel={(o) => o.label}
             isOptionEqualToValue={(a, b) => a.id === b.id}
@@ -94,8 +91,8 @@ export default function OverviewHero({ onMatrixSelection }: OverviewHeroProps) {
               <TextField
                 {...params}
                 fullWidth={false}
-                label="Business unit"
-                placeholder="All business units"
+                label="Org. unit"
+                placeholder="All org. units"
                 margin="none"
                 sx={{
                   display: "flex",
@@ -133,7 +130,7 @@ export default function OverviewHero({ onMatrixSelection }: OverviewHeroProps) {
           sx={{ alignItems: { lg: "stretch" }, width: "100%" }}
         >
           <AssetsByCyberRiskScoreDonut
-            businessUnitId={buId}
+            orgUnitId={ouId}
             sx={{
               flex: { lg: "1 1 50%" },
               minWidth: 0,
@@ -150,7 +147,7 @@ export default function OverviewHero({ onMatrixSelection }: OverviewHeroProps) {
               maxWidth: "100%",
             }}
             onMatrixSelection={onMatrixSelection}
-            businessUnitId={buId}
+            orgUnitId={ouId}
           />
         </Stack>
       </CardContent>

@@ -19,14 +19,14 @@ import {
   type MouseEvent,
 } from "react";
 
-export type BusinessUnitOption = { id: string; label: string };
+export type OrgUnitOption = { id: string; label: string };
 
-const ALL_SENTINEL_ID = "__all_business_units__";
+const ALL_SENTINEL_ID = "__all_org_units__";
 
-export type BusinessUnitDropdownProps = {
-  options: readonly BusinessUnitOption[];
-  value: BusinessUnitOption | null;
-  onChange: (value: BusinessUnitOption | null) => void;
+export type OrgUnitDropdownProps = {
+  options: readonly OrgUnitOption[];
+  value: OrgUnitOption | null;
+  onChange: (value: OrgUnitOption | null) => void;
   disabled?: boolean;
   size?: ButtonProps["size"];
   variant?: ButtonProps["variant"];
@@ -38,9 +38,9 @@ export type BusinessUnitDropdownProps = {
 
 /**
  * Tertiary-style trigger (same interaction as {@link DropdownButton}) with an Atlas `DropdownBox`:
- * search field (no title / section header / footer) and selectable business units.
+ * search field (no title / section header / footer) and selectable org. units.
  */
-export default function BusinessUnitDropdown({
+export default function OrgUnitDropdown({
   options,
   value,
   onChange,
@@ -49,8 +49,8 @@ export default function BusinessUnitDropdown({
   variant = "text",
   color = "primary",
   sx,
-  "aria-label": ariaLabel = "Business unit filter",
-}: BusinessUnitDropdownProps) {
+  "aria-label": ariaLabel = "Org. unit filter",
+}: OrgUnitDropdownProps) {
   const { presets } = useTheme();
   const dropdown = presets.DropdownPresets?.components?.Dropdown;
   const DropdownBox = dropdown?.DropdownBox;
@@ -60,7 +60,7 @@ export default function BusinessUnitDropdown({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeId, setActiveId] = useState<string | undefined>();
 
-  const buttonLabel = value ? `Business unit: ${value.label}` : "All business units";
+  const buttonLabel = value ? `Org. unit: ${value.label}` : "All org. units";
 
   const filteredOptions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -85,7 +85,7 @@ export default function BusinessUnitDropdown({
   }, [handleClose, onChange]);
 
   const handleSelectOption = useCallback(
-    (option: BusinessUnitOption) => {
+    (option: OrgUnitOption) => {
       onChange(option);
       handleClose();
     },
@@ -151,6 +151,7 @@ export default function BusinessUnitDropdown({
 
   return (
     <DropdownBox
+      title="Organization units"
       open={open}
       onClose={handleClose}
       searchInputProps={{
@@ -161,7 +162,7 @@ export default function BusinessUnitDropdown({
         size: "small",
         slotProps: {
           htmlInput: {
-            "aria-label": "Filter business units",
+            "aria-label": "Filter org. units",
           },
         },
       }}
@@ -174,7 +175,7 @@ export default function BusinessUnitDropdown({
             {...GetMenuItemProps({ active: activeId === ALL_SENTINEL_ID })}
             onClick={handleSelectAll}
           >
-            <ListItemText primary="All business units" />
+            <ListItemText primary="All org. units" />
           </MenuItem>
           {filteredOptions.map((opt) => (
             <MenuItem

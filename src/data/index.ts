@@ -21,7 +21,7 @@ export type {
   CIAImpact,
   AssetType,
   MockUser,
-  MockBusinessUnit,
+  MockOrgUnit,
   MockAsset,
   MockAssetRelationships,
   MockThreat,
@@ -63,7 +63,7 @@ export {
 
 // Data collections & lookup helpers
 export { users, getUserById } from "./users.js";
-export { businessUnits, getBusinessUnitById } from "./businessUnits.js";
+export { orgUnits, getOrgUnitById } from "./orgUnits.js";
 export { assets, getAssetById } from "./assets.js";
 export {
   threats,

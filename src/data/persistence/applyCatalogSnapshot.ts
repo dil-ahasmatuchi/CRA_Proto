@@ -1,5 +1,5 @@
 import { replaceAssetsFromPersistence } from "../assets.js";
-import { replaceBusinessUnitsFromPersistence } from "../businessUnits.js";
+import { replaceOrgUnitsFromPersistence } from "../orgUnits.js";
 import { replaceControlsFromPersistence } from "../controls.js";
 import { replaceCyberRisksFromPersistence } from "../cyberRisks.js";
 import { replaceMitigationPlansFromPersistence } from "../mitigationPlans.js";
@@ -22,11 +22,11 @@ import { replaceVulnerabilitiesFromPersistence } from "../vulnerabilities.js";
 import type { PersistedCatalogV1 } from "./catalogTypes.js";
 
 export function applyPersistedCatalog(catalog: PersistedCatalogV1): void {
-  if (!catalog || catalog.schemaVersion !== 1) return;
+  if (!catalog || catalog.schemaVersion !== 2) return;
   if (!Array.isArray(catalog.users) || !Array.isArray(catalog.threats)) return;
 
   replaceUsersFromPersistence(catalog.users);
-  replaceBusinessUnitsFromPersistence(catalog.businessUnits);
+  replaceOrgUnitsFromPersistence(catalog.orgUnits);
   replaceAssetsFromPersistence(catalog.assets);
   replaceVulnerabilitiesFromPersistence(catalog.vulnerabilities);
   replaceThreatsFromPersistence(catalog.threats);

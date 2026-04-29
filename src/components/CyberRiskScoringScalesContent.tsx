@@ -3,13 +3,17 @@ import { useCallback, useId, useMemo, useState } from "react";
 
 import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
 import {
+  applyScoringBandPartialUpdate,
   bandsAreContinuous,
   bandRowFromToValid,
-  deepCloneBands,
+  CYBER_RISK_SCORE_SCALE_MAX,
+  CYBER_RISK_SCORE_SCALE_MIN,
+  LIKELIHOOD_SCALE_MAX,
+  LIKELIHOOD_SCALE_MIN,
   type ScoringBandRow,
 } from "../data/cyberRiskScoringScales.js";
-import ScoringScaleBandCard from "./scoringScales/ScoringScaleBandCard.js";
-import ScoringScaleRangeBar, { type ScoringRangeSegment } from "./scoringScales/ScoringScaleRangeBar.js";
+import ScoringScaleBar, { type ScoringRangeSegment } from "./scoringScales/ScoringScaleBar.js";
+import ScoringScaleCard from "./scoringScales/ScoringScaleCard.js";
 import ScoringScaleSection from "./scoringScales/ScoringScaleSection.js";
 
 const INTRO = {
@@ -56,29 +60,13 @@ export default function CyberRiskScoringScalesContent() {
   const cyberSeg = useMemo(() => segmentsFromBands(cyberRows), [cyberRows]);
   const likeSeg = useMemo(() => segmentsFromBands(likeRows), [likeRows]);
 
-  const updateCyber = useCallback(
-    (index: number, u: Partial<Pick<ScoringBandRow, "from" | "to" | "description">>) => {
-      setCyberRows((prev) => {
-        const next = deepCloneBands(prev);
-        const cur = { ...next[index]!, ...u } as ScoringBandRow;
-        next[index] = cur;
-        return next;
-      });
-    },
-    [],
-  );
+  const updateCyber = useCallback((index: number, u: Partial<Pick<ScoringBandRow, "from" | "to" | "description">>) => {
+    setCyberRows((prev) => applyScoringBandPartialUpdate(prev, index, u));
+  }, []);
 
-  const updateLike = useCallback(
-    (index: number, u: Partial<Pick<ScoringBandRow, "from" | "to" | "description">>) => {
-      setLikeRows((prev) => {
-        const next = deepCloneBands(prev);
-        const cur = { ...next[index]!, ...u } as ScoringBandRow;
-        next[index] = cur;
-        return next;
-      });
-    },
-    [],
-  );
+  const updateLike = useCallback((index: number, u: Partial<Pick<ScoringBandRow, "from" | "to" | "description">>) => {
+    setLikeRows((prev) => applyScoringBandPartialUpdate(prev, index, u));
+  }, []);
 
   const cyberContErr = useMemo(
     () => (editCyber ? runContinuityError(cyberRows) : undefined),
@@ -166,7 +154,13 @@ export default function CyberRiskScoringScalesContent() {
         onToggleExpanded={() => setOpenCyber((o) => !o)}
         editing={editCyber}
         onToggleEdit={onToggleEditCyber}
-        rangeBar={<ScoringScaleRangeBar segments={cyberSeg} />}
+        rangeBar={
+          <ScoringScaleBar
+            segments={cyberSeg}
+            scaleMin={CYBER_RISK_SCORE_SCALE_MIN}
+            scaleMax={CYBER_RISK_SCORE_SCALE_MAX}
+          />
+        }
       >
         {editCyber && cyberContErr ? (
           <Typography color="error" variant="body1" role="status" sx={{ m: 0, width: "100%" }}>
@@ -174,7 +168,7 @@ export default function CyberRiskScoringScalesContent() {
           </Typography>
         ) : null}
         {cyberRows.map((row, i) => (
-          <ScoringScaleBandCard
+          <ScoringScaleCard
             key={row.level}
             row={row}
             readOnly={!editCyber}
@@ -192,7 +186,13 @@ export default function CyberRiskScoringScalesContent() {
         onToggleExpanded={() => setOpenLike((o) => !o)}
         editing={editLike}
         onToggleEdit={onToggleEditLike}
-        rangeBar={<ScoringScaleRangeBar segments={likeSeg} />}
+        rangeBar={
+          <ScoringScaleBar
+            segments={likeSeg}
+            scaleMin={LIKELIHOOD_SCALE_MIN}
+            scaleMax={LIKELIHOOD_SCALE_MAX}
+          />
+        }
       >
         {editLike && likeContErr ? (
           <Typography color="error" variant="body1" role="status" sx={{ m: 0, width: "100%" }}>
@@ -200,7 +200,7 @@ export default function CyberRiskScoringScalesContent() {
           </Typography>
         ) : null}
         {likeRows.map((row, i) => (
-          <ScoringScaleBandCard
+          <ScoringScaleCard
             key={row.level}
             row={row}
             readOnly={!editLike}

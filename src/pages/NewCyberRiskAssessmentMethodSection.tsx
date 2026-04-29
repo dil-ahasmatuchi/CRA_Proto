@@ -1,34 +1,26 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { SectionHeader } from "@diligentcorp/atlas-react-bundle";
 import { Box, Link, Stack, Typography } from "@mui/material";
 
 import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
 
 import AssessmentWysiwygEditor from "../components/AssessmentWysiwygEditor.js";
-import RadioButtonArray from "../components/RadioButtonArray.js";
-import type { CraScoringTypeChoice } from "./craNewAssessmentDraftStorage.js";
-
-const SCORING_TYPE_OPTIONS = [
-  { value: "inherent" satisfies CraScoringTypeChoice, label: "Inherent" },
-  { value: "residual" satisfies CraScoringTypeChoice, label: "Residual" },
-] as const;
 
 const ASSESSMENT_METHOD_BODY =
   "This is a qualitative assessment. Risks are scored using Impact × Likelihood, where Impact is determined by asset criticality and Likelihood by Vulnerability severity × Threat severity. This produces a score from 1–125, mapped to ordinal risk bands (Very low, Low, Medium, High, Very high).";
 
 export type NewCyberRiskAssessmentMethodSectionProps = {
-  scoringType: CraScoringTypeChoice;
-  onScoringTypeChange: (value: CraScoringTypeChoice) => void;
-  /** When true, scoring radios, instructions editor, and attachments are not editable. */
+  /** Assessment type control (for example `RadioButtonArray` from the parent Details tab). Rendered after the method intro copy. */
+  assessmentTypeSlot: ReactNode;
+  /** When true, instructions editor and attachments are not editable. */
   readOnly?: boolean;
 };
 
 /**
- * Assessment method, instructions, and attachments — embedded on the Details tab (formerly the Method tab).
+ * Assessment method intro, assessment type slot, and Background and scope (instructions + attachments).
  */
 export default function NewCyberRiskAssessmentMethodSection({
-  scoringType,
-  onScoringTypeChange,
+  assessmentTypeSlot,
   readOnly = false,
 }: NewCyberRiskAssessmentMethodSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -70,25 +62,7 @@ export default function NewCyberRiskAssessmentMethodSection({
           {ASSESSMENT_METHOD_BODY}
         </Typography>
 
-        <Box sx={{ pt: 1 }}>
-          <RadioButtonArray
-            label="Scoring type"
-            name="new-cra-scoring-type"
-            options={SCORING_TYPE_OPTIONS}
-            value={scoringType}
-            onChange={(v) => {
-              if (v === "inherent" || v === "residual") {
-                onScoringTypeChange(v);
-              }
-            }}
-            showAction
-            showIcon={false}
-            showActionText
-            actionTextPlain
-            actionText="Select whether assessment scores contribute to the inherent or residual risk score."
-            disabled={readOnly}
-          />
-        </Box>
+        <Box sx={{ pt: 1 }}>{assessmentTypeSlot}</Box>
       </Stack>
 
       <Stack gap={3} sx={{ pt: 2 }}>
@@ -107,7 +81,7 @@ export default function NewCyberRiskAssessmentMethodSection({
             readOnly={readOnly}
           />
 
-          <Stack gap={1}>
+          <Stack gap={1} aria-disabled={readOnly}>
             <Typography
               variant="caption"
               fontWeight={600}

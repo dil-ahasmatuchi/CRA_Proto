@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink, Navigate, useParams } from "react-router";
 
 import type { CyberRiskStatus } from "../data/types.js";
-import { getBusinessUnitById } from "../data/businessUnits.js";
+import { getOrgUnitById } from "../data/orgUnits.js";
 import { getCyberRiskById, updateCyberRisk } from "../data/cyberRisks.js";
 import { getMitigationPlanById } from "../data/mitigationPlans.js";
 import { riskAssessments } from "../data/riskAssessments.js";
@@ -79,7 +79,7 @@ export default function CyberRiskDetailPage() {
 
   const owner = getUserById(risk.ownerId);
   const ownerName = owner?.fullName ?? "Unassigned";
-  const bu = getBusinessUnitById(risk.businessUnitId);
+  const ou = getOrgUnitById(risk.orgUnitId);
 
   return (
     <Container sx={{ py: 2, pb: 4 }}>
@@ -116,7 +116,7 @@ export default function CyberRiskDetailPage() {
               </Typography>
               <Stack gap={1.5} sx={{ maxWidth: 720 }}>
                 <Typography variant="body1">
-                  <strong>Business unit:</strong> {bu?.name ?? risk.businessUnitId}
+                  <strong>Org. unit:</strong> {ou?.name ?? risk.orgUnitId}
                 </Typography>
                 <Typography variant="body1">
                   <strong>Owner:</strong> {ownerName}

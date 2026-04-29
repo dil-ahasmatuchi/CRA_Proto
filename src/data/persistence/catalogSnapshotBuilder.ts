@@ -1,5 +1,5 @@
 import { assets } from "../assets.js";
-import { businessUnits } from "../businessUnits.js";
+import { orgUnits } from "../orgUnits.js";
 import { controls } from "../controls.js";
 import { cyberRisks } from "../cyberRisks.js";
 import { mitigationPlans } from "../mitigationPlans.js";
@@ -15,12 +15,12 @@ function cloneJson<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;
 }
 
-/** Builds a full v1 snapshot for localStorage / IndexedDB. */
+/** Builds a full catalog snapshot for localStorage / IndexedDB. */
 export function buildPersistedCatalogSnapshot(): PersistedCatalogV1 {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     users: cloneJson(users),
-    businessUnits: cloneJson(businessUnits),
+    orgUnits: cloneJson(orgUnits),
     assets: cloneJson(assets),
     vulnerabilities: cloneJson(vulnerabilities),
     threats: cloneJson(threats),

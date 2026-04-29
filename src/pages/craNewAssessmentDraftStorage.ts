@@ -141,6 +141,9 @@ export function sanitizeCraNewAssessmentDraft(
   const scenarioScoreAggregationMethod = normalizeScenarioScoreAggregationMethod(
     raw.scenarioScoreAggregationMethod,
   );
+  const scenarioNotApplicableIds = Array.isArray(raw.scenarioNotApplicableIds)
+    ? (raw.scenarioNotApplicableIds as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
   return {
     activeTab,
     assessmentPhase,
@@ -159,6 +162,7 @@ export function sanitizeCraNewAssessmentDraft(
     aiScoringPhase,
     scoringType,
     scenarioScoreAggregationMethod,
+    scenarioNotApplicableIds,
   };
 }
 

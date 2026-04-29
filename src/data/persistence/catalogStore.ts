@@ -135,7 +135,7 @@ export function parsePersistedCatalog(json: string): PersistedCatalogV1 | null {
     const o = JSON.parse(json) as unknown;
     if (o == null || typeof o !== "object") return null;
     const p = o as PersistedCatalogV1;
-    if (p.schemaVersion !== 1) return null;
+    if (p.schemaVersion !== 2) return null;
     return p;
   } catch {
     return null;

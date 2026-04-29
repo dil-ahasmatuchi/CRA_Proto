@@ -1,18 +1,18 @@
 import { useMemo } from "react";
 import { Box, Card, CardContent, CardHeader, Stack, Typography } from "@mui/material";
 
-import BusinessUnitDropdown, { type BusinessUnitOption } from "./BusinessUnitDropdown.js";
+import OrgUnitDropdown, { type OrgUnitOption } from "./OrgUnitDropdown.js";
 import RiskStatusDonut from "./RiskStatusDonut.js";
 import RisksMatrix, { type MatrixSelectionPayload } from "./RisksMatrix.js";
 import { cyberRisks } from "../data/cyberRisks.js";
-import { getBusinessUnitById } from "../data/businessUnits.js";
+import { getOrgUnitById } from "../data/orgUnits.js";
 
-function businessUnitOptionsFromRisks(): BusinessUnitOption[] {
-  const ids = new Set(cyberRisks.map((r) => r.businessUnitId));
+function orgUnitOptionsFromRisks(): OrgUnitOption[] {
+  const ids = new Set(cyberRisks.map((r) => r.orgUnitId));
   return Array.from(ids)
     .map((id) => {
-      const bu = getBusinessUnitById(id);
-      return { id, label: bu?.name ?? id };
+      const ou = getOrgUnitById(id);
+      return { id, label: ou?.name ?? id };
     })
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 }
@@ -20,27 +20,27 @@ function businessUnitOptionsFromRisks(): BusinessUnitOption[] {
 type RisksHeroSectionProps = {
   /** When set, matrix/legend drill-in updates the cyber risks list (URL) without full navigation. */
   onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
-  /** Selected business unit for the overview (donut/matrix); drives table filtering when owned by the page. */
-  businessUnit: BusinessUnitOption | null;
-  onBusinessUnitChange: (value: BusinessUnitOption | null) => void;
+  /** Selected org. unit for the overview (donut/matrix); drives table filtering when owned by the page. */
+  orgUnit: OrgUnitOption | null;
+  onOrgUnitChange: (value: OrgUnitOption | null) => void;
 };
 
-/** Cyber risks overview: workflow status donut, likelihood/impact matrix, business unit filter. */
+/** Cyber risks overview: workflow status donut, likelihood/impact matrix, org. unit filter. */
 export default function RisksHeroSection({
   onMatrixSelection,
-  businessUnit: selectedBusinessUnit,
-  onBusinessUnitChange,
+  orgUnit: selectedOrgUnit,
+  onOrgUnitChange,
 }: RisksHeroSectionProps) {
-  const buOptions = useMemo(() => businessUnitOptionsFromRisks(), []);
+  const ouOptions = useMemo(() => orgUnitOptionsFromRisks(), []);
 
   const filteredRisks = useMemo(() => {
-    if (!selectedBusinessUnit) {
+    if (!selectedOrgUnit) {
       return cyberRisks;
     }
-    return cyberRisks.filter((r) => r.businessUnitId === selectedBusinessUnit.id);
-  }, [selectedBusinessUnit]);
+    return cyberRisks.filter((r) => r.orgUnitId === selectedOrgUnit.id);
+  }, [selectedOrgUnit]);
 
-  const buId = selectedBusinessUnit?.id ?? null;
+  const ouId = selectedOrgUnit?.id ?? null;
 
   return (
     <Card
@@ -72,10 +72,10 @@ export default function RisksHeroSection({
           </Typography>
         }
         action={
-          <BusinessUnitDropdown
-            options={buOptions}
-            value={selectedBusinessUnit}
-            onChange={onBusinessUnitChange}
+          <OrgUnitDropdown
+            options={ouOptions}
+            value={selectedOrgUnit}
+            onChange={onOrgUnitChange}
             sx={{
               minWidth: 0,
               width: { xs: "100%", sm: "fit-content" },
@@ -104,7 +104,7 @@ export default function RisksHeroSection({
               maxWidth: "100%",
             }}
             onMatrixSelection={onMatrixSelection}
-            businessUnitId={buId}
+            orgUnitId={ouId}
           />
         </Stack>
       </CardContent>

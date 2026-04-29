@@ -133,8 +133,8 @@ function countForAssessmentStatus(
   }
 }
 
-/** Figma: Assessments by business unit — moss scale + orange for zero-coverage BU */
-const businessUnitData = [
+/** Figma: Assessments by org. unit — moss scale + orange for zero-coverage org. unit */
+const orgUnitChartData = [
   { label: "Information Technology", value: 3, color: "#00894f" },
   { label: "Finance & Accounting", value: 2, color: "#00a661" },
   { label: "Operations", value: 2, color: "#2ec377" },
@@ -143,7 +143,7 @@ const businessUnitData = [
   { label: "Sales & Marketing", value: 0, color: "#ffb780" },
 ];
 
-const BUSINESS_UNIT_COUNT = businessUnitData.length;
+const ORG_UNIT_CHART_COUNT = orgUnitChartData.length;
 
 function AssessmentsByStatusCard({ statusData }: { statusData: AssessmentStatusCounts }) {
   const { tokens } = useTheme();
@@ -293,11 +293,11 @@ function AssessmentsByStatusCard({ statusData }: { statusData: AssessmentStatusC
 
 function AssessmentCoverageCard() {
   const chartData = {
-    labels: businessUnitData.map((bu) => bu.label),
+    labels: orgUnitChartData.map((ou) => ou.label),
     datasets: [
       {
-        data: businessUnitData.map((bu) => bu.value),
-        backgroundColor: businessUnitData.map((bu) => bu.color),
+        data: orgUnitChartData.map((ou) => ou.value),
+        backgroundColor: orgUnitChartData.map((ou) => ou.color),
         borderWidth: 0,
         cutout: "72%",
       },
@@ -335,12 +335,12 @@ function AssessmentCoverageCard() {
           sx={{ width: "100%", minHeight: 28 }}
         >
           <Typography variant="h4" component="h3" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
-            Assessments by business unit
+            Assessments by org. unit
           </Typography>
           <Button
             variant="text"
             size="small"
-            aria-label="More options for assessments by business unit"
+            aria-label="More options for assessments by org. unit"
             sx={{ flexShrink: 0, p: 0.5, minWidth: 0 }}
           >
             <MoreIcon aria-hidden />
@@ -392,7 +392,7 @@ function AssessmentCoverageCard() {
                   lineHeight: "34px",
                 })}
               >
-                {BUSINESS_UNIT_COUNT}
+                {ORG_UNIT_CHART_COUNT}
               </Typography>
               <Typography
                 variant="body1"
@@ -402,7 +402,7 @@ function AssessmentCoverageCard() {
                   letterSpacing: "0.2px",
                 })}
               >
-                Business units
+                Org. units
               </Typography>
             </Box>
           </Box>
@@ -418,7 +418,7 @@ function AssessmentCoverageCard() {
             width: "100%",
           }}
         >
-          {businessUnitData.map((item) => (
+          {orgUnitChartData.map((item) => (
             <Stack key={item.label} gap={0} alignItems="flex-start">
               <Stack direction="row" alignItems="center" gap={1} sx={{ height: 16 }}>
                 <Box

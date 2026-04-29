@@ -29,6 +29,14 @@ function rowsFrom(
   }));
 }
 
+/** Inclusive scale bounds for cyber risk score (Impact × Likelihood). */
+export const CYBER_RISK_SCORE_SCALE_MIN = 1;
+export const CYBER_RISK_SCORE_SCALE_MAX = 125;
+
+/** Inclusive scale bounds for likelihood product bands. */
+export const LIKELIHOOD_SCALE_MIN = 1;
+export const LIKELIHOOD_SCALE_MAX = 25;
+
 /** Figma: Cyber risk score (Impact × Likelihood, 1–125). */
 export const DEFAULT_CYBER_RISK_SCORE_BANDS: ScoringBandRow[] = rowsFrom(
   [
@@ -43,7 +51,7 @@ export const DEFAULT_CYBER_RISK_SCORE_BANDS: ScoringBandRow[] = rowsFrom(
     "Minor impact on isolated systems or processes. Limited financial exposure and short recovery time. Routine controls are sufficient; risk owner should monitor quarterly.",
     "Moderate disruption to business operations or sensitive data. Noticeable financial or reputational impact possible. Requires a documented mitigation plan and assigned owner.",
     "Significant operational or financial impact. Potential for regulatory breach, data loss, or prolonged downtime. Immediate mitigation action and senior oversight required.",
-    "Severe or critical impact across multiple systems or business units. Major financial loss, regulatory penalties, or reputational damage likely. Escalate immediately; treatment plan mandatory before next assessment cycle.",
+    "Severe or critical impact across multiple systems or org. units. Major financial loss, regulatory penalties, or reputational damage likely. Escalate immediately; treatment plan mandatory before next assessment cycle.",
   ],
 );
 
@@ -69,6 +77,63 @@ export const DEFAULT_LIKELIHOOD_BANDS: ScoringBandRow[] = rowsFrom(
 
 export function deepCloneBands(rows: ScoringBandRow[]): ScoringBandRow[] {
   return rows.map((r) => ({ ...r }));
+}
+
+export type ScoringBandPartialUpdate = Partial<
+  Pick<ScoringBandRow, "from" | "to" | "description">
+>;
+
+/**
+ * Applies edits to one band and keeps adjacent brackets contiguous:
+ * changing `to` on band i sets band i+1's `from` to `to + 1`; changing `from` on band i sets band i-1's `to` to `from - 1`.
+ * When both `to` and `from` appear in one update, `to` is applied first, then `from`.
+ * Clamps boundaries so each row stays `from <= to` and the cascade does not invert the next/previous band.
+ */
+export function applyScoringBandPartialUpdate(
+  rows: readonly ScoringBandRow[],
+  index: number,
+  partial: ScoringBandPartialUpdate,
+): ScoringBandRow[] {
+  const next = deepCloneBands(rows as ScoringBandRow[]);
+  const n = next.length;
+  if (index < 0 || index >= n) return next;
+
+  if (partial.description !== undefined) {
+    next[index] = { ...next[index]!, description: partial.description };
+  }
+
+  const hasTo = partial.to !== undefined && Number.isFinite(partial.to);
+  const hasFrom = partial.from !== undefined && Number.isFinite(partial.from);
+
+  if (hasTo) {
+    let to = partial.to as number;
+    const from = next[index]!.from;
+    if (to < from) to = from;
+    if (index < n - 1) {
+      const maxTo = next[index + 1]!.to - 1;
+      if (to > maxTo) to = maxTo;
+      next[index] = { ...next[index]!, to };
+      next[index + 1] = { ...next[index + 1]!, from: to + 1 };
+    } else {
+      next[index] = { ...next[index]!, to };
+    }
+  }
+
+  if (hasFrom) {
+    let from = partial.from as number;
+    const to = next[index]!.to;
+    if (from > to) from = to;
+    if (index > 0) {
+      const minFrom = next[index - 1]!.from + 1;
+      if (from < minFrom) from = minFrom;
+      next[index] = { ...next[index]!, from };
+      next[index - 1] = { ...next[index - 1]!, to: from - 1 };
+    } else {
+      next[index] = { ...next[index]!, from };
+    }
+  }
+
+  return next;
 }
 
 // ---------------------------------------------------------------------------

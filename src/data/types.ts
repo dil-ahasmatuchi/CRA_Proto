@@ -158,7 +158,7 @@ export interface MockUser {
   fullName: string;
 }
 
-export interface MockBusinessUnit {
+export interface MockOrgUnit {
   id: string;
   name: string;
 }
@@ -180,7 +180,7 @@ export interface MockAsset {
   assetType: AssetType;
   criticality: FivePointScaleValue;
   criticalityLabel: FivePointScaleLabel;
-  businessUnitId: string;
+  orgUnitId: string;
   status: AssetStatus;
   vulnerabilityIds: string[];
   threatIds: string[];
@@ -348,7 +348,7 @@ export interface MockCyberRisk {
   name: string;
   ownerId: string;
   status: CyberRiskStatus;
-  businessUnitId: string;
+  orgUnitId: string;
   /** Inherent likelihood (1–25) before control treatment. */
   likelihood: number;
   likelihoodLabel: FivePointScaleLabel;
@@ -427,7 +427,7 @@ export interface MockMitigationPlan {
   ownerId: string;
   status: MitigationPlanStatus;
   dueDate: string;
-  businessUnitId: string;
+  orgUnitId: string;
   severity: FivePointScaleValue;
   severityLabel: FivePointScaleLabel;
   controlIds: string[];
@@ -437,7 +437,7 @@ export interface MockMitigationPlan {
 
 /** Cross-catalog links for strategic objectives (populated in `objectives.ts`). */
 export interface MockObjectiveRelationships {
-  businessUnitIds: string[];
+  orgUnitIds: string[];
   assetIds: string[];
   threatIds: string[];
   vulnerabilityIds: string[];
@@ -459,7 +459,7 @@ export interface MockObjective {
 
 /** Cross-catalog links for operational processes (populated in `processes.ts`). */
 export interface MockProcessRelationships {
-  businessUnitIds: string[];
+  orgUnitIds: string[];
   assetIds: string[];
   threatIds: string[];
   vulnerabilityIds: string[];

@@ -43,7 +43,7 @@ export const mitigationPlans: MockMitigationPlan[] = raw.map(
     ownerId: padId("USR", ownerIdx),
     status,
     dueDate,
-    businessUnitId: padId("BU", buIdx),
+    orgUnitId: padId("BU", buIdx),
     severity,
     severityLabel: getFivePointLabel(severity),
     controlIds: ctlIdxs.map((n) => padId("CTL", n)),

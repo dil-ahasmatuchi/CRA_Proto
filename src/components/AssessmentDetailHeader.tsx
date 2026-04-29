@@ -3,8 +3,22 @@ import {
   PageHeader,
 } from "@diligentcorp/atlas-react-bundle";
 import DownloadIcon from "@diligentcorp/atlas-react-bundle/icons/Download";
-import { Button, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
-import { useRef } from "react";
+import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+  Stack,
+  Tab,
+  Tabs,
+  Typography,
+  useTheme,
+} from "@mui/material";
+import { useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router";
 
 import {
@@ -115,6 +129,8 @@ export default function AssessmentDetailHeader({
   const navigate = useNavigate();
   const { presets, tokens } = useTheme();
   const { TabsPresets } = presets;
+
+  const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
 
   const generatedSystemIdRef = useRef("");
   if (!generatedSystemIdRef.current) {
@@ -230,7 +246,7 @@ export default function AssessmentDetailHeader({
             return;
           }
           if (inProgressOrOverdue) {
-            approveAssessmentClick();
+            setApproveConfirmOpen(true);
             return;
           }
         }}
@@ -373,6 +389,48 @@ export default function AssessmentDetailHeader({
           ))}
         </Tabs>
       ) : null}
+
+      <Dialog
+        open={approveConfirmOpen}
+        onClose={() => setApproveConfirmOpen(false)}
+        aria-labelledby="approve-assessment-dialog-title"
+        aria-describedby="approve-assessment-dialog-description"
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle component="div">
+          <h2 id="approve-assessment-dialog-title">Approve assessment</h2>
+          <IconButton
+            aria-label="Close"
+            onClick={() => setApproveConfirmOpen(false)}
+            color="inherit"
+            size="small"
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="approve-assessment-dialog-description">
+            After approving you will not be able to make changes to the assessment.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="text" onClick={() => setApproveConfirmOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            autoFocus
+            onClick={() => {
+              approveAssessmentClick();
+              setApproveConfirmOpen(false);
+            }}
+          >
+            Approve
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

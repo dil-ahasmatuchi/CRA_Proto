@@ -20,7 +20,7 @@ import { useMemo } from "react";
 import type { AssetType, FivePointScaleValue } from "../data/types.js";
 import {
   ASSET_TYPE_FILTER_OPTIONS,
-  getScopeAssetBusinessUnitFilterOptions,
+  getScopeAssetOrgUnitFilterOptions,
   getScopeAssetCyberRiskFilterOptions,
   getScopeAssetObjectiveFilterOptions,
   getScopeAssetProcessFilterOptions,
@@ -179,10 +179,7 @@ export default function FilterAssets({ value, onChange }: FilterAssetsProps) {
     () => getScopeAssetVulnerabilityFilterOptions(),
     [],
   );
-  const businessUnitOptions = useMemo(
-    () => getScopeAssetBusinessUnitFilterOptions(),
-    [],
-  );
+  const orgUnitOptions = useMemo(() => getScopeAssetOrgUnitFilterOptions(), []);
   const objectiveOptions = useMemo(() => getScopeAssetObjectiveFilterOptions(), []);
   const processOptions = useMemo(() => getScopeAssetProcessFilterOptions(), []);
 
@@ -255,14 +252,12 @@ export default function FilterAssets({ value, onChange }: FilterAssetsProps) {
         onSelectedIdsChange={(ids) => onChange({ ...value, processIds: ids })}
       />
       <IdNameAutocomplete
-        fieldId="filter-assets-business-units"
-        label="Business units"
+        fieldId="filter-assets-org-units"
+        label="Org. units"
         placeholder="Search by name..."
-        options={businessUnitOptions}
-        selectedIds={value.businessUnitIds}
-        onSelectedIdsChange={(ids) =>
-          onChange({ ...value, businessUnitIds: ids })
-        }
+        options={orgUnitOptions}
+        selectedIds={value.orgUnitIds}
+        onSelectedIdsChange={(ids) => onChange({ ...value, orgUnitIds: ids })}
       />
     </Stack>
   );

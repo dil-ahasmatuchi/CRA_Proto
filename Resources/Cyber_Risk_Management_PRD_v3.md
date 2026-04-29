@@ -379,7 +379,7 @@ A prominent "Approve assessment" button in the top-right corner transitions the 
 
 The list view is the entry point for all assessments. It shows:
 
-- **Summary widgets:** Assessments by status (Draft / Scoping / In progress / Approved / Overdue) as a donut chart; Assessments by business unit as a donut chart
+- **Summary widgets:** Assessments by status (Draft / Scoping / In progress / Approved / Overdue) as a donut chart; Assessments by org. unit as a donut chart
 - **Table columns:** ID, Name, Status (badge), Cyber risks count, Assets count, Threats count, Vulnerabilities count, Scenarios count, Owner
 - **Actions:** New cyber risk assessment (top right)
 
@@ -416,7 +416,7 @@ Note: Export is a shared capability, AI Risk Essentials.
 The Cyber Risks section is a risk register showing all cyber risks across the organisation, independent of specific assessments.
 
 - **Overview charts:** Workflow status donut (risks across Identification / Assessment / Mitigation / Monitoring); Residual risks heat map
-- **Filter:** All business units dropdown
+- **Filter:** All org. units dropdown
 - **Table columns:** Name, ID, Cyber risk score, Owner, Assets count, Workflow status
 - **Workflow status badges:** Identification (grey), Assessment (blue), Mitigation (teal), Monitoring (light blue)
 
@@ -474,7 +474,7 @@ The following observations from the prototype inform design decisions for the en
 - **AI attribution:** Any field populated by AI must show a visible "AI-suggested" badge that persists until user edit or approval.
 - **Editable dropdowns in scoring rationale:** Score fields are dropdowns with the 1–5 labelled options, not free-text fields, ensuring scoring integrity.
 - **Rich text editor:** The scoring rationale and instructions fields both use a full rich-text editor toolbar (bold, italic, underline, strikethrough, font colour, alignment, lists, indent, table, quote, attachment, link, image, video, voice).
-- **Assessment list widgets:** Two donut charts at the top of the list view (by status, by business unit) provide an at-a-glance summary before the detailed table.
+- **Assessment list widgets:** Two donut charts at the top of the list view (by status, by org. unit) provide an at-a-glance summary before the detailed table.
 - **Breadcrumb navigation:** Multi-level breadcrumbs (Asset manager > Cyber risk management > [context]) are used throughout, supporting deep-link navigation.
 - **Scope counters:** Each scope card shows X / Total format (e.g. "4 / 436 Assets") making inclusion visible at a glance.
 
@@ -526,7 +526,7 @@ The following observations from the prototype inform design decisions for the en
 | **ID**  | **Requirement**                                                                                                                                                                                                                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | FR-02.1 | The system shall display all cyber risk assessments in a searchable, filterable, paginated table with columns: ID, Name, Status, Cyber risks count, Assets count, Threats count, Vulnerabilities count, Scenarios count, Owner. |
-| FR-02.2 | The system shall display two summary widgets at the top of the list: Assessments by status (donut chart) and Assessments by business unit (donut chart).                                                                        |
+| FR-02.2 | The system shall display two summary widgets at the top of the list: Assessments by status (donut chart) and Assessments by org. unit (donut chart).                                                                        |
 | FR-02.3 | The user shall be able to create a new cyber risk assessment via a "New cyber risk assessment" button.                                                                                                                          |
 | FR-02.4 | Assessment status shall be displayed as a colour-coded badge: Draft (grey), Scoping (cyan), In progress (blue), Approved (green). `Overdue` is a derived status when `due_date < today()` AND status ≠ `Approved`.              |
 
@@ -610,7 +610,7 @@ The following observations from the prototype inform design decisions for the en
 | FR-07.1 | The Cyber risks section shall display all cyber risks in a searchable, paginated table with columns: Name, ID, Cyber risk score, Owner, Assets count, Workflow status, Inherent and Residual risk scores |
 | FR-07.2 | Cyber risks shall follow a four-stage workflow lifecycle with status badges: Identification, Assessment, Mitigation, Monitoring. A summary widget shall show counts per status.                          |
 | FR-07.3 | The overview panel shall show a Workflow status donut chart and a Residual risks heat map.                                                                                                               |
-| FR-07.4 | The user shall be able to filter cyber risks by business unit.                                                                                                                                           |
+| FR-07.4 | The user shall be able to filter cyber risks by org. unit.                                                                                                                                           |
 | FR-07.5 | Cyber Risk shall be created and updated in Risk Manager (OL), risk workflow is done in RM and assessment is done in Asset Manager. More details in 4.4.                                                  |
 
 

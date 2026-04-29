@@ -217,7 +217,7 @@ export const assets: MockAsset[] = raw.map(
     assetType,
     criticality,
     criticalityLabel: getFivePointLabel(criticality),
-    businessUnitId: padId("BU", buIdx),
+    orgUnitId: padId("BU", buIdx),
     status,
     vulnerabilityIds: [],
     threatIds: [],

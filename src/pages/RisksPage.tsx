@@ -6,12 +6,12 @@ import {
 import { Container, Stack } from "@mui/material";
 import { NavLink, useSearchParams } from "react-router";
 
-import type { BusinessUnitOption } from "../components/BusinessUnitDropdown.js";
+import type { OrgUnitOption } from "../components/OrgUnitDropdown.js";
 import FilterRisks from "../components/FilterRisks.js";
 import FilterSideSheet from "../components/FilterSideSheet.js";
 import RisksHeroSection from "../components/RisksHeroSection.js";
 import RisksTable from "../components/RisksTable.js";
-import { getBusinessUnitById } from "../data/businessUnits.js";
+import { getOrgUnitById } from "../data/orgUnits.js";
 import type { MatrixSelectionPayload } from "../components/RisksMatrix.js";
 import {
   applyMatrixFiltersToSearchParams,
@@ -35,7 +35,7 @@ function hasAnyFilterSelected(f: CyberRiskTableFilters): boolean {
     f.scoreLabels.length > 0 ||
     f.assetIds.length > 0 ||
     f.matrixFilter != null ||
-    f.businessUnitId != null
+    f.orgUnitId != null
   );
 }
 
@@ -72,14 +72,14 @@ export default function RisksPage() {
     [allRows, appliedFilters],
   );
 
-  const heroBusinessUnit = useMemo((): BusinessUnitOption | null => {
-    const id = appliedFilters.businessUnitId;
+  const heroOrgUnit = useMemo((): OrgUnitOption | null => {
+    const id = appliedFilters.orgUnitId;
     if (id == null) return null;
-    const bu = getBusinessUnitById(id);
-    return { id, label: bu?.name ?? id };
-  }, [appliedFilters.businessUnitId]);
+    const ou = getOrgUnitById(id);
+    return { id, label: ou?.name ?? id };
+  }, [appliedFilters.orgUnitId]);
 
-  const handleBusinessUnitChange = useCallback((next: BusinessUnitOption | null) => {
+  const handleOrgUnitChange = useCallback((next: OrgUnitOption | null) => {
     setSearchParams((prev) => {
       const p = new URLSearchParams(prev);
       if (next) {
@@ -116,7 +116,7 @@ export default function RisksPage() {
         const p = new URLSearchParams(prev);
         applyMatrixFiltersToSearchParams(p, {
           matrixFilter,
-          businessUnitId: payload.businessUnitId ?? null,
+          orgUnitId: payload.orgUnitId ?? null,
         });
         return p;
       });
@@ -183,8 +183,8 @@ export default function RisksPage() {
 
         <RisksHeroSection
           onMatrixSelection={handleMatrixSelection}
-          businessUnit={heroBusinessUnit}
-          onBusinessUnitChange={handleBusinessUnitChange}
+          orgUnit={heroOrgUnit}
+          onOrgUnitChange={handleOrgUnitChange}
         />
 
         <RisksTable

@@ -9,14 +9,25 @@ export type ScoringRangeSegment = {
   rag: RagDataVizKey;
 };
 
-export type ScoringScaleRangeBarProps = {
+export type ScoringScaleBarProps = {
   segments: ScoringRangeSegment[];
+  /** Inclusive lower bound of the full scale (e.g. 1 for cyber 1–125). */
+  scaleMin: number;
+  /** Inclusive upper bound of the full scale (e.g. 125 for cyber). */
+  scaleMax: number;
 };
 
+function segmentWidthUnits(seg: ScoringRangeSegment): number {
+  if (seg.from <= seg.to) {
+    return Math.max(1, seg.to - seg.from + 1);
+  }
+  return 1;
+}
+
 /**
- * Five-column range summary used above band cards (Figma: labels + 12px bar + “N to M”).
+ * Range summary above band cards: column widths match each band’s share of [scaleMin, scaleMax].
  */
-export default function ScoringScaleRangeBar({ segments }: ScoringScaleRangeBarProps) {
+export default function ScoringScaleBar({ segments, scaleMin, scaleMax }: ScoringScaleBarProps) {
   const { tokens: t } = useTheme();
   return (
     <Box
@@ -28,14 +39,22 @@ export default function ScoringScaleRangeBar({ segments }: ScoringScaleRangeBarP
         minWidth: 0,
         isolation: "isolate",
       }}
+      aria-label={`Scale from ${scaleMin} to ${scaleMax}`}
     >
       {segments.map((seg, index) => {
         const isFirst = index === 0;
         const isLast = index === segments.length - 1;
+        const weight = segmentWidthUnits(seg);
         return (
           <Box
             key={seg.bandLabel}
-            sx={{ flex: "1 1 0", minWidth: 0, zIndex: segments.length - index }}
+            sx={{
+              flexGrow: weight,
+              flexShrink: 1,
+              flexBasis: 0,
+              minWidth: 0,
+              zIndex: segments.length - index,
+            }}
           >
             <Stack gap={0.5} alignItems="flex-start" sx={{ width: "100%" }}>
               <Typography

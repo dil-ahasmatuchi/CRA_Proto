@@ -42,4 +42,6 @@ export type CraNewAssessmentPersistedDraft = {
   aiScoringPhase: AiScoringPhase;
   scoringType: CraScoringTypeChoice;
   scenarioScoreAggregationMethod: CraScenarioScoreAggregationMethod;
+  /** Scenario library ids marked n/a for this assessment (excluded from weighted aggregation). */
+  scenarioNotApplicableIds: string[];
 };

@@ -12,9 +12,7 @@ import {
   type ScenarioHistoryEntry,
   ScenarioHistorySection,
 } from "../components/ScenarioHistorySection.js";
-import ScenarioHistoryReadOnlyPanel, {
-  buildScenarioHistorySnapshot,
-} from "../components/ScenarioHistoryReadOnlyPanel.js";
+import { buildScenarioHistorySnapshot } from "../components/ScenarioHistoryReadOnlyPanel.js";
 import ScenarioScoringDropdownsBlock from "../components/ScenarioScoringDropdownsBlock.js";
 import type { ScenarioScoringInitialScores } from "../components/ScenarioScoringDropdownsBlock.js";
 import {

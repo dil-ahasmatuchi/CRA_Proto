@@ -221,7 +221,7 @@ Scoring is the most debated theme. Universal agreements: (1) avoid simple averag
 
 **Cross-Interview Synthesis:**
 
-Aggregation methodology is a critical design decision. Mark Harris identifies that aggregation should occur at the organizational attribute level (business units, subsidiaries, regions, projects)—not at the assessment level. Multiple assessments are for trending, not aggregation. Anton emphasizes standardized structures as prerequisites for roll-up. Tom Ryan expects bidirectional scoring between CRA and Risk Manager.
+Aggregation methodology is a critical design decision. Mark Harris identifies that aggregation should occur at the organizational attribute level (org. units, subsidiaries, regions, projects)—not at the assessment level. Multiple assessments are for trending, not aggregation. Anton emphasizes standardized structures as prerequisites for roll-up. Tom Ryan expects bidirectional scoring between CRA and Risk Manager.
 
 **Key Quotes:**
 
@@ -240,7 +240,7 @@ Aggregation methodology is a critical design decision. Mark Harris identifies th
 > "You can combine the cyber risk data with ERM data, strategic risks... eventually it all scrolls up to a higher level of risk for board-level reporting."
 > — Adél (validated by Supermicro interviewees)
 
-**Summary:** Aggregation must happen at organizational attribute levels (business unit, region, project), not at the assessment level. Weighted average is the most common real-world method. Standardized risk-scenario-control structures are prerequisites for meaningful roll-up. Integration with enterprise risk management (ERM) for board-level reporting is a strong differentiator.
+**Summary:** Aggregation must happen at organizational attribute levels (org. unit, region, project), not at the assessment level. Weighted average is the most common real-world method. Standardized risk-scenario-control structures are prerequisites for meaningful roll-up. Integration with enterprise risk management (ERM) for board-level reporting is a strong differentiator.
 
 ---
 
@@ -448,7 +448,7 @@ Tom Ryan makes the strongest case: the MVP should target immature/under-resource
 | 6 | **Evidence-Based Scoring** | Scores must tie to real data (control results, incidents, CVEs) | Yes | Paulo, Qualtrics, Supermicro, Lina |
 | 7 | **Executive Reporting** | Process-level rollup, not just scenario detail; answer "where to spend money" | Phase 1 | Tom Ryan, Paulo, Mark Harris |
 | 8 | **Financial Impact** | Frame cyber risk in financial terms for board communication | Phase 1 | Mark Harris, Paulo, Anton |
-| 9 | **Aggregation at Attribute Level** | Aggregate by business unit/region/project, not by assessment | Phase 1 | Mark Harris, Anton, Qualtrics |
+| 9 | **Aggregation at Attribute Level** | Aggregate by org. unit/region/project, not by assessment | Phase 1 | Mark Harris, Anton, Qualtrics |
 | 10 | **Audit Trail** | Track all score changes with user ID, timestamp, and rationale | Yes | Mark Harris, City of Lethbridge, Qualtrics |
 | 11 | **Mitigation Tracking** | Owner, due date, status, reassessment triggers | Yes | Mark Harris, City of Lethbridge, Lina |
 | 12 | **Tool Integrations** | CrowdStrike, Rapid7, Tenable, Jira connectors | Phase 2 | Supermicro, Paulo, Qualtrics, Lina |
@@ -473,7 +473,7 @@ CISO at Brainloop, a ~50-person SaaS company. Approaches assessment from busines
 Small-to-mid municipal government. Currently lacks formal cyber risk assessment framework. The prototype's asset-centric approach fits well. Individual assessments (not workshops) are appropriate for their scale. Phased data buildup is preferred. Key needs: audit trail on all score changes, ecosystem readiness checklist, and the ability to generate risk-reduction narratives for their audit committee. High adoption readiness.
 
 ### Mark Harris
-Experienced cyber risk SME with operational knowledge across large organizations. Most important contribution: aggregation must happen at organizational attribute levels (business units, subsidiaries, regions), not at the assessment level. Multiple assessments are for trending, not aggregation. Strongly advocates for financial impact framing as THE competitive differentiator. References Bank of Islam Malaysia as a concrete use case (76-page manual PowerPoint report). Supports MVP-first approach with iterative feedback.
+Experienced cyber risk SME with operational knowledge across large organizations. Most important contribution: aggregation must happen at organizational attribute levels (org. units, subsidiaries, regions), not at the assessment level. Multiple assessments are for trending, not aggregation. Strongly advocates for financial impact framing as THE competitive differentiator. References Bank of Islam Malaysia as a concrete use case (76-page manual PowerPoint report). Supports MVP-first approach with iterative feedback.
 
 ### Paulo Amaral
 Security professional at Diligent operating as both SME and customer. Conducts comprehensive annual strategic assessments using internal data (incidents, audit findings, AppSec tickets), external benchmarks (Verizon DBIR), and broad business surveys (150 people, 70% completion). Deliberately chose Jira over Risk Manager for superior automation, customization, and linking capabilities. His central critique: tools feel like "data entry for the sake of data entry" and fail to answer "where should we spend money?" The product must bridge from data collection to actionable budget guidance.

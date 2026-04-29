@@ -4,7 +4,7 @@ import { useId } from "react";
 import type { ScoringBandRow } from "../../data/cyberRiskScoringScales.js";
 import { RagSwatch } from "../ScoringMetricField.js";
 
-export type ScoringScaleBandCardProps = {
+export type ScoringScaleCardProps = {
   row: ScoringBandRow;
   readOnly: boolean;
   onChange: (update: Partial<Pick<ScoringBandRow, "from" | "to" | "description">>) => void;
@@ -15,12 +15,12 @@ export type ScoringScaleBandCardProps = {
 /**
  * One grey card: legend, description, From/To (Figma: concrete/98 + inputs).
  */
-export default function ScoringScaleBandCard({
+export default function ScoringScaleCard({
   row,
   readOnly,
   onChange,
   error,
-}: ScoringScaleBandCardProps) {
+}: ScoringScaleCardProps) {
   const { tokens: t } = useTheme();
   const base = useId();
   const fromId = `${base}-from`;

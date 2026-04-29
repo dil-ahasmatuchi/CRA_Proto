@@ -8,11 +8,12 @@ import { NavLink, useLocation } from "react-router";
 import FilterSideSheet from "../components/FilterSideSheet.js";
 import NewToolbar from "../components/NewToolbar.js";
 import MitigationPlanPageSideSheet from "../components/MitigationPlanPageSideSheet.js";
-import { TableTree } from "../components/TableTree.js";
 import ScopedRiskSS from "../components/ScopedRiskSS.js";
 import LabelScoreLegend from "../components/LabelScoreLegend.js";
 import LabelValue from "../components/LabelValue.js";
 import PageLayout from "../components/PageLayout.js";
+import ScoringInfo from "../components/ScoringInfo.js";
+import AIBanner from "../components/AIBanner.js";
 import AICard, {
   AICardAggregationMethodRow,
   AICardAssessmentPreset,
@@ -61,7 +62,7 @@ const activityTab3Columns: GridColDef<ActivityTab3Row>[] = [
   { field: "label", headerName: "Label", flex: 1, minWidth: 200 },
 ];
 
-const ACTIVITY_TAB3_AGG_OPTIONS = [
+const AGGREGATION_METHOD_OPTIONS = [
   { value: "highest", label: "Highest" },
   { value: "average", label: "Weighted average" },
   { value: "lowest", label: "Lowest" },
@@ -141,29 +142,30 @@ export default function ActivityPage() {
         <TabPanel value={activeTab} index={0}>
           <Box sx={{ py: 2, width: "100%" }}>
             <Stack
-              direction="row"
-              sx={({ tokens: t }) => ({
-                width: "100%",
-                alignItems: "center",
-                gap: t.core.spacing["3"].value,
-              })}
-            >
-              <Button variant="contained" onClick={() => setIsSideSheetOpen(true)}>
-                + Mitigation plan
-              </Button>
-              <Button variant="outlined" onClick={() => setIsScopedRiskSSOpen(true)}>
-                Scoped risk details
-              </Button>
-            </Stack>
-            <Stack
               sx={({ tokens: t }) => ({
                 width: "100%",
                 alignItems: "stretch",
                 gap: t.core.spacing["3"].value,
-                mt: t.core.spacing["2"].value,
               })}
             >
-              <TableTree />
+              <Stack
+                direction="row"
+                sx={({ tokens: t }) => ({
+                  width: "100%",
+                  alignItems: "center",
+                  gap: t.core.spacing["3"].value,
+                })}
+              >
+                <Button variant="contained" onClick={() => setIsSideSheetOpen(true)}>
+                  + Mitigation plan
+                </Button>
+                <Button variant="outlined" onClick={() => setIsScopedRiskSSOpen(true)}>
+                  Scoped risk details
+                </Button>
+              </Stack>
+              <ScoringInfo
+                aggregationMethodRadio={{ name: "activity-tab1-aggregation" }}
+              />
             </Stack>
           </Box>
         </TabPanel>
@@ -211,6 +213,7 @@ export default function ActivityPage() {
                 countNoun="Assets"
                 cardActionAriaLabel="Filled variant: assets included (activity preview)"
               />
+              <AIBanner onAction={() => {}} />
               <AICard>
                 <AICardAssessmentPreset
                   omitAssessmentType
@@ -283,7 +286,7 @@ export default function ActivityPage() {
             >
               <RadioButtonArray
                 label="Aggregation method"
-                options={[...ACTIVITY_TAB3_AGG_OPTIONS]}
+                options={[...AGGREGATION_METHOD_OPTIONS]}
                 value={activityTab3Aggregation}
                 onChange={setActivityTab3Aggregation}
                 showAction
@@ -307,7 +310,7 @@ export default function ActivityPage() {
                 actionText="About layout options"
               />
               <RadioButtonArray
-                label="Pairing (radios only, no divider or link)"
+                label="Pairing (radios only, no link)"
                 options={[
                   { value: "independent", label: "Independent" },
                   { value: "paired", label: "Paired" },

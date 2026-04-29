@@ -39,7 +39,7 @@ export type MatrixSelectionPayload = {
   rowIdx?: number;
   colIdx?: number;
   level?: RiskHeatmapLevel;
-  businessUnitId?: string | null;
+  orgUnitId?: string | null;
 };
 
 export interface RisksMatrixProps {
@@ -49,8 +49,8 @@ export interface RisksMatrixProps {
   sx?: SxProps<Theme>;
   /** In-page list selection (e.g. Cyber risks list); otherwise `navigate` to the risks route with query. */
   onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
-  /** When a BU is selected in the parent (hero), pass through so the table can match the heatmap count. */
-  businessUnitId?: string | null;
+  /** When an org. unit is selected in the parent (hero), pass through so the table can match the heatmap count. */
+  orgUnitId?: string | null;
   /**
    * Assessment results: align matrix with CRA scoring type.
    * - Omitted or `"default"`: show Inherent/Residual toggle; Inherent is the default selection.
@@ -76,7 +76,7 @@ export default function RisksMatrix({
   xAxisLabel = "Impact",
   sx,
   onMatrixSelection,
-  businessUnitId: businessUnitIdProp = null,
+  orgUnitId: orgUnitIdProp = null,
   assessmentMatrixMode = "default",
 }: RisksMatrixProps) {
   const navigate = useNavigate();
@@ -98,22 +98,22 @@ export default function RisksMatrix({
 
   const runMatrixAction = useCallback(
     (matrixFilter: CyberRiskMatrixTableFilter) => {
-      const bu = businessUnitIdProp ?? null;
+      const bu = orgUnitIdProp ?? null;
       const basePayload: MatrixSelectionPayload =
         matrixFilter.kind === "cell"
-          ? { kind: "cell", basis: matrixFilter.basis, rowIdx: matrixFilter.rowIdx, colIdx: matrixFilter.colIdx, businessUnitId: bu }
+          ? { kind: "cell", basis: matrixFilter.basis, rowIdx: matrixFilter.rowIdx, colIdx: matrixFilter.colIdx, orgUnitId: bu }
           : {
               kind: "legend",
               basis: matrixFilter.basis,
               level: matrixFilter.level,
-              businessUnitId: bu,
+              orgUnitId: bu,
             };
       onMatrixSelection?.(basePayload);
       if (onMatrixSelection) return;
       const qs = buildMatrixQueryStringForRisksPage(matrixFilter, bu);
       void navigate({ pathname: CYBER_RISKS_PATH, search: qs.startsWith("?") ? qs.slice(1) : qs });
     },
-    [businessUnitIdProp, navigate, onMatrixSelection],
+    [orgUnitIdProp, navigate, onMatrixSelection],
   );
 
   const onCellCountClick = useCallback(

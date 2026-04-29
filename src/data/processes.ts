@@ -1,7 +1,7 @@
 import { padId } from "./types.js";
 import type { MockProcess, MockProcessRelationships } from "./types.js";
 import { assets, getAssetById } from "./assets.js";
-import { businessUnits } from "./businessUnits.js";
+import { orgUnits } from "./orgUnits.js";
 import { threats } from "./threats.js";
 import { vulnerabilities } from "./vulnerabilities.js";
 import { controls } from "./controls.js";
@@ -78,14 +78,14 @@ function buildProcessRelationships(index: number): MockProcessRelationships {
   const assetIds = dedupeIds([...fromCyberRisks, ...extraRandomAssets]);
 
   const buFromAssets = assetIds
-    .map((id) => getAssetById(id)?.businessUnitId)
+    .map((id) => getAssetById(id)?.orgUnitId)
     .filter((x): x is string => Boolean(x));
-  const extraBu = pickDistinctInts(rng, businessUnits.length, 3 + Math.floor(rng() * 5)).map(
-    (k) => businessUnits[k]!.id,
+  const extraBu = pickDistinctInts(rng, orgUnits.length, 3 + Math.floor(rng() * 5)).map(
+    (k) => orgUnits[k]!.id,
   );
-  const businessUnitIds = dedupeIds([
+  const orgUnitIds = dedupeIds([
     ...buFromAssets,
-    primaryCr.businessUnitId,
+    primaryCr.orgUnitId,
     ...extraBu,
   ]);
 
@@ -153,7 +153,7 @@ function buildProcessRelationships(index: number): MockProcessRelationships {
   );
 
   return {
-    businessUnitIds,
+    orgUnitIds,
     assetIds,
     threatIds,
     vulnerabilityIds,

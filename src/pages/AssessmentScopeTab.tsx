@@ -67,6 +67,7 @@ import {
   effectiveCyberRiskIdSet,
   SCOPE_CATALOG_TOTALS,
 } from "./scopeAssessmentRollup.js";
+import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
 import FilterAssets from "../components/FilterAssets.js";
 import FilterRisks from "../components/FilterRisks.js";
 import FilterSideSheet from "../components/FilterSideSheet.js";
@@ -124,10 +125,10 @@ export type ScopeAssetRow = {
   criticality: FivePointScaleValue;
   objectives: number;
   processes: number;
-  /** Primary catalog business unit (asset); used for filters. */
-  businessUnitId: string;
-  /** Distinct business units: the asset’s BU plus BUs on linked cyber risks. */
-  businessUnits: number;
+  /** Primary catalog org. unit (asset); used for filters. */
+  orgUnitId: string;
+  /** Distinct org. units: the asset’s org. unit plus org. units on linked cyber risks. */
+  relatedOrgUnitsCount: number;
 };
 
 export type ScopeCyberRiskRow = MockCyberRisk & { included: boolean };
@@ -199,10 +200,10 @@ function buildScopeRows(): ScopeAssetRow[] {
   }
 
   return assets.map((a, i) => {
-    const relatedBuIds = new Set<string>();
-    relatedBuIds.add(a.businessUnitId);
+    const relatedOuIds = new Set<string>();
+    relatedOuIds.add(a.orgUnitId);
     for (const cr of cyberRisks) {
-      if (cr.assetIds.includes(a.id)) relatedBuIds.add(cr.businessUnitId);
+      if (cr.assetIds.includes(a.id)) relatedOuIds.add(cr.orgUnitId);
     }
     return {
       id: i + 1,
@@ -217,8 +218,8 @@ function buildScopeRows(): ScopeAssetRow[] {
       criticality: a.criticality,
       objectives: objectiveCountByAsset.get(a.id) ?? 0,
       processes: processCountByAsset.get(a.id) ?? 0,
-      businessUnitId: a.businessUnitId,
-      businessUnits: relatedBuIds.size,
+      orgUnitId: a.orgUnitId,
+      relatedOrgUnitsCount: relatedOuIds.size,
     };
   });
 }
@@ -951,8 +952,8 @@ function ScopeAssetsDataGrid({
         width: 140,
       },
       {
-        field: "businessUnits",
-        headerName: "Business units",
+        field: "relatedOrgUnitsCount",
+        headerName: "Org. units",
         width: 140,
         type: "number",
         align: "left",
@@ -962,7 +963,7 @@ function ScopeAssetsDataGrid({
             component="span"
             variant="body1"
             sx={{ fontSize: 16, lineHeight: "24px" }}
-            aria-label={`Business units related to ${params.row.assetName}: ${params.value as number}`}
+            aria-label={`Org. units related to ${params.row.assetName}: ${params.value as number}`}
           >
             {params.value as number}
           </Typography>
@@ -1171,12 +1172,14 @@ function ScopeScopedCyberRisksGrid({
   hasIncludedAssets,
   onSetCyberRiskScopeIncluded,
   onBulkCyberRiskRowIdsIncluded,
+  onNavigateToScopedAssets,
   togglesReadOnly = false,
 }: {
   rows: ScopeCyberRiskRow[];
   hasIncludedAssets: boolean;
   onSetCyberRiskScopeIncluded: (cyberRiskId: string, included: boolean) => void;
   onBulkCyberRiskRowIdsIncluded: (cyberRiskIds: string[], included: boolean) => void;
+  onNavigateToScopedAssets: () => void;
   togglesReadOnly?: boolean;
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
@@ -1379,19 +1382,22 @@ function ScopeScopedCyberRisksGrid({
     [rows, onBulkCyberRiskRowIdsIncluded, setIncluded, togglesReadOnly],
   );
 
+  if (rows.length === 0) {
+    return hasIncludedAssets ? (
+      <AssessmentScopeEmptyState variant="scopeEntity" entityTitle="Cyber risks" reason="noLinks" />
+    ) : (
+      <AssessmentScopeEmptyState
+        variant="scopeEntity"
+        entityTitle="Cyber risks"
+        reason="needAssets"
+        onNavigateToScopedAssets={onNavigateToScopedAssets}
+      />
+    );
+  }
+
   return (
     <>
       <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
-        {rows.length === 0 ? (
-          <Typography
-            variant="body1"
-            sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
-          >
-            {hasIncludedAssets
-              ? "No cyber risks are linked to the assets in scope."
-              : "Include assets in this assessment to see related cyber risks."}
-          </Typography>
-        ) : null}
         <Box sx={{ width: "100%", minHeight: 400 }}>
           <DataGridPro
             rows={filteredRows}
@@ -1480,12 +1486,14 @@ function ScopeScopedThreatsGrid({
   hasIncludedAssets,
   onSetThreatScopeIncluded,
   onBulkThreatRowIdsIncluded,
+  onNavigateToScopedAssets,
   togglesReadOnly = false,
 }: {
   rows: ScopeThreatRow[];
   hasIncludedAssets: boolean;
   onSetThreatScopeIncluded: (threatId: string, included: boolean) => void;
   onBulkThreatRowIdsIncluded: (threatIds: string[], included: boolean) => void;
+  onNavigateToScopedAssets: () => void;
   togglesReadOnly?: boolean;
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
@@ -1723,19 +1731,22 @@ function ScopeScopedThreatsGrid({
     [rows, onBulkThreatRowIdsIncluded, setIncluded, togglesReadOnly],
   );
 
+  if (rows.length === 0) {
+    return hasIncludedAssets ? (
+      <AssessmentScopeEmptyState variant="scopeEntity" entityTitle="Threats" reason="noLinks" />
+    ) : (
+      <AssessmentScopeEmptyState
+        variant="scopeEntity"
+        entityTitle="Threats"
+        reason="needAssets"
+        onNavigateToScopedAssets={onNavigateToScopedAssets}
+      />
+    );
+  }
+
   return (
     <>
       <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
-        {rows.length === 0 ? (
-          <Typography
-            variant="body1"
-            sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
-          >
-            {hasIncludedAssets
-              ? "No threats are linked to the assets in scope."
-              : "Include assets in this assessment to see related threats."}
-          </Typography>
-        ) : null}
         <Box sx={{ width: "100%", minHeight: 400 }}>
           <DataGridPro
             rows={filteredRows}
@@ -1823,12 +1834,14 @@ function ScopeScopedVulnerabilitiesGrid({
   hasIncludedAssets,
   onSetVulnerabilityScopeIncluded,
   onBulkVulnerabilityRowIdsIncluded,
+  onNavigateToScopedAssets,
   togglesReadOnly = false,
 }: {
   rows: ScopeVulnerabilityRow[];
   hasIncludedAssets: boolean;
   onSetVulnerabilityScopeIncluded: (vulnerabilityId: string, included: boolean) => void;
   onBulkVulnerabilityRowIdsIncluded: (vulnerabilityIds: string[], included: boolean) => void;
+  onNavigateToScopedAssets: () => void;
   togglesReadOnly?: boolean;
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
@@ -1986,18 +1999,25 @@ function ScopeScopedVulnerabilitiesGrid({
     [rows, onBulkVulnerabilityRowIdsIncluded, setIncluded, togglesReadOnly],
   );
 
+  if (rows.length === 0) {
+    return hasIncludedAssets ? (
+      <AssessmentScopeEmptyState
+        variant="scopeEntity"
+        entityTitle="Vulnerabilities"
+        reason="noLinks"
+      />
+    ) : (
+      <AssessmentScopeEmptyState
+        variant="scopeEntity"
+        entityTitle="Vulnerabilities"
+        reason="needAssets"
+        onNavigateToScopedAssets={onNavigateToScopedAssets}
+      />
+    );
+  }
+
   return (
     <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
-      {rows.length === 0 ? (
-        <Typography
-          variant="body1"
-          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
-        >
-          {hasIncludedAssets
-            ? "No vulnerabilities are linked to the assets in scope."
-            : "Include assets in this assessment to see related vulnerabilities."}
-        </Typography>
-      ) : null}
       <Box sx={{ width: "100%", minHeight: 400 }}>
         <DataGridPro
           rows={filteredRows}
@@ -2062,12 +2082,14 @@ function ScopeScopedControlsGrid({
   hasIncludedAssets,
   onSetControlScopeIncluded,
   onBulkControlRowIdsIncluded,
+  onNavigateToScopedAssets,
   togglesReadOnly = false,
 }: {
   rows: ScopeControlRow[];
   hasIncludedAssets: boolean;
   onSetControlScopeIncluded: (controlId: string, included: boolean) => void;
   onBulkControlRowIdsIncluded: (controlIds: string[], included: boolean) => void;
+  onNavigateToScopedAssets: () => void;
   togglesReadOnly?: boolean;
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
@@ -2246,18 +2268,21 @@ function ScopeScopedControlsGrid({
     [rows, onBulkControlRowIdsIncluded, setIncluded, togglesReadOnly],
   );
 
+  if (rows.length === 0) {
+    return hasIncludedAssets ? (
+      <AssessmentScopeEmptyState variant="scopeEntity" entityTitle="Controls" reason="noLinks" />
+    ) : (
+      <AssessmentScopeEmptyState
+        variant="scopeEntity"
+        entityTitle="Controls"
+        reason="needAssets"
+        onNavigateToScopedAssets={onNavigateToScopedAssets}
+      />
+    );
+  }
+
   return (
     <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
-      {rows.length === 0 ? (
-        <Typography
-          variant="body1"
-          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
-        >
-          {hasIncludedAssets
-            ? "No controls are linked to the assets in scope."
-            : "Include assets in this assessment to see related controls."}
-        </Typography>
-      ) : null}
       <Box sx={{ width: "100%", minHeight: 400 }}>
         <DataGridPro
           rows={filteredRows}
@@ -2461,6 +2486,7 @@ export default function AssessmentScopeTab({
         hasIncludedAssets={includedCount > 0}
         onSetCyberRiskScopeIncluded={onSetCyberRiskScopeIncluded}
         onBulkCyberRiskRowIdsIncluded={onBulkCyberRisksScopeIncluded}
+        onNavigateToScopedAssets={() => onScopeSubViewChange("assets")}
         togglesReadOnly={scopeTogglesReadOnly}
       />
     );
@@ -2473,6 +2499,7 @@ export default function AssessmentScopeTab({
         hasIncludedAssets={includedCount > 0}
         onSetThreatScopeIncluded={onSetThreatScopeIncluded}
         onBulkThreatRowIdsIncluded={onBulkThreatsScopeIncluded}
+        onNavigateToScopedAssets={() => onScopeSubViewChange("assets")}
         togglesReadOnly={scopeTogglesReadOnly}
       />
     );
@@ -2485,6 +2512,7 @@ export default function AssessmentScopeTab({
         hasIncludedAssets={includedCount > 0}
         onSetVulnerabilityScopeIncluded={onSetVulnerabilityScopeIncluded}
         onBulkVulnerabilityRowIdsIncluded={onBulkVulnerabilitiesScopeIncluded}
+        onNavigateToScopedAssets={() => onScopeSubViewChange("assets")}
         togglesReadOnly={scopeTogglesReadOnly}
       />
     );
@@ -2497,6 +2525,7 @@ export default function AssessmentScopeTab({
         hasIncludedAssets={includedCount > 0}
         onSetControlScopeIncluded={onSetControlScopeIncluded}
         onBulkControlRowIdsIncluded={onBulkControlsScopeIncluded}
+        onNavigateToScopedAssets={() => onScopeSubViewChange("assets")}
         togglesReadOnly={scopeTogglesReadOnly}
       />
     );

@@ -192,7 +192,7 @@ function buildCyberRisks(): MockCyberRisk[] {
     const vulnerabilityIds = vulnerabilityIdsForAssets(assetIds);
     const scenarioIds: string[] = [];
 
-    const buIdx = Number(assets.find((a) => a.id === assetIds[0])?.businessUnitId.replace(/^BU-0*/, "") || "4");
+    const buIdx = Number(assets.find((a) => a.id === assetIds[0])?.orgUnitId.replace(/^BU-0*/, "") || "4");
     const ownerIdx = OWNER_ROTATION[i % OWNER_ROTATION.length]!;
 
     // Seeded RNG for random-looking distribution (Impact 1-5, Likelihood 1-25)
@@ -208,7 +208,7 @@ function buildCyberRisks(): MockCyberRisk[] {
       name: seed.name,
       ownerId: padId("USR", ownerIdx),
       status: seed.status,
-      businessUnitId: padId("BU", buIdx),
+      orgUnitId: padId("BU", buIdx),
       impact,
       impactLabel: getFivePointLabel(impact),
       likelihood,

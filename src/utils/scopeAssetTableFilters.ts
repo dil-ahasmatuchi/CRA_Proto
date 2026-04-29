@@ -1,4 +1,4 @@
-import { businessUnits } from "../data/businessUnits.js";
+import { orgUnits } from "../data/orgUnits.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 import { objectives } from "../data/objectives.js";
 import { processes } from "../data/processes.js";
@@ -43,7 +43,7 @@ export type ScopeAssetTableFilters = {
   objectiveIds: string[];
   /** Library process ids: row matches if the asset appears in that process’s `relationships.assetIds`. */
   processIds: string[];
-  businessUnitIds: string[];
+  orgUnitIds: string[];
 };
 
 export const EMPTY_SCOPE_ASSET_TABLE_FILTERS: ScopeAssetTableFilters = {
@@ -54,7 +54,7 @@ export const EMPTY_SCOPE_ASSET_TABLE_FILTERS: ScopeAssetTableFilters = {
   criticality: [],
   objectiveIds: [],
   processIds: [],
-  businessUnitIds: [],
+  orgUnitIds: [],
 };
 
 export function hasAnyScopeAssetFilterSelected(
@@ -65,7 +65,7 @@ export function hasAnyScopeAssetFilterSelected(
 
 /**
  * Number of filter **categories** with at least one selection (not total selected values).
- * Categories: asset types, cyber risks, threats, vulnerabilities, criticality, objectives, processes, business units.
+ * Categories: asset types, cyber risks, threats, vulnerabilities, criticality, objectives, processes, org. units.
  */
 export function countScopeAssetFilterCriteria(f: ScopeAssetTableFilters): number {
   let n = 0;
@@ -76,14 +76,14 @@ export function countScopeAssetFilterCriteria(f: ScopeAssetTableFilters): number
   if (f.criticality.length > 0) n += 1;
   if (f.objectiveIds.length > 0) n += 1;
   if (f.processIds.length > 0) n += 1;
-  if (f.businessUnitIds.length > 0) n += 1;
+  if (f.orgUnitIds.length > 0) n += 1;
   return n;
 }
 
 export type ScopeAssetFilterableRow = {
   assetId: string;
   assetType: string;
-  businessUnitId: string;
+  orgUnitId: string;
   criticality: FivePointScaleValue;
   objectives: number;
   processes: number;
@@ -124,8 +124,8 @@ export function applyScopeAssetFilters<T extends ScopeAssetFilterableRow>(
   const typeSet =
     filters.assetTypes.length > 0 ? new Set(filters.assetTypes) : null;
   const buSet =
-    filters.businessUnitIds.length > 0
-      ? new Set(filters.businessUnitIds)
+    filters.orgUnitIds.length > 0
+      ? new Set(filters.orgUnitIds)
       : null;
   const critSet =
     filters.criticality.length > 0
@@ -134,7 +134,7 @@ export function applyScopeAssetFilters<T extends ScopeAssetFilterableRow>(
 
   return rows.filter((row) => {
     if (typeSet && !typeSet.has(row.assetType as AssetType)) return false;
-    if (buSet && !buSet.has(row.businessUnitId)) return false;
+    if (buSet && !buSet.has(row.orgUnitId)) return false;
     if (critSet && !critSet.has(row.criticality)) return false;
     if (
       filters.objectiveIds.length > 0 &&
@@ -191,8 +191,8 @@ export function getScopeAssetVulnerabilityFilterOptions(): { id: string; name: s
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function getScopeAssetBusinessUnitFilterOptions(): { id: string; name: string }[] {
-  return businessUnits
+export function getScopeAssetOrgUnitFilterOptions(): { id: string; name: string }[] {
+  return orgUnits
     .map((bu) => ({ id: bu.id, name: bu.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }

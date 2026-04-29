@@ -33,17 +33,17 @@ function bandSpecFromActiveCyber(): readonly {
  * "Very low" (score 0) for bucketing.
  */
 export function buildAssetCyberRiskDonutSegments(
-  businessUnitId: string | null,
+  orgUnitId: string | null,
 ): AssetCyberRiskDonutSegment[] {
   const riskPool =
-    businessUnitId == null
+    orgUnitId == null
       ? cyberRisks
-      : cyberRisks.filter((r) => r.businessUnitId === businessUnitId);
+      : cyberRisks.filter((r) => r.orgUnitId === orgUnitId);
 
   const assetPool =
-    businessUnitId == null
+    orgUnitId == null
       ? assets
-      : assets.filter((a) => a.businessUnitId === businessUnitId);
+      : assets.filter((a) => a.orgUnitId === orgUnitId);
 
   const counts: Record<FivePointScaleLabel, number> = {
     "Very high": 0,

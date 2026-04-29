@@ -1,7 +1,7 @@
 import { padId } from "./types.js";
 import type { MockObjective, MockObjectiveRelationships } from "./types.js";
 import { assets, getAssetById } from "./assets.js";
-import { businessUnits } from "./businessUnits.js";
+import { orgUnits } from "./orgUnits.js";
 import { threats } from "./threats.js";
 import { vulnerabilities } from "./vulnerabilities.js";
 import { controls } from "./controls.js";
@@ -76,14 +76,14 @@ function buildObjectiveRelationships(index: number): MockObjectiveRelationships 
   const assetIds = dedupeIds([...fromCyberRisks, ...extraRandomAssets]);
 
   const buFromAssets = assetIds
-    .map((id) => getAssetById(id)?.businessUnitId)
+    .map((id) => getAssetById(id)?.orgUnitId)
     .filter((x): x is string => Boolean(x));
-  const extraBu = pickDistinctInts(rng, businessUnits.length, 2 + Math.floor(rng() * 4)).map(
-    (k) => businessUnits[k]!.id,
+  const extraBu = pickDistinctInts(rng, orgUnits.length, 2 + Math.floor(rng() * 4)).map(
+    (k) => orgUnits[k]!.id,
   );
-  const businessUnitIds = dedupeIds([
+  const orgUnitIds = dedupeIds([
     ...buFromAssets,
-    ...crIndices.map((ci) => cyberRiskAt(ci).businessUnitId),
+    ...crIndices.map((ci) => cyberRiskAt(ci).orgUnitId),
     ...extraBu,
   ]);
 
@@ -150,7 +150,7 @@ function buildObjectiveRelationships(index: number): MockObjectiveRelationships 
   const processIds = dedupeIds(processNums);
 
   return {
-    businessUnitIds,
+    orgUnitIds,
     assetIds,
     threatIds,
     vulnerabilityIds,
@@ -187,7 +187,7 @@ const OBJECTIVE_SEEDS: readonly { title: string; description: string }[] = [
   {
     title: "Operational visibility, detection, and response at enterprise scale",
     description:
-      "Invest in correlated telemetry, tuned detections, and rehearsed playbooks so security operations can contain high-impact incidents within agreed time objectives across major business units.",
+      "Invest in correlated telemetry, tuned detections, and rehearsed playbooks so security operations can contain high-impact incidents within agreed time objectives across major org. units.",
   },
   {
     title: "Payment integrity and fraud resilience",

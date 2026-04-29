@@ -3,7 +3,7 @@ import { Card, CardContent, Stack } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 
 import AssetsByCyberRiskScoreDonut from "./AssetsByCyberRiskScoreDonut.js";
-import RisksMatrix, { type AssessmentMatrixMode } from "./RisksMatrix.js";
+import RisksMatrix, { type AssessmentMatrixMode, type MatrixSelectionPayload } from "./RisksMatrix.js";
 import type { MockCyberRisk } from "../data/types.js";
 import type { AssessmentAssetResultRow } from "../pages/craAssessmentScopeRows.js";
 import type { CraScoringTypeChoice } from "../pages/craNewAssessmentDraftStorage.js";
@@ -19,10 +19,20 @@ export type ResultsHeroProps = {
   assetResultRows: readonly AssessmentAssetResultRow[];
   /** Details-tab scoring type: drives Inherent-only vs Residual-default matrix. */
   scoringType: CraScoringTypeChoice;
+  /**
+   * When set, matrix count clicks filter in-page (e.g. assessment Results table) instead of navigating
+   * to the global cyber risks route.
+   */
+  onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
 };
 
 /** Assessment results overview: scoped likelihood/impact matrix and assets-by-score donut (aligned with Assets grid). */
-export default function ResultsHero({ scopedRisks, assetResultRows, scoringType }: ResultsHeroProps) {
+export default function ResultsHero({
+  scopedRisks,
+  assetResultRows,
+  scoringType,
+  onMatrixSelection,
+}: ResultsHeroProps) {
   const { tokens: themeTokens } = useTheme();
   const donutSegments = useMemo(
     () => buildAssetCyberRiskDonutSegmentsFromAssessmentAssetRows(assetResultRows),
@@ -46,6 +56,7 @@ export default function ResultsHero({ scopedRisks, assetResultRows, scoringType 
           <RisksMatrix
             risks={scopedRisks}
             assessmentMatrixMode={assessmentMatrixModeFromScoringType(scoringType)}
+            onMatrixSelection={onMatrixSelection}
             sx={({ tokens: t }) => ({
               flex: { lg: "1.5 1 0" },
               minWidth: 0,

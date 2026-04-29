@@ -45,6 +45,7 @@ import {
   updateRiskAssessment,
 } from "../data/riskAssessments.js";
 import AssessmentDetailHeader from "../components/AssessmentDetailHeader.js";
+import RadioButtonArray from "../components/RadioButtonArray.js";
 import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
 
 const DEFAULT_ASSESSMENT_TYPE = "Cyber risk assessment";
@@ -108,6 +109,11 @@ const SCOPE_DETAIL_PAGE: Record<
 
 const SCOPE_TAB_INDEX = 1;
 const SCORING_TAB_INDEX = 2;
+
+const CRA_SCORING_TYPE_RADIO_OPTIONS = [
+  { value: "inherent" satisfies CraScoringTypeChoice, label: "Inherent" },
+  { value: "residual" satisfies CraScoringTypeChoice, label: "Residual" },
+] as const;
 
 function TabPanel({
   children,
@@ -251,6 +257,12 @@ export default function AssessmentDetailsTab() {
       if (initialDraft) return initialDraft.scenarioScoreAggregationMethod;
       return "highest";
     });
+
+  const [scenarioNotApplicableIds] = useState<Set<string>>(() => {
+    if (initialDraft?.scenarioNotApplicableIds?.length)
+      return new Set(initialDraft.scenarioNotApplicableIds);
+    return new Set();
+  });
 
   const aiScoringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -529,6 +541,7 @@ export default function AssessmentDetailsTab() {
         aiScoringPhase,
         scoringType,
         scenarioScoreAggregationMethod,
+        scenarioNotApplicableIds: [...scenarioNotApplicableIds],
       });
     }
   }, [
@@ -549,6 +562,7 @@ export default function AssessmentDetailsTab() {
     aiScoringPhase,
     scoringType,
     scenarioScoreAggregationMethod,
+    scenarioNotApplicableIds,
   ]);
 
   const handleAiScoringClick = useCallback(() => {
@@ -750,9 +764,26 @@ export default function AssessmentDetailsTab() {
             </Box>
 
             <NewCyberRiskAssessmentMethodSection
-              scoringType={scoringType}
-              onScoringTypeChange={setScoringType}
               readOnly={isApproved}
+              assessmentTypeSlot={
+                <RadioButtonArray
+                  label="Assessment type"
+                  name="new-cra-scoring-type"
+                  options={CRA_SCORING_TYPE_RADIO_OPTIONS}
+                  value={scoringType}
+                  onChange={(v) => {
+                    if (v === "inherent" || v === "residual") {
+                      setScoringType(v);
+                    }
+                  }}
+                  showAction
+                  showIcon={false}
+                  showActionText
+                  actionTextPlain
+                  actionText="Select whether assessment scores contribute to the inherent or residual risk score."
+                  disabled={isApproved}
+                />
+              }
             />
           </Stack>
         </TabPanel>
@@ -801,6 +832,7 @@ export default function AssessmentDetailsTab() {
             showAiScoringAction={showAiScoringAction}
             onAiScoringClick={handleAiScoringClick}
             onGoToScope={() => setActiveTab(SCOPE_TAB_INDEX)}
+            scenarioNotApplicableIds={scenarioNotApplicableIds}
           />
         </TabPanel>
         <TabPanel value={activeTab} index={3}>

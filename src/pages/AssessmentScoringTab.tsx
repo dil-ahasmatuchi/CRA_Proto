@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   Box,
   IconButton,
@@ -16,22 +16,25 @@ import {
 import type { Theme } from "@mui/material/styles";
 import { useNavigate } from "react-router";
 
-import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
-import AICard, {
-  AICardAggregationMethodRow,
-  AICardAssessmentPreset,
-  AICardScoringDescription,
-} from "../components/AICard.js";
+import AIBanner from "../components/AIBanner.js";
 import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
+import ScoringInfo from "../components/ScoringInfo.js";
 
 import { getAssetById } from "../data/assets.js";
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import { getScenarioById } from "../data/scenarios.js";
-import { fivePointLabelToRag, getLikelihoodLabel, getCyberRiskScoreLabel } from "../data/types.js";
-import type { FivePointScaleLabel } from "../data/types.js";
+import {
+  fivePointLabelToRag,
+  getCyberRiskScoreLabel,
+  getFivePointLabel,
+  getLikelihoodLabel,
+} from "../data/types.js";
+import type { FivePointScaleLabel, FivePointScaleValue } from "../data/types.js";
+import { getCatalogSnapshotVersion, subscribeCatalog } from "../data/persistence/catalogStore.js";
+import { aggregateImpactWeightedParentScores } from "../utils/craParentScoreAggregation.js";
 import {
   scenarioRationaleReadOnlyPath,
   scenarioScoringRationalePath,
@@ -47,6 +50,8 @@ import {
   assessmentScopedCyberRisks,
   assessmentScopedScenarios,
 } from "../data/assessmentScopeRollup.js";
+
+const EMPTY_SCENARIO_NOT_APPLICABLE_IDS = new Set<string>();
 
 type ScoreValue = {
   numeric: string;
@@ -235,12 +240,12 @@ function impactScoreFromAssetForScenarioId(scenarioId: string): ScoreValue | nul
 /** Highest asset-based impact among scenarios in a cyber-risk group (draft/scoping table). */
 function impactPreviewByGroupFromAssets(scenarioRows: ScoringRow[]): ScoreValue | null {
   const synthetic: ScoringRow[] = scenarioRows
-    .filter((r) => r.kind === "scenario")
+    .filter((r) => r.kind === "scenario" && r.impact != null)
     .map((r) => ({
       ...r,
       impact: impactScoreFromAssetForScenarioId(r.id),
     }));
-  return aggregateMetricForGroup(synthetic, "impact", "highest");
+  return aggregateMetricForGroupHighest(synthetic, "impact");
 }
 
 function toLikelihoodScore(value: number): ScoreValue {
@@ -256,6 +261,7 @@ function toCyberRiskScoreValue(value: number): ScoreValue {
 function buildScoringRowsForScope(
   includedAssetIds: Set<string>,
   excludedScopeCyberRiskIds: Set<string>,
+  scenarioNotApplicableIds: ReadonlySet<string> = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
 ): ScoringRow[] {
   if (includedAssetIds.size === 0) return [];
   const risks = assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds);
@@ -297,29 +303,32 @@ function buildScoringRowsForScope(
     };
 
     const relatedScenarios = byRisk.get(cr.id) ?? [];
-    const scenarioRows: ScoringRow[] = relatedScenarios.map((s) => ({
-      id: s.id,
-      kind: "scenario" as const,
-      groupId: cr.id,
-      tag: "Scenario",
-      title: (
-        <Typography
-          sx={({ tokens: t }) => ({
-            fontSize: t.semantic.font.text.md.fontSize.value,
-            lineHeight: t.semantic.font.text.md.lineHeight.value,
-            letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-            color: t.semantic.color.type.default.value,
-          })}
-        >
-          {s.name}
-        </Typography>
-      ),
-      impact: toFivePointScore(s.impact, s.impactLabel),
-      threat: toFivePointScore(s.threatSeverity, s.threatSeverityLabel),
-      vulnerability: toFivePointScore(s.vulnerabilitySeverity, s.vulnerabilitySeverityLabel),
-      likelihood: toLikelihoodScore(s.likelihood),
-      cyberRiskScore: toCyberRiskScoreValue(s.cyberRiskScore),
-    }));
+    const scenarioRows: ScoringRow[] = relatedScenarios.map((s) => {
+      const na = scenarioNotApplicableIds.has(s.id);
+      return {
+        id: s.id,
+        kind: "scenario" as const,
+        groupId: cr.id,
+        tag: "Scenario",
+        title: (
+          <Typography
+            sx={({ tokens: t }) => ({
+              fontSize: t.semantic.font.text.md.fontSize.value,
+              lineHeight: t.semantic.font.text.md.lineHeight.value,
+              letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+              color: t.semantic.color.type.default.value,
+            })}
+          >
+            {s.name}
+          </Typography>
+        ),
+        impact: na ? null : toFivePointScore(s.impact, s.impactLabel),
+        threat: na ? null : toFivePointScore(s.threatSeverity, s.threatSeverityLabel),
+        vulnerability: na ? null : toFivePointScore(s.vulnerabilitySeverity, s.vulnerabilitySeverityLabel),
+        likelihood: na ? null : toLikelihoodScore(s.likelihood),
+        cyberRiskScore: na ? null : toCyberRiskScoreValue(s.cyberRiskScore),
+      };
+    });
 
     return [riskRow, ...scenarioRows];
   });
@@ -331,70 +340,103 @@ function parseScoreNumeric(value: ScoreValue): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-type MetricKey = "impact" | "threat" | "vulnerability" | "likelihood" | "cyberRiskScore";
-
-function scoreFromAggregatedNumeric(
-  aggregated: number,
-  referenceValues: NonNullable<ScoreValue>[],
-): ScoreValue {
-  const rounded = Math.round(aggregated);
-  if (referenceValues.length === 0) return null;
-  let best = referenceValues[0];
-  let bestDist = Math.abs(parseScoreNumeric(best)! - aggregated);
-  for (const v of referenceValues) {
-    const n = parseScoreNumeric(v);
-    if (n == null) continue;
-    const d = Math.abs(n - aggregated);
-    if (d < bestDist) {
-      best = v;
-      bestDist = d;
-    }
+/** Parent cyber-risk row: Likelihood = T×V, Cyber risk score = I×L (same as scenario rows). */
+function derivedParentLikelihoodAndCyberRisk(
+  impact: ScoreValue,
+  threat: ScoreValue,
+  vulnerability: ScoreValue,
+): { likelihood: ScoreValue; cyberRiskScore: ScoreValue } {
+  if (impact == null || threat == null || vulnerability == null) {
+    return { likelihood: null, cyberRiskScore: null };
   }
-  return { numeric: String(rounded), label: best.label, rag: best.rag };
+  const t = parseScoreNumeric(threat);
+  const v = parseScoreNumeric(vulnerability);
+  const i = parseScoreNumeric(impact);
+  if (t == null || v == null || i == null) {
+    return { likelihood: null, cyberRiskScore: null };
+  }
+  const likelihoodProduct = t * v;
+  return {
+    likelihood: toLikelihoodScore(likelihoodProduct),
+    cyberRiskScore: toCyberRiskScoreValue(i * likelihoodProduct),
+  };
 }
 
-function aggregateMetricForGroup(
-  scenariosInGroup: ScoringRow[],
-  metric: MetricKey,
-  method: CraScenarioScoreAggregationMethod,
-): ScoreValue {
+type MetricKey = "impact" | "threat" | "vulnerability" | "likelihood" | "cyberRiskScore";
+
+function emptyParentAggregate(): Record<MetricKey, ScoreValue> {
+  return {
+    impact: null,
+    threat: null,
+    vulnerability: null,
+    likelihood: null,
+    cyberRiskScore: null,
+  };
+}
+
+/** Highest value among scenarios for one metric (parent row when aggregation = Highest). */
+function aggregateMetricForGroupHighest(scenariosInGroup: ScoringRow[], metric: MetricKey): ScoreValue {
   const withValue = scenariosInGroup.filter((s) => s[metric] != null);
   if (withValue.length === 0) return null;
 
   const values = withValue.map((s) => s[metric]!);
-
-  if (method === "highest") {
-    let best = values[0];
-    let bestN = parseScoreNumeric(best)!;
-    for (const v of values) {
-      const n = parseScoreNumeric(v)!;
-      if (n > bestN) {
-        bestN = n;
-        best = v;
-      }
+  let best = values[0];
+  let bestN = parseScoreNumeric(best)!;
+  for (const v of values) {
+    const n = parseScoreNumeric(v)!;
+    if (n > bestN) {
+      bestN = n;
+      best = v;
     }
-    return best;
   }
+  return best;
+}
 
-  const entries = values.map((v, i) => ({
-    n: parseScoreNumeric(v)!,
-    weight: parseScoreNumeric(withValue[i].likelihood) ?? 1,
+/** Persisted `average` — Impact-weighted aggregation, then Likelihood = T×V, Cyber risk score = I×L. */
+function aggregateWeightedByImpactParent(
+  scenariosInGroup: ScoringRow[],
+): Record<MetricKey, ScoreValue> {
+  const participating = scenariosInGroup.filter(
+    (s) =>
+      s.kind === "scenario" &&
+      s.impact != null &&
+      s.threat != null &&
+      s.vulnerability != null &&
+      parseScoreNumeric(s.impact) != null &&
+      parseScoreNumeric(s.threat) != null &&
+      parseScoreNumeric(s.vulnerability) != null,
+  );
+  if (participating.length === 0) return emptyParentAggregate();
+
+  const numericInputs = participating.map((s) => ({
+    impact: parseScoreNumeric(s.impact)!,
+    threat: parseScoreNumeric(s.threat)!,
+    vulnerability: parseScoreNumeric(s.vulnerability)!,
   }));
 
-  if (method === "average") {
-    const sum = entries.reduce((acc, e) => acc + e.n, 0);
-    return scoreFromAggregatedNumeric(sum / entries.length, values);
-  }
+  const agg = aggregateImpactWeightedParentScores(numericInputs);
+  if (agg == null) return emptyParentAggregate();
 
-  let weightTotal = 0;
-  let weightedSum = 0;
-  for (const e of entries) {
-    const w = e.weight > 0 ? e.weight : 1;
-    weightedSum += e.n * w;
-    weightTotal += w;
-  }
-  if (weightTotal === 0) return null;
-  return scoreFromAggregatedNumeric(weightedSum / weightTotal, values);
+  const impact = toFivePointScore(
+    agg.impact,
+    getFivePointLabel(agg.impact as FivePointScaleValue),
+  );
+  const threat = toFivePointScore(
+    agg.threat,
+    getFivePointLabel(agg.threat as FivePointScaleValue),
+  );
+  const vulnerability = toFivePointScore(
+    agg.vulnerability,
+    getFivePointLabel(agg.vulnerability as FivePointScaleValue),
+  );
+  const derived = derivedParentLikelihoodAndCyberRisk(impact, threat, vulnerability);
+  return {
+    impact,
+    threat,
+    vulnerability,
+    likelihood: derived.likelihood,
+    cyberRiskScore: derived.cyberRiskScore,
+  };
 }
 
 function NameCell({
@@ -508,6 +550,8 @@ type AssessmentScoringTabProps = {
   onAiScoringClick: () => void;
   /** Empty state: navigate to Scope tab. */
   onGoToScope: () => void;
+  /** Scenario ids marked n/a for this assessment (excluded from weighted parent aggregation). */
+  scenarioNotApplicableIds?: ReadonlySet<string>;
 };
 
 export default function AssessmentScoringTab({
@@ -523,13 +567,24 @@ export default function AssessmentScoringTab({
   showAiScoringAction,
   onAiScoringClick,
   onGoToScope,
+  scenarioNotApplicableIds = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
 }: AssessmentScoringTabProps) {
   const navigate = useNavigate();
+  const catalogVersion = useSyncExternalStore(
+    subscribeCatalog,
+    getCatalogSnapshotVersion,
+    getCatalogSnapshotVersion,
+  );
   const scoresNotStartedYet =
     assessmentPhase === "draft" || assessmentPhase === "scoping";
   const scoringRows = useMemo(
-    () => buildScoringRowsForScope(includedAssetIds, excludedScopeCyberRiskIds),
-    [includedAssetIds, excludedScopeCyberRiskIds],
+    () =>
+      buildScoringRowsForScope(
+        includedAssetIds,
+        excludedScopeCyberRiskIds,
+        scenarioNotApplicableIds,
+      ),
+    [includedAssetIds, excludedScopeCyberRiskIds, scenarioNotApplicableIds, catalogVersion],
   );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -582,19 +637,30 @@ export default function AssessmentScoringTab({
   const previewImpactByGroupId = useMemo(() => {
     const result = new Map<string, ScoreValue>();
     for (const [groupId, scenarios] of scenariosByGroupId) {
-      result.set(groupId, aggregateMetricForGroup(scenarios, "impact", "highest"));
+      result.set(groupId, aggregateMetricForGroupHighest(scenarios, "impact"));
     }
     return result;
   }, [scenariosByGroupId]);
 
   const aggregatedByGroupId = useMemo(() => {
-    const metrics: MetricKey[] = ["impact", "threat", "vulnerability", "likelihood", "cyberRiskScore"];
     const result = new Map<string, Record<MetricKey, ScoreValue>>();
     for (const [groupId, scenarios] of scenariosByGroupId) {
-      const agg = {} as Record<MetricKey, ScoreValue>;
-      for (const m of metrics) {
-        agg[m] = aggregateMetricForGroup(scenarios, m, aggregationMethod);
+      if (aggregationMethod === "average") {
+        result.set(groupId, aggregateWeightedByImpactParent(scenarios));
+        continue;
       }
+      const baseMetrics: Array<"impact" | "threat" | "vulnerability"> = [
+        "impact",
+        "threat",
+        "vulnerability",
+      ];
+      const agg = {} as Record<MetricKey, ScoreValue>;
+      for (const m of baseMetrics) {
+        agg[m] = aggregateMetricForGroupHighest(scenarios, m);
+      }
+      const derived = derivedParentLikelihoodAndCyberRisk(agg.impact, agg.threat, agg.vulnerability);
+      agg.likelihood = derived.likelihood;
+      agg.cyberRiskScore = derived.cyberRiskScore;
       result.set(groupId, agg);
     }
     return result;
@@ -647,26 +713,20 @@ export default function AssessmentScoringTab({
       })}
     >
       {showAiScoringAction ? (
-        <AICard>
-          <AICardAssessmentPreset
-            omitAssessmentType
-            title={aiScoringPhase === "complete" ? "AI scoring completed" : "AI scoring"}
-            description={
-              <>
-                <AICardScoringDescription variant={aiScoringPhase === "complete" ? "after" : "before"} />
-                <AICardAggregationMethodRow
-                  name="cra-aggregation-in-card"
-                  value={aggregationMethod}
-                  onValueChange={onAggregationMethodChange}
-                />
-              </>
-            }
-            actionLabel="Start AI scoring"
-            onAction={aiScoringPhase === "complete" ? undefined : onAiScoringClick}
-            actionLoading={aiScoringPhase === "processing"}
-          />
-        </AICard>
+        <AIBanner
+          title={aiScoringPhase === "complete" ? "AI scoring completed" : "AI scoring"}
+          onAction={aiScoringPhase === "complete" ? undefined : onAiScoringClick}
+          actionLoading={aiScoringPhase === "processing"}
+        />
       ) : null}
+      <ScoringInfo
+        aggregationMethodRadio={{
+          name: "cra-scoring-tab-aggregation",
+          value: aggregationMethod,
+          onValueChange: onAggregationMethodChange,
+          disabled: aiScoringPhase === "processing",
+        }}
+      />
       {scoringRows.length === 0 ? (
         <Typography
           variant="body1"
@@ -884,7 +944,9 @@ export default function AssessmentScoringTab({
                     if (scoresNotStartedYet) {
                       impactValue =
                         row.kind === "scenario"
-                          ? impactScoreFromAssetForScenarioId(row.id)
+                          ? row.impact == null
+                            ? null
+                            : impactScoreFromAssetForScenarioId(row.id)
                           : impactPreviewByGroupFromAssets(
                               scenariosByGroupId.get(row.groupId) ?? [],
                             );

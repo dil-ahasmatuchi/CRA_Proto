@@ -26,23 +26,23 @@ function segmentsWithArcData(segments: readonly AssetCyberRiskDonutSegment[]) {
 
 export type AssetsByCyberRiskScoreDonutProps = {
   /**
-   * When set, `businessUnitId` is ignored and this segment set is used (e.g. assessment results preview).
+   * When set, `orgUnitId` is ignored and this segment set is used (e.g. assessment results preview).
    */
   segmentsOverride?: readonly AssetCyberRiskDonutSegment[] | null;
-  businessUnitId?: string | null;
+  orgUnitId?: string | null;
   /** Spread onto the root `Card` (e.g. `flex: 1`). */
   sx?: object;
 };
 
 export default function AssetsByCyberRiskScoreDonut({
   segmentsOverride = null,
-  businessUnitId = null,
+  orgUnitId = null,
   sx: sxProp,
 }: AssetsByCyberRiskScoreDonutProps) {
   const { tokens } = useTheme();
   const segments = useMemo(
-    () => segmentsOverride ?? buildAssetCyberRiskDonutSegments(businessUnitId),
-    [businessUnitId, segmentsOverride],
+    () => segmentsOverride ?? buildAssetCyberRiskDonutSegments(orgUnitId),
+    [orgUnitId, segmentsOverride],
   );
   const active = useMemo(() => segmentsWithArcData(segments), [segments]);
 

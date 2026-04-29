@@ -31,9 +31,14 @@ import TableAlternativeIcon from "@diligentcorp/atlas-react-bundle/icons/TableAl
 import UnlinkIcon from "@diligentcorp/atlas-react-bundle/icons/Unlink";
 import VideoIcon from "@diligentcorp/atlas-react-bundle/icons/Video";
 
-function WysiwygToolbar() {
+function WysiwygToolbar({ disabled = false }: { disabled?: boolean }) {
   const tool = (label: string, Icon: React.ComponentType<{ "aria-hidden"?: boolean }>) => (
-    <IconButton size="small" aria-label={label} sx={{ borderRadius: 1 }}>
+    <IconButton
+      size="small"
+      aria-label={label}
+      disabled={disabled}
+      sx={{ borderRadius: 1 }}
+    >
       <Icon aria-hidden />
     </IconButton>
   );
@@ -48,6 +53,12 @@ function WysiwygToolbar() {
         py: 0.5,
         px: 0.5,
         borderBottom: `1px solid ${t.semantic.color.outline.default.value}`,
+        ...(disabled
+          ? {
+              opacity: 0.55,
+              pointerEvents: "none",
+            }
+          : {}),
       })}
     >
       {tool("Bold", FormatBoldIcon)}
@@ -58,17 +69,17 @@ function WysiwygToolbar() {
       {tool("Highlight", HighlighterIcon)}
       {tool("Clear formatting", ClearFormatIcon)}
       <Divider orientation="vertical" flexItem sx={{ mx: 0.5, minHeight: 40 }} />
-      <IconButton size="small" aria-label="Alignment" sx={{ borderRadius: 1 }}>
+      <IconButton size="small" aria-label="Alignment" disabled={disabled} sx={{ borderRadius: 1 }}>
         <FormatAlignLeftIcon aria-hidden />
       </IconButton>
-      <IconButton size="small" aria-label="Alignment options" sx={{ borderRadius: 1 }}>
+      <IconButton size="small" aria-label="Alignment options" disabled={disabled} sx={{ borderRadius: 1 }}>
         <ExpandDownIcon aria-hidden />
       </IconButton>
       <Divider orientation="vertical" flexItem sx={{ mx: 0.5, minHeight: 40 }} />
-      <IconButton size="small" aria-label="List" sx={{ borderRadius: 1 }}>
+      <IconButton size="small" aria-label="List" disabled={disabled} sx={{ borderRadius: 1 }}>
         <ListIcon aria-hidden />
       </IconButton>
-      <IconButton size="small" aria-label="List options" sx={{ borderRadius: 1 }}>
+      <IconButton size="small" aria-label="List options" disabled={disabled} sx={{ borderRadius: 1 }}>
         <ExpandDownIcon aria-hidden />
       </IconButton>
       <Divider orientation="vertical" flexItem sx={{ mx: 0.5, minHeight: 40 }} />
@@ -135,6 +146,10 @@ export default function AssessmentWysiwygEditor({
     }
   }, []);
 
+  /** `disabled` reliably blocks edits for plain multiline fields; semibold overlay mode uses native `readOnly` only so styling stays intact. */
+  const textFieldLocked = readOnly && !semiboldLabelPrefixes;
+  const semiboldLocked = readOnly && semiboldLabelPrefixes;
+
   const textField = (
     <TextField
       id={fieldId}
@@ -142,16 +157,21 @@ export default function AssessmentWysiwygEditor({
       fullWidth
       minRows={minRows}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      disabled={textFieldLocked}
+      onChange={(e) => {
+        if (readOnly) return;
+        onChange(e.target.value);
+      }}
       placeholder={placeholder}
       variant="standard"
-      InputProps={{ disableUnderline: true, readOnly }}
+      InputProps={{ disableUnderline: true }}
       slotProps={{
         htmlInput: {
           ref: (el: HTMLTextAreaElement | null) => {
             textareaRef.current = el;
           },
           onScroll: semiboldLabelPrefixes ? syncOverlayScroll : undefined,
+          readOnly: semiboldLocked || undefined,
         },
         input: {
           "aria-labelledby": labelId,
@@ -213,9 +233,7 @@ export default function AssessmentWysiwygEditor({
           overflow: "hidden",
         })}
       >
-        <Box sx={readOnly ? { pointerEvents: "none", opacity: 0.85 } : undefined}>
-          <WysiwygToolbar />
-        </Box>
+        <WysiwygToolbar disabled={readOnly} />
         {semiboldLabelPrefixes ? (
           <Box sx={{ position: "relative", width: "100%" }}>
             <Box

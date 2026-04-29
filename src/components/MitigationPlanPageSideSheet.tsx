@@ -31,7 +31,6 @@ import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
 
 import { cyberRisks } from "../data/cyberRisks.js";
 
-export const ISSUE_TYPE_OPTIONS = ["Issue", "Risk", "Control gap", "Finding"];
 export const SEVERITY_OPTIONS = [
   "1 - Very low",
   "2 - Low",
@@ -104,7 +103,6 @@ export default function MitigationPlanPageSideSheet({
 
   const [selectedRisk, setSelectedRisk] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [issueType, setIssueType] = useState("");
   const [severity, setSeverity] = useState("");
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [owners, setOwners] = useState("");
@@ -128,7 +126,6 @@ export default function MitigationPlanPageSideSheet({
   const handleClose = useCallback(() => {
     setSelectedRisk(null);
     setName("");
-    setIssueType("");
     setSeverity("");
     setDueDate(null);
     setOwners("");
@@ -202,37 +199,16 @@ export default function MitigationPlanPageSideSheet({
             />
           </FormControl>
 
-          {/* Row 1: Name + Issue type */}
-          <Stack direction="row" gap={3}>
-            <FormControl sx={{ flex: 7 }}>
-              <FormLabel htmlFor="mp-name">Name</FormLabel>
-              <TextField
-                placeholder="Enter issue name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                slotProps={{ input: { id: "mp-name" } }}
-              />
-            </FormControl>
-            <FormControl sx={{ flex: 5 }}>
-              <FormLabel id="mp-issue-type-label">Issue type</FormLabel>
-              <Select
-                displayEmpty
-                value={issueType}
-                onChange={(e: SelectChangeEvent) => setIssueType(e.target.value)}
-                labelId="mp-issue-type-label"
-                renderValue={(selected) => {
-                  if (!selected) return <PlaceholderText />;
-                  return selected;
-                }}
-              >
-                {ISSUE_TYPE_OPTIONS.map((opt) => (
-                  <MenuItem key={opt} value={opt}>
-                    {opt}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
+          {/* Row 1: Name */}
+          <FormControl fullWidth>
+            <FormLabel htmlFor="mp-name">Name</FormLabel>
+            <TextField
+              placeholder="Enter issue name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              slotProps={{ input: { id: "mp-name" } }}
+            />
+          </FormControl>
 
           {/* Row 2: Severity + Due date */}
           <Stack direction="row" gap={3}>

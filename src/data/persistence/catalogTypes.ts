@@ -1,7 +1,7 @@
 import type { CraNewAssessmentPersistedDraft } from "../craAssessmentDraftTypes.js";
 import type {
   MockAsset,
-  MockBusinessUnit,
+  MockOrgUnit,
   MockControl,
   MockCyberRisk,
   MockCyberRiskAssessment,
@@ -14,9 +14,9 @@ import type {
 
 /** Persisted catalog blob (localStorage / IndexedDB). */
 export type PersistedCatalogV1 = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   users: MockUser[];
-  businessUnits: MockBusinessUnit[];
+  orgUnits: MockOrgUnit[];
   assets: MockAsset[];
   vulnerabilities: MockVulnerability[];
   threats: MockThreat[];
@@ -30,4 +30,4 @@ export type PersistedCatalogV1 = {
   craDraft: CraNewAssessmentPersistedDraft | null;
 };
 
-export const CATALOG_STORAGE_KEY = "cra_proto_catalog_v1";
+export const CATALOG_STORAGE_KEY = "cra_proto_catalog_v2";

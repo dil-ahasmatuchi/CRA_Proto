@@ -33,24 +33,24 @@ export function stripMatrixParamsFromSearchParams(target: URLSearchParams): void
 }
 
 /**
- * Read matrix slice + business unit from `URLSearchParams`.
- * When heatmap params are missing or invalid, `matrixFilter` is `null` and `bu` is from `bu` or null.
+ * Read matrix slice + org. unit id from `URLSearchParams` (`bu` query key is unchanged for bookmarks).
+ * When heatmap params are missing or invalid, `matrixFilter` is `null` and `orgUnitId` is from `bu` or null.
  */
 export function parseRiskHeatmapSearchParams(searchParams: URLSearchParams): Pick<
   CyberRiskTableFilters,
-  "matrixFilter" | "businessUnitId"
+  "matrixFilter" | "orgUnitId"
 > {
   const bu = searchParams.get("bu");
-  const businessUnitId = bu && bu.length > 0 ? bu : null;
+  const orgUnitId = bu && bu.length > 0 ? bu : null;
 
   const heatmap = searchParams.get("heatmap");
   if (heatmap !== "cell" && heatmap !== "legend") {
-    return { matrixFilter: null, businessUnitId };
+    return { matrixFilter: null, orgUnitId };
   }
 
   const basisStr = searchParams.get("basis");
   if (basisStr == null || !isBasis(basisStr)) {
-    return { matrixFilter: null, businessUnitId };
+    return { matrixFilter: null, orgUnitId };
   }
   const basis = basisStr;
 
@@ -58,34 +58,34 @@ export function parseRiskHeatmapSearchParams(searchParams: URLSearchParams): Pic
     const row = parseInt0to4(searchParams.get("row"));
     const col = parseInt0to4(searchParams.get("col"));
     if (row == null || col == null) {
-      return { matrixFilter: null, businessUnitId };
+      return { matrixFilter: null, orgUnitId };
     }
     return {
       matrixFilter: { kind: "cell", basis, rowIdx: row, colIdx: col },
-      businessUnitId,
+      orgUnitId,
     };
   }
 
   const levelStr = searchParams.get("level");
   if (levelStr == null || !RISK_HEATMAP_LEVELS.has(levelStr as RiskHeatmapLevel)) {
-    return { matrixFilter: null, businessUnitId };
+    return { matrixFilter: null, orgUnitId };
   }
   return {
     matrixFilter: { kind: "legend", basis, level: levelStr as RiskHeatmapLevel },
-    businessUnitId,
+    orgUnitId,
   };
 }
 
 /** Replaces heatmap/bu URL keys with the given filter (or deletes them if both null / matrix null and no bu). */
 export function applyMatrixFiltersToSearchParams(
   searchParams: URLSearchParams,
-  next: Pick<CyberRiskTableFilters, "matrixFilter" | "businessUnitId">,
+  next: Pick<CyberRiskTableFilters, "matrixFilter" | "orgUnitId">,
 ): void {
   stripMatrixParamsFromSearchParams(searchParams);
 
-  const { matrixFilter, businessUnitId } = next;
-  if (businessUnitId) {
-    searchParams.set("bu", businessUnitId);
+  const { matrixFilter, orgUnitId } = next;
+  if (orgUnitId) {
+    searchParams.set("bu", orgUnitId);
   }
   if (matrixFilter == null) {
     return;
@@ -107,12 +107,12 @@ export function applyMatrixFiltersToSearchParams(
  */
 export function buildMatrixQueryStringForRisksPage(
   matrixFilter: CyberRiskMatrixTableFilter,
-  businessUnitId: string | null,
+  orgUnitId: string | null,
 ): string {
   const p = new URLSearchParams();
-  const partial: Pick<CyberRiskTableFilters, "matrixFilter" | "businessUnitId"> = {
+  const partial: Pick<CyberRiskTableFilters, "matrixFilter" | "orgUnitId"> = {
     matrixFilter,
-    businessUnitId: businessUnitId ?? null,
+    orgUnitId: orgUnitId ?? null,
   };
   applyMatrixFiltersToSearchParams(p, partial);
   const s = p.toString();

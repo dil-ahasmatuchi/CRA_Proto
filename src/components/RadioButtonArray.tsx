@@ -24,7 +24,7 @@ export type RadioButtonArrayProps = {
   onChange: (value: string) => void;
   /** Optional group `name` for the radio field (a unique name is generated if omitted) */
   name?: string;
-  /** When false, the vertical divider and action area are omitted */
+  /** When false, the action area below the radios is omitted */
   showAction?: boolean;
   /** When false, the leading icon in the action area is hidden (link text is still shown when `showActionText` is set) */
   showIcon?: boolean;
@@ -38,37 +38,11 @@ export type RadioButtonArrayProps = {
   actionTextPlain?: boolean;
   /** Optional custom icon node (defaults to the outline “info in circle” glyph). Shown only when link text is visible. */
   actionIcon?: ReactNode;
-  /** Replaces the entire action region (right of the divider), including icon and link */
+  /** Replaces the entire action region below the radios */
   actionSlot?: ReactNode;
   /** When true, radios and action links are non-interactive. */
   disabled?: boolean;
 };
-
-function AggregationMethodDivider() {
-  return (
-    <Box
-      aria-hidden
-      sx={{
-        flex: "0 0 1px",
-        width: 1,
-        height: 24,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxSizing: "border-box",
-      }}
-    >
-      <Box
-        sx={({ tokens: t }) => ({
-          width: 1,
-          height: 12,
-          flexShrink: 0,
-          bgcolor: t.semantic.color.ui.divider.default.value,
-        })}
-      />
-    </Box>
-  );
-}
 
 function DefaultInfoOutlineIcon() {
   return (
@@ -91,8 +65,7 @@ function DefaultInfoOutlineIcon() {
 }
 
 /**
- * Label, horizontal radio group, vertical divider, and optional icon + action link.
- * Default action text is required to show the icon+link area (icon never appears without link text).
+ * Label, horizontal radio group, and optional icon + link or plain text below the radios.
  */
 export default function RadioButtonArray({
   label,
@@ -124,155 +97,160 @@ export default function RadioButtonArray({
   const showActionRegion = showAction && (hasCustomAction || hasDefaultAction);
   const linkTarget = actionHref ?? "#";
 
+  const actionStyles = {
+    pointerEvents: disabled ? ("none" as const) : undefined,
+    opacity: disabled ? 0.72 : undefined,
+  };
+
   return (
-    <Box
+    <Stack
       sx={({ tokens: t }) => ({
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "flex-end",
-        flexWrap: "wrap",
-        gap: t.core.spacing["2"].value,
-        width: "fit-content",
-        minHeight: 52,
+        alignItems: "stretch",
+        gap: t.core.spacing["1_5"].value,
+        width: "100%",
+        minWidth: 0,
+        maxWidth: "100%",
         boxSizing: "border-box",
       })}
     >
-      <Stack
+      <Typography
+        id={labelId}
+        component="p"
+        variant="labelSm"
         sx={({ tokens: t }) => ({
-          width: "fit-content",
-          flexShrink: 0,
-          alignItems: "flex-start",
-          boxSizing: "border-box",
-          gap: t.core.spacing["1_5"].value,
+          m: 0,
+          fontWeight: t.semantic.fontWeight.emphasis.value,
+          color: t.semantic.color.type.default.value,
         })}
       >
-        <Typography
-          id={labelId}
-          component="p"
-          variant="labelSm"
-          sx={({ tokens: t }) => ({
-            m: 0,
-            fontWeight: t.semantic.fontWeight.emphasis.value,
-            color: t.semantic.color.type.default.value,
-          })}
+        {label}
+      </Typography>
+
+      <FormControl sx={{ width: "100%", m: 0, height: 28 }} disabled={disabled}>
+        <RadioGroup
+          row
+          name={groupName}
+          value={value}
+          onChange={(_e, v) => onChange(v)}
+          aria-labelledby={labelId}
+          sx={{
+            flexWrap: "wrap",
+            gap: 2,
+            columnGap: 2,
+            rowGap: 1,
+          }}
         >
-          {label}
-        </Typography>
-        <FormControl sx={{ width: "100%", m: 0, height: 28 }} disabled={disabled}>
-          <RadioGroup
-            row
-            name={groupName}
-            value={value}
-            onChange={(_e, v) => onChange(v)}
-            aria-labelledby={labelId}
-            sx={{
-              flexWrap: "wrap",
-              gap: 2,
-              columnGap: 2,
-              rowGap: 1,
-            }}
-          >
-            {options.map((opt) => (
-              <FormControlLabel
-                key={opt.value}
-                value={opt.value}
-                control={<Radio disabled={disabled} />}
-                label={opt.label}
-                sx={{
-                  height: 28,
-                  mr: 0,
-                  ml: 0,
-                  "& .MuiFormControlLabel-label": ({ tokens: t }) => ({
-                    fontSize: t.semantic.font.text.md.fontSize.value,
-                    lineHeight: t.semantic.font.text.md.lineHeight.value,
-                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                    color: t.semantic.color.type.default.value,
-                  }),
-                }}
-              />
-            ))}
-          </RadioGroup>
-        </FormControl>
-      </Stack>
+          {options.map((opt) => (
+            <FormControlLabel
+              key={opt.value}
+              value={opt.value}
+              control={<Radio disabled={disabled} />}
+              label={opt.label}
+              sx={{
+                height: 28,
+                mr: 0,
+                ml: 0,
+                "& .MuiFormControlLabel-label": ({ tokens: t }) => ({
+                  fontSize: t.semantic.font.text.md.fontSize.value,
+                  lineHeight: t.semantic.font.text.md.lineHeight.value,
+                  letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                  color: t.semantic.color.type.default.value,
+                }),
+              }}
+            />
+          ))}
+        </RadioGroup>
+      </FormControl>
 
       {showActionRegion ? (
-        <>
-          <AggregationMethodDivider />
+        <Box
+          sx={{
+            width: "100%",
+            minWidth: 0,
+            maxWidth: "100%",
+            ...actionStyles,
+          }}
+        >
           {actionSlot != null ? (
             actionSlot
           ) : hasDefaultAction ? (
-            <Box
-              sx={({ tokens: t }) => ({
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "center",
-                gap: t.core.spacing["0_5"].value,
-                minHeight: 24,
-                minWidth: 0,
-                flex: "1 1 200px",
-                pointerEvents: disabled ? "none" : undefined,
-                opacity: disabled ? 0.72 : undefined,
-              })}
-            >
-              {showIcon ? (actionIcon ?? <DefaultInfoOutlineIcon />) : null}
-              {actionTextPlain ? (
-                <Typography
-                  component="p"
-                  variant="textSm"
-                  sx={({ tokens: t }) => ({
-                    m: 0,
-                    width: "100%",
-                    minWidth: 0,
-                    fontSize: t.semantic.font.text.md.fontSize.value,
-                    lineHeight: t.semantic.font.text.md.lineHeight.value,
-                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                    fontWeight: t.core.fontWeight.regular.value,
-                    color: t.semantic.color.type.default.value,
-                  })}
-                >
-                  {actionText}
-                </Typography>
-              ) : linkTarget === "#" ? (
-                <Link
-                  href="#"
-                  underline="hover"
-                  onClick={(e: MouseEvent<HTMLAnchorElement>) => e.preventDefault()}
-                  sx={({ tokens: t }) => ({
-                    width: 300,
-                    minWidth: 300,
-                    height: "fit-content",
-                    fontSize: t.semantic.font.text.sm.fontSize.value,
-                    lineHeight: t.semantic.font.text.sm.lineHeight.value,
-                    letterSpacing: t.semantic.font.text.sm.letterSpacing.value,
-                    fontWeight: t.core.fontWeight.semiBold.value,
-                    color: t.semantic.color.action.link.default.value,
-                  })}
-                >
-                  {actionText}
-                </Link>
-              ) : (
-                <Link
-                  component={RouterLink}
-                  to={linkTarget}
-                  underline="hover"
-                  sx={({ tokens: t }) => ({
-                    width: 300,
-                    minWidth: 300,
-                    height: "fit-content",
-                    fontSize: t.semantic.font.text.sm.fontSize.value,
-                    lineHeight: t.semantic.font.text.sm.lineHeight.value,
-                    letterSpacing: t.semantic.font.text.sm.letterSpacing.value,
-                    fontWeight: t.core.fontWeight.semiBold.value,
-                    color: t.semantic.color.action.link.default.value,
-                  })}
-                >
-                  {actionText}
-                </Link>
-              )}
-            </Box>
+            actionTextPlain ? (
+              <Typography
+                component="p"
+                variant="textSm"
+                sx={({ tokens: t }) => ({
+                  m: 0,
+                  width: "100%",
+                  minWidth: 0,
+                  maxWidth: "100%",
+                  whiteSpace: "normal",
+                  fontSize: t.semantic.font.text.md.fontSize.value,
+                  lineHeight: t.semantic.font.text.md.lineHeight.value,
+                  letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                  fontWeight: t.core.fontWeight.regular.value,
+                  color: t.semantic.color.type.default.value,
+                })}
+              >
+                {actionText}
+              </Typography>
+            ) : (
+              <Box
+                sx={({ tokens: t }) => ({
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: showIcon ? "center" : "flex-start",
+                  gap: t.core.spacing["0_5"].value,
+                  minHeight: 24,
+                  minWidth: 0,
+                  width: "100%",
+                  maxWidth: "100%",
+                })}
+              >
+                {showIcon ? (actionIcon ?? <DefaultInfoOutlineIcon />) : null}
+                {linkTarget === "#" ? (
+                  <Link
+                    href="#"
+                    underline="hover"
+                    onClick={(e: MouseEvent<HTMLAnchorElement>) => e.preventDefault()}
+                    sx={({ tokens: t }) => ({
+                      minWidth: 0,
+                      width: "100%",
+                      height: "fit-content",
+                      display: "block",
+                      fontSize: t.semantic.font.text.sm.fontSize.value,
+                      lineHeight: t.semantic.font.text.sm.lineHeight.value,
+                      letterSpacing: t.semantic.font.text.sm.letterSpacing.value,
+                      fontWeight: t.core.fontWeight.semiBold.value,
+                      color: t.semantic.color.action.link.default.value,
+                    })}
+                  >
+                    {actionText}
+                  </Link>
+                ) : (
+                  <Link
+                    component={RouterLink}
+                    to={linkTarget}
+                    underline="hover"
+                    sx={({ tokens: t }) => ({
+                      minWidth: 0,
+                      width: "100%",
+                      height: "fit-content",
+                      display: "block",
+                      fontSize: t.semantic.font.text.sm.fontSize.value,
+                      lineHeight: t.semantic.font.text.sm.lineHeight.value,
+                      letterSpacing: t.semantic.font.text.sm.letterSpacing.value,
+                      fontWeight: t.core.fontWeight.semiBold.value,
+                      color: t.semantic.color.action.link.default.value,
+                    })}
+                  >
+                    {actionText}
+                  </Link>
+                )}
+              </Box>
+            )
           ) : null}
-        </>
+        </Box>
       ) : null}
-    </Box>
+    </Stack>
   );
 }

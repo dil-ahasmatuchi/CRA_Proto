@@ -5,6 +5,7 @@ import type {
   CyberRiskStatus,
   FivePointScaleLabel,
   FivePointScaleValue,
+  MockCyberRisk,
 } from "../data/types.js";
 import {
   heatmapRowIndexToLikelihoodLabel,
@@ -24,7 +25,7 @@ export type CyberRiskRow = {
   name: string;
   riskId: string;
   ownerId: string;
-  businessUnitId: string;
+  orgUnitId: string;
   cyberRiskScore: string;
   riskLevel: RiskHeatmapLevel | null;
   ownerName: string;
@@ -82,8 +83,8 @@ export type CyberRiskTableFilters = {
   assetIds: string[];
   /** From heatmap cell/legend; `null` = not filtering by matrix slice. */
   matrixFilter: CyberRiskMatrixTableFilter | null;
-  /** `null` = all business units. */
-  businessUnitId: string | null;
+  /** `null` = all org. units. */
+  orgUnitId: string | null;
 };
 
 export const EMPTY_CYBER_RISK_TABLE_FILTERS: CyberRiskTableFilters = {
@@ -92,7 +93,7 @@ export const EMPTY_CYBER_RISK_TABLE_FILTERS: CyberRiskTableFilters = {
   scoreLabels: [],
   assetIds: [],
   matrixFilter: null,
-  businessUnitId: null,
+  orgUnitId: null,
 };
 
 export function buildCyberRiskRows(): CyberRiskRow[] {
@@ -103,7 +104,7 @@ export function buildCyberRiskRows(): CyberRiskRow[] {
       name: r.name,
       riskId: r.id,
       ownerId: r.ownerId,
-      businessUnitId: r.businessUnitId,
+      orgUnitId: r.orgUnitId,
       cyberRiskScore: `${r.cyberRiskScore} - ${r.cyberRiskScoreLabel}`,
       riskLevel: SCORE_LABEL_TO_HEATMAP[r.cyberRiskScoreLabel],
       ownerName: owner?.fullName ?? "Unassigned",
@@ -120,24 +121,39 @@ export function buildCyberRiskRows(): CyberRiskRow[] {
   });
 }
 
-function rowMatchesMatrixFilter(
-  row: CyberRiskRow,
+/** Same rules as the cyber risks list heatmap filter; used for assessment Results tree filtering. */
+export function mockCyberRiskMatchesMatrixFilter(
+  risk: Pick<
+    MockCyberRisk,
+    | "impact"
+    | "likelihoodLabel"
+    | "residualLikelihoodLabel"
+    | "cyberRiskScoreLabel"
+    | "residualCyberRiskScoreLabel"
+  >,
   matrix: CyberRiskMatrixTableFilter,
 ): boolean {
   if (matrix.kind === "cell") {
     const { basis, rowIdx, colIdx } = matrix;
-    if (row.impact !== colIdx + 1) return false;
+    if (risk.impact !== colIdx + 1) return false;
     const expectedL = heatmapRowIndexToLikelihoodLabel(rowIdx);
     if (expectedL == null) return false;
     const lik =
-      basis === "inherent" ? row.likelihoodLabel : row.residualLikelihoodLabel;
+      basis === "inherent" ? risk.likelihoodLabel : risk.residualLikelihoodLabel;
     return lik === expectedL;
   }
   const level =
     matrix.basis === "inherent"
-      ? SCORE_LABEL_TO_HEATMAP[row.cyberRiskScoreLabel]
-      : SCORE_LABEL_TO_HEATMAP[row.residualCyberRiskScoreLabel];
+      ? SCORE_LABEL_TO_HEATMAP[risk.cyberRiskScoreLabel]
+      : SCORE_LABEL_TO_HEATMAP[risk.residualCyberRiskScoreLabel];
   return level === matrix.level;
+}
+
+function rowMatchesMatrixFilter(
+  row: CyberRiskRow,
+  matrix: CyberRiskMatrixTableFilter,
+): boolean {
+  return mockCyberRiskMatchesMatrixFilter(row, matrix);
 }
 
 function matchesCyberRiskTableFilters(
@@ -179,7 +195,7 @@ export function applyCyberRiskFilters(
     ) {
       return false;
     }
-    if (filters.businessUnitId != null && row.businessUnitId !== filters.businessUnitId) {
+    if (filters.orgUnitId != null && row.orgUnitId !== filters.orgUnitId) {
       return false;
     }
     if (filters.matrixFilter != null && !rowMatchesMatrixFilter(row, filters.matrixFilter)) {
@@ -189,14 +205,14 @@ export function applyCyberRiskFilters(
   });
 }
 
-/** Strips heatmap and BU; catalog scope only uses the four main filter dimensions. */
+/** Strips heatmap and org. unit; catalog scope only uses the four main filter dimensions. */
 export function catalogFilterSliceFrom(
   filters: CyberRiskTableFilters,
 ): CyberRiskTableFilters {
   return {
     ...filters,
     matrixFilter: null,
-    businessUnitId: null,
+    orgUnitId: null,
   };
 }
 
@@ -229,6 +245,6 @@ export function countCyberRiskFilterCriteria(filters: CyberRiskTableFilters): nu
   if (filters.scoreLabels.length > 0) n++;
   if (filters.assetIds.length > 0) n++;
   if (filters.matrixFilter != null) n++;
-  if (filters.businessUnitId != null) n++;
+  if (filters.orgUnitId != null) n++;
   return n;
 }

@@ -1,4 +1,4 @@
-import type { MockBusinessUnit } from "./types.js";
+import type { MockOrgUnit } from "./types.js";
 
 const raw: [string, string][] = [
   ["Human Resources", "San Francisco"],
@@ -53,30 +53,28 @@ const raw: [string, string][] = [
   ["Risk Management", "New York"],
 ];
 
-export const businessUnits: MockBusinessUnit[] = raw.map(
+export const orgUnits: MockOrgUnit[] = raw.map(
   ([dept, location], i) => ({
     id: `BU-${String(i + 1).padStart(3, "0")}`,
     name: `${dept} \u2013 ${location}`,
   }),
 );
 
-const buById = new Map(businessUnits.map((bu) => [bu.id, bu]));
+const orgUnitById = new Map(orgUnits.map((ou) => [ou.id, ou]));
 
-function rebuildBuIndex(): void {
-  buById.clear();
-  for (const bu of businessUnits) {
-    buById.set(bu.id, bu);
+function rebuildOrgUnitIndex(): void {
+  orgUnitById.clear();
+  for (const ou of orgUnits) {
+    orgUnitById.set(ou.id, ou);
   }
 }
 
-export function replaceBusinessUnitsFromPersistence(next: MockBusinessUnit[]): void {
-  businessUnits.length = 0;
-  businessUnits.push(...next);
-  rebuildBuIndex();
+export function replaceOrgUnitsFromPersistence(next: MockOrgUnit[]): void {
+  orgUnits.length = 0;
+  orgUnits.push(...next);
+  rebuildOrgUnitIndex();
 }
 
-export function getBusinessUnitById(
-  id: string,
-): MockBusinessUnit | undefined {
-  return buById.get(id);
+export function getOrgUnitById(id: string): MockOrgUnit | undefined {
+  return orgUnitById.get(id);
 }

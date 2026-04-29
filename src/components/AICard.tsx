@@ -14,8 +14,6 @@ import {
 
 import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 
-import RadioButtonArray from "./RadioButtonArray.js";
-
 const AI_TEXT_GRADIENT =
   "linear-gradient(128.4deg, #BE0C1E 17.49%, #AB48DA 58.74%, #4069FE 100%)";
 
@@ -167,72 +165,13 @@ function FormulasRow({ children }: { children: ReactNode }) {
   );
 }
 
-/** Default route for cyber risk settings (`CyberRiskSettingsPage` in App). */
-const DEFAULT_SCORING_LOGIC_PATH = "/settings/cyber-risk-settings";
-
 export type AICardScoringDescriptionProps = {
-  /** Destination for “View scoring logic and aggregation details”. Placeholder `#` is inert (click prevented). */
-  scoringLogicHref?: string;
   /**
    * `before` — future tense (default). `after` — includes review guidance and past tense
    * for completed AI scoring.
    */
   variant?: "before" | "after";
 };
-
-export type AICardAggregationMethodRowProps = {
-  /** Destination for “View scoring logic and aggregation details”. Defaults to cyber risk settings. Placeholder `#` is inert (click prevented). */
-  scoringLogicHref?: string;
-  /** Controlled value (use with `onValueChange`). When omitted, selection is stored locally. */
-  value?: "highest" | "average";
-  /** Fired when the user changes the aggregation method (controlled mode). */
-  onValueChange?: (value: "highest" | "average") => void;
-  /** Passed to the underlying `RadioGroup` `name` (e.g. to pair with a second group sharing the same React state). */
-  name?: string;
-  /** When true, radios are not interactive. */
-  disabled?: boolean;
-};
-
-/** Aggregation radios + scoring logic link (sibling to formulas block under the AI scoring section). */
-export function AICardAggregationMethodRow({
-  scoringLogicHref = DEFAULT_SCORING_LOGIC_PATH,
-  value: controlledValue,
-  onValueChange,
-  name: radioName,
-  disabled = false,
-}: AICardAggregationMethodRowProps = {}) {
-  const [internal, setInternal] = useState<"highest" | "average">("highest");
-  const isControlled = controlledValue !== undefined && onValueChange !== undefined;
-  const aggregationMethod = isControlled ? controlledValue : internal;
-
-  const handleChange = (v: string) => {
-    if (v !== "highest" && v !== "average") return;
-    if (isControlled) {
-      onValueChange(v);
-    } else {
-      setInternal(v);
-    }
-  };
-
-  return (
-    <RadioButtonArray
-      label="Aggregation method"
-      options={[
-        { value: "highest", label: "Highest" },
-        { value: "average", label: "Weighted average" },
-      ]}
-      name={radioName}
-      value={aggregationMethod}
-      onChange={handleChange}
-      disabled={disabled}
-      showAction
-      showIcon
-      showActionText
-      actionHref={scoringLogicHref}
-      actionText="View scoring logic and aggregation details"
-    />
-  );
-}
 
 /** Intro copy and formula chips for the CRA scoring tab AI card. */
 export function AICardScoringDescription({ variant = "before" }: AICardScoringDescriptionProps = {}) {
@@ -403,7 +342,7 @@ export function AICardAssessmentPreset({
     <Box
       component="h2"
       id={sectionTitleId}
-      sx={({ tokens: t }) => ({
+      sx={{
         m: 0,
         p: 0,
         minWidth: 0,
@@ -417,7 +356,7 @@ export function AICardAssessmentPreset({
               flex: "1 1 auto",
             }
           : {}),
-      })}
+      }}
     >
       <Box
         component="span"
@@ -561,3 +500,10 @@ export function AICardAssessmentPreset({
     </Stack>
   );
 }
+
+export { default as AggregationMethodRadio } from "./AggregationMethodRadio.js";
+export { default as AICardAggregationMethodRow } from "./AggregationMethodRadio.js";
+export type {
+  AggregationMethodRadioProps,
+  AggregationMethodRadioProps as AICardAggregationMethodRowProps,
+} from "./AggregationMethodRadio.js";
