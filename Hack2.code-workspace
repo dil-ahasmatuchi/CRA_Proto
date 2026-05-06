@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../CyberRiskAssessmentScoring"
+		},
+		{
+			"path": "../../Downloads/object-library-mcp-main"
+		}
+	],
+	"settings": {}
+}

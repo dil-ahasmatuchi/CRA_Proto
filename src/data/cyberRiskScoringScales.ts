@@ -33,12 +33,9 @@ function rowsFrom(
 export const CYBER_RISK_SCORE_SCALE_MIN = 1;
 export const CYBER_RISK_SCORE_SCALE_MAX = 125;
 
-/** Inclusive scale bounds for likelihood product bands. */
-export const LIKELIHOOD_SCALE_MIN = 1;
-export const LIKELIHOOD_SCALE_MAX = 25;
-
-/** Figma: Cyber risk score (Impact × Likelihood, 1–125). */
-export const DEFAULT_CYBER_RISK_SCORE_BANDS: ScoringBandRow[] = rowsFrom(
+/** Deprecated band layouts replaced on catalog load by {@link DEFAULT_CYBER_RISK_SCORE_BANDS}. */
+const OBSOLETE_CYBER_SCORE_BAND_EDGES: readonly { from: number; to: number }[][] = [
+  // Equal fifths of 1–125
   [
     { from: 1, to: 25 },
     { from: 26, to: 50 },
@@ -46,14 +43,57 @@ export const DEFAULT_CYBER_RISK_SCORE_BANDS: ScoringBandRow[] = rowsFrom(
     { from: 76, to: 100 },
     { from: 101, to: 125 },
   ],
+  // Prior mistaken product-scale rows (max 25)
   [
-    "Negligible business impact. No disruption to operations, no financial loss expected, and no regulatory exposure. Risk can be accepted or monitored without active treatment.",
-    "Minor impact on isolated systems or processes. Limited financial exposure and short recovery time. Routine controls are sufficient; risk owner should monitor quarterly.",
-    "Moderate disruption to business operations or sensitive data. Noticeable financial or reputational impact possible. Requires a documented mitigation plan and assigned owner.",
-    "Significant operational or financial impact. Potential for regulatory breach, data loss, or prolonged downtime. Immediate mitigation action and senior oversight required.",
-    "Severe or critical impact across multiple systems or org. units. Major financial loss, regulatory penalties, or reputational damage likely. Escalate immediately; treatment plan mandatory before next assessment cycle.",
+    { from: 1, to: 5 },
+    { from: 6, to: 10 },
+    { from: 11, to: 15 },
+    { from: 16, to: 20 },
+    { from: 21, to: 25 },
+  ],
+];
+
+function bandsMatchEdges(
+  rows: readonly ScoringBandRow[],
+  edges: readonly { from: number; to: number }[],
+): boolean {
+  if (rows.length !== edges.length) return false;
+  return edges.every((e, i) => rows[i]!.from === e.from && rows[i]!.to === e.to);
+}
+
+/** Inclusive scale bounds for likelihood product bands. */
+export const LIKELIHOOD_SCALE_MIN = 1;
+export const LIKELIHOOD_SCALE_MAX = 25;
+
+/** Default cyber risk score bands (Impact × Likelihood product, 1–125). */
+export const DEFAULT_CYBER_RISK_SCORE_BANDS: ScoringBandRow[] = rowsFrom(
+  [
+    { from: 1, to: 2 },
+    { from: 3, to: 8 },
+    { from: 9, to: 27 },
+    { from: 28, to: 64 },
+    { from: 65, to: 125 },
+  ],
+  [
+    "Very low combined risk. Minimal product of impact and likelihood; monitor through routine governance.",
+    "Low combined risk. Limited exposure; maintain controls and periodic review.",
+    "Medium combined risk. Noticeable operational, financial, or reputational impact possible; track mitigations.",
+    "High combined risk. Significant impact likely without timely improvements; prioritize remediation and oversight.",
+    "Very high combined risk. Severe enterprise impact and high urgency; immediate treatment and executive escalation.",
   ],
 );
+
+/**
+ * True when persisted cyber score bands should be replaced with {@link DEFAULT_CYBER_RISK_SCORE_BANDS}
+ * (obsolete equal-fifths, old 1–25 product rows, or any 5-band scale capped at 25). Custom 1–125 layouts are kept.
+ */
+export function isLegacyCyberRiskScoreScale(rows: readonly ScoringBandRow[]): boolean {
+  if (rows.length !== 5) return false;
+  if (bandsMatchEdges(rows, DEFAULT_CYBER_RISK_SCORE_BANDS)) return false;
+  const last = rows[4]!;
+  if (last.to === 25) return true;
+  return OBSOLETE_CYBER_SCORE_BAND_EDGES.some((edges) => bandsMatchEdges(rows, edges));
+}
 
 /**
  * Likelihood product bands (1–25). Aligns with {@link getActiveLikelihoodOptions} in ScoringMetricField.

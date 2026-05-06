@@ -3,12 +3,11 @@ import { Card, CardContent, Stack } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 
 import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
-import AssetsByCyberRiskScoreDonut from "./AssetsByCyberRiskScoreDonut.js";
+import CyberRisksByCyberRiskScoreDonut from "./CyberRisksByCyberRiskScoreDonut.js";
 import RisksMatrix, { type AssessmentMatrixMode, type MatrixSelectionPayload } from "./RisksMatrix.js";
 import type { MockCyberRisk } from "../data/types.js";
-import type { AssessmentAssetResultRow } from "../pages/craAssessmentScopeRows.js";
 import type { CraScoringTypeChoice } from "../pages/craNewAssessmentDraftStorage.js";
-import { buildAssetCyberRiskDonutSegmentsFromAssessmentAssetRows } from "../utils/assetsByCyberRiskScoreDonutData.js";
+import { buildCyberRiskDonutSegments } from "../utils/assetsByCyberRiskScoreDonutData.js";
 
 function assessmentMatrixModeFromScoringType(scoringType: CraScoringTypeChoice): AssessmentMatrixMode {
   if (scoringType === "inherent") return "inherentOnly";
@@ -17,7 +16,6 @@ function assessmentMatrixModeFromScoringType(scoringType: CraScoringTypeChoice):
 
 export type ResultsHeroProps = {
   scopedRisks: readonly MockCyberRisk[];
-  assetResultRows: readonly AssessmentAssetResultRow[];
   /** Details-tab scoring type: drives Inherent-only vs Residual-default matrix. */
   scoringType: CraScoringTypeChoice;
   /**
@@ -27,18 +25,17 @@ export type ResultsHeroProps = {
   onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
 };
 
-/** Assessment results overview: scoped likelihood/impact matrix and assets-by-score donut (aligned with Assets grid). */
+/** Assessment results overview: scoped likelihood/impact matrix and cyber risks-by-score donut. */
 export default function ResultsHero({
   scopedRisks,
-  assetResultRows,
   scoringType,
   onMatrixSelection,
 }: ResultsHeroProps) {
   const { tokens: themeTokens } = useTheme();
   const { cyberScoreBands, likelihoodBands } = useCyberRiskScoringConfig();
   const donutSegments = useMemo(
-    () => buildAssetCyberRiskDonutSegmentsFromAssessmentAssetRows(assetResultRows),
-    [assetResultRows, cyberScoreBands, likelihoodBands],
+    () => buildCyberRiskDonutSegments(scopedRisks),
+    [scopedRisks, cyberScoreBands, likelihoodBands],
   );
 
   return (
@@ -69,8 +66,8 @@ export default function ResultsHero({
               boxShadow: "none",
             })}
           />
-          <AssetsByCyberRiskScoreDonut
-            segmentsOverride={donutSegments}
+          <CyberRisksByCyberRiskScoreDonut
+            segments={donutSegments}
             sx={{
               flex: { lg: "1 1 480px" },
               minWidth: { lg: 320 },

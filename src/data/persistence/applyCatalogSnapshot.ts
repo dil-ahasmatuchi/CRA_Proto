@@ -8,6 +8,7 @@ import {
   hydratePersistedCraDraft,
   loadRawCatalogJson,
   loadRawCatalogJsonAsync,
+  markCatalogDirty,
   parsePersistedCatalog,
 } from "./catalogStore.js";
 import { replaceRiskAssessmentsFromPersistence } from "../riskAssessments.js";
@@ -19,6 +20,9 @@ import {
 import { replaceThreatsFromPersistence } from "../threats.js";
 import {
   bandsFullyValid,
+  deepCloneBands,
+  DEFAULT_CYBER_RISK_SCORE_BANDS,
+  isLegacyCyberRiskScoreScale,
   setActiveCyberRiskScoreBands,
   setActiveLikelihoodBands,
   type ScoringBandRow,
@@ -36,7 +40,15 @@ function applyPersistedScoringBands(catalog: PersistedCatalogV1): void {
     cyberScoreBands.length === 5 &&
     bandsFullyValid(cyberScoreBands as ScoringBandRow[])
   ) {
-    setActiveCyberRiskScoreBands(cyberScoreBands as ScoringBandRow[]);
+    const rows = cyberScoreBands as ScoringBandRow[];
+    if (isLegacyCyberRiskScoreScale(rows)) {
+      const migrated = deepCloneBands(DEFAULT_CYBER_RISK_SCORE_BANDS);
+      setActiveCyberRiskScoreBands(migrated);
+      catalog.cyberScoreBands = migrated;
+      markCatalogDirty();
+    } else {
+      setActiveCyberRiskScoreBands(rows);
+    }
   }
   if (
     Array.isArray(likelihoodBands) &&

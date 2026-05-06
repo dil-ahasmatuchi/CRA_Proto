@@ -3,9 +3,11 @@ import {
   OverflowBreadcrumbs,
 } from "@diligentcorp/atlas-react-bundle";
 import {
+  Alert,
   Avatar,
   Box,
   Button,
+  CircularProgress,
   Container,
   InputAdornment,
   Link,
@@ -25,6 +27,7 @@ import {
   Toolbar,
 } from "@mui/x-data-grid-pro";
 import { NavLink } from "react-router";
+import { useApiList } from "../hooks/useApiList.js";
 
 import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 import FilterIcon from "@diligentcorp/atlas-react-bundle/icons/Filter";
@@ -35,165 +38,62 @@ import AvatarIcon from "@diligentcorp/atlas-react-bundle/icons/Avatar";
 // Data model
 // ---------------------------------------------------------------------------
 
+interface ApiControlRow {
+  id: string;
+  display_id: string;
+  name: string;
+  description: string | null;
+  control_type: string;
+  key_control: number;
+  control_frequency: string | null;
+  effectiveness: number | null;
+  effectiveness_label: string | null;
+  status: "Active" | "Archived" | "Draft";
+  owner: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ControlRow {
-  id: number;
+  id: string;
   controlId: string;
   name: string;
   status: "Active" | "Archived" | "Draft";
   preventDetect: string;
-  linkedOrgUnits: string;
   ownerName: string;
   ownerInitials: string;
-  assets: number;
-  cyberRisks: number;
   keyControl: "Yes" | "No";
   controlFrequency: string;
+  effectiveness: string;
 }
 
 const AVATAR_COLORS = ["red", "blue", "green", "purple", "yellow"] as const;
 
-const controlRows: ControlRow[] = [
-  {
-    id: 1,
-    controlId: "C-123456",
-    name: "Role-based access",
-    status: "Active",
-    preventDetect: "Detective",
-    linkedOrgUnits: "Human Resources \u2013 San Francisco",
-    ownerName: "Cody Fisher",
-    ownerInitials: "CF",
-    assets: 12,
-    cyberRisks: 3,
-    keyControl: "Yes",
-    controlFrequency: "As needed",
-  },
-  {
-    id: 2,
-    controlId: "C-123456",
-    name: "Communication protocols",
-    status: "Archived",
-    preventDetect: "Preventive",
-    linkedOrgUnits: "2",
-    ownerName: "Jacob Jones",
-    ownerInitials: "JJ",
-    assets: 8,
-    cyberRisks: 5,
-    keyControl: "No",
-    controlFrequency: "Annually",
-  },
-  {
-    id: 3,
-    controlId: "C-123456",
-    name: "Performance metrics",
-    status: "Active",
-    preventDetect: "Detective",
-    linkedOrgUnits: "4",
-    ownerName: "Ralph Edwards",
-    ownerInitials: "RE",
-    assets: 24,
-    cyberRisks: 7,
-    keyControl: "Yes",
-    controlFrequency: "Quarterly",
-  },
-  {
-    id: 4,
-    controlId: "C-123456",
-    name: "Business continuity plans",
-    status: "Draft",
-    preventDetect: "Preventive",
-    linkedOrgUnits: "17",
-    ownerName: "Alexander Konstantinop\u2026",
-    ownerInitials: "AK",
-    assets: 15,
-    cyberRisks: 2,
-    keyControl: "Yes",
-    controlFrequency: "Monthly",
-  },
-  {
-    id: 5,
-    controlId: "C-123456",
-    name: "Vendor Risk Management",
-    status: "Draft",
-    preventDetect: "-",
-    linkedOrgUnits: "Finance \u2013 Melbourne",
-    ownerName: "Unassigned",
-    ownerInitials: "",
-    assets: 6,
-    cyberRisks: 1,
-    keyControl: "No",
-    controlFrequency: "Semi-annually",
-  },
-  {
-    id: 6,
-    controlId: "C-123456",
-    name: "Data Loss Prevention",
-    status: "Active",
-    preventDetect: "Preventive",
-    linkedOrgUnits: "2",
-    ownerName: "Nathaniel Ribbon",
-    ownerInitials: "NR",
-    assets: 19,
-    cyberRisks: 4,
-    keyControl: "No",
-    controlFrequency: "Daily",
-  },
-  {
-    id: 7,
-    controlId: "C-123456",
-    name: "Network Security Monitoring",
-    status: "Active",
-    preventDetect: "Detective",
-    linkedOrgUnits: "7",
-    ownerName: "Gavin Belson",
-    ownerInitials: "GB",
-    assets: 31,
-    cyberRisks: 9,
-    keyControl: "Yes",
-    controlFrequency: "Bi-weekly",
-  },
-  {
-    id: 8,
-    controlId: "C-123456",
-    name: "Physical Security Controls",
-    status: "Archived",
-    preventDetect: "Preventive",
-    linkedOrgUnits: "24",
-    ownerName: "Derek Donner",
-    ownerInitials: "DD",
-    assets: 10,
-    cyberRisks: 6,
-    keyControl: "No",
-    controlFrequency: "Continuously",
-  },
-  {
-    id: 9,
-    controlId: "C-123456",
-    name: "Third-Party Risk Assessment",
-    status: "Active",
-    preventDetect: "Detective",
-    linkedOrgUnits: "3",
-    ownerName: "Sarah Mitchell",
-    ownerInitials: "SM",
-    assets: 14,
-    cyberRisks: 3,
-    keyControl: "Yes",
-    controlFrequency: "Annually",
-  },
-  {
-    id: 10,
-    controlId: "C-123456",
-    name: "Business Impact Analysis",
-    status: "Draft",
-    preventDetect: "Preventive",
-    linkedOrgUnits: "Finance \u2013 New York",
-    ownerName: "Tom Bradley",
-    ownerInitials: "TB",
-    assets: 7,
-    cyberRisks: 2,
-    keyControl: "No",
-    controlFrequency: "Quarterly",
-  },
-];
+function getInitials(name: string | null): string {
+  if (!name) return "";
+  return name
+    .split(" ")
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function mapApiControl(row: ApiControlRow, idx: number): ControlRow {
+  return {
+    id: row.display_id,
+    controlId: row.display_id,
+    name: row.name,
+    status: row.status,
+    preventDetect: row.control_type,
+    ownerName: row.owner ?? "Unassigned",
+    ownerInitials: getInitials(row.owner),
+    keyControl: row.key_control ? "Yes" : "No",
+    controlFrequency: row.control_frequency ?? "—",
+    effectiveness: row.effectiveness_label ?? "—",
+  };
+  void idx;
+}
 
 // ---------------------------------------------------------------------------
 // Custom cell renderers
@@ -235,20 +135,6 @@ function OwnerCell({ name, initials }: { name: string; initials: string }) {
       </Avatar>
       <Typography variant="textMd">{name}</Typography>
     </Stack>
-  );
-}
-
-function LinkedOrgUnitsCell({ value }: { value: string }) {
-  const isNumeric = /^\d+$/.test(value);
-
-  if (isNumeric) {
-    return <Typography variant="textMd">{value}</Typography>;
-  }
-
-  return (
-    <Link href="#" underline="hover" sx={{ cursor: "pointer" }}>
-      {value}
-    </Link>
   );
 }
 
@@ -306,7 +192,7 @@ function CustomToolbar() {
 // Data grid
 // ---------------------------------------------------------------------------
 
-function ControlsDataGrid() {
+function ControlsDataGrid({ rows }: { rows: ControlRow[] }) {
   const columns: GridColDef<ControlRow>[] = [
     {
       field: "controlId",
@@ -338,14 +224,6 @@ function ControlsDataGrid() {
       width: 140,
     },
     {
-      field: "linkedOrgUnits",
-      headerName: "Linked org units",
-      width: 240,
-      renderCell: (params: GridRenderCellParams<ControlRow>) => (
-        <LinkedOrgUnitsCell value={params.value as string} />
-      ),
-    },
-    {
       field: "ownerName",
       headerName: "Owner",
       width: 200,
@@ -357,18 +235,6 @@ function ControlsDataGrid() {
       ),
     },
     {
-      field: "assets",
-      headerName: "Assets",
-      width: 100,
-      type: "number",
-    },
-    {
-      field: "cyberRisks",
-      headerName: "Cyber risks",
-      width: 120,
-      type: "number",
-    },
-    {
       field: "keyControl",
       headerName: "Key control",
       width: 120,
@@ -378,13 +244,19 @@ function ControlsDataGrid() {
       headerName: "Control frequency",
       width: 160,
     },
+    {
+      field: "effectiveness",
+      headerName: "Effectiveness",
+      width: 130,
+    },
   ];
 
   return (
     <Box sx={{ width: "100%" }}>
       <DataGridPro
-        rows={controlRows}
+        rows={rows}
         columns={columns}
+        getRowId={(row) => row.id}
         pagination
         pageSizeOptions={[10, 25, 50]}
         initialState={{
@@ -417,6 +289,9 @@ function ControlsDataGrid() {
 // ---------------------------------------------------------------------------
 
 export default function ControlsPage() {
+  const api = useApiList<ApiControlRow>("/api/controls");
+  const rows = api.status === "ok" ? api.data.map(mapApiControl) : [];
+
   return (
     <Container sx={{ py: 2 }}>
       <Stack gap={3}>
@@ -444,7 +319,16 @@ export default function ControlsPage() {
             </OverflowBreadcrumbs>
           }
         />
-        <ControlsDataGrid />
+
+        {api.status === "loading" && (
+          <Stack alignItems="center" py={4}>
+            <CircularProgress />
+          </Stack>
+        )}
+        {api.status === "error" && (
+          <Alert severity="error">Failed to load controls: {api.error}</Alert>
+        )}
+        {api.status === "ok" && <ControlsDataGrid rows={rows} />}
       </Stack>
     </Container>
   );

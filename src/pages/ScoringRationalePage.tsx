@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { OverflowBreadcrumbs } from "@diligentcorp/atlas-react-bundle";
 import { Alert, AlertTitle, Box, Container, Stack, Typography } from "@mui/material";
 import { visuallyHidden } from "@mui/utils";
@@ -39,6 +39,7 @@ import {
 import { getScenarioById, patchScenario } from "../data/scenarios.js";
 import { users } from "../data/users.js";
 import { getCatalogSnapshotVersion, subscribeCatalog } from "../data/persistence/catalogStore.js";
+import { useScenario } from "../hooks/useScenario.js";
 import {
   mergeSavedChangesNavigateState,
   useSavedChangesToast,
@@ -117,7 +118,13 @@ export default function ScoringRationalePage() {
   const nav = location.state as CraScenarioDetailLocationState | null;
   const assessmentNameFromNav = nav?.assessmentName;
 
-  const scenario = scenarioId ? getScenarioById(scenarioId) : undefined;
+  // Fetch scenario from API
+  const apiScenario = useScenario(scenarioId);
+
+  // Fall back to mock data if API fails or for backwards compatibility
+  const mockScenario = scenarioId ? getScenarioById(scenarioId) : undefined;
+  const scenario = apiScenario.status === "ok" ? apiScenario.data : mockScenario;
+
   const assessmentTitle = (assessmentNameFromNav ?? "").trim() || "New cyber risk assessment";
 
   const [catalogUiReleased, setCatalogUiReleased] = useState(false);
@@ -163,6 +170,13 @@ export default function ScoringRationalePage() {
   const [scoringRationale, setScoringRationale] = useState(
     () => (showCatalogInUi ? scenario?.scoringRationale ?? "" : ""),
   );
+
+  // Update rationale when API data loads
+  useEffect(() => {
+    if (apiScenario.status === "ok" && showCatalogInUi) {
+      setScoringRationale(apiScenario.data.scoringRationale ?? "");
+    }
+  }, [apiScenario.status, apiScenario.data, showCatalogInUi]);
 
   const [preEditHistoryEntries, setPreEditHistoryEntries] = useState<ScenarioHistoryEntry[]>([]);
   const [expandedHistoryEntryId, setExpandedHistoryEntryId] = useState<string | false>(false);
@@ -332,7 +346,7 @@ export default function ScoringRationalePage() {
     });
   }, [attemptScoringNavigate, navigate, nav?.returnToAssessmentPath, nav?.craReturnToTabIndex]);
 
-  const persistScenarioChanges = useCallback(() => {
+  const persistScenarioChanges = useCallback(async () => {
     if (!scenario) return;
     const scores = liveScores ?? initialScores;
     const id = `save-${
@@ -358,6 +372,8 @@ export default function ScoringRationalePage() {
       : scenario.vulnerabilitySeverity) as FivePointScaleValue;
     const likelihood = threatSeverity * vulnerabilitySeverity;
     const cyberRiskScore = impact * likelihood;
+
+    // Update mock store for backward compatibility
     patchScenario(scenario.id, {
       impact,
       impactLabel: getFivePointLabel(impact),
@@ -371,6 +387,34 @@ export default function ScoringRationalePage() {
       cyberRiskScoreLabel: getCyberRiskScoreLabel(cyberRiskScore),
       scoringRationale: scoringRationale.trim(),
     });
+
+    // Update via API if we have a displayId
+    if (apiScenario.status === "ok") {
+      try {
+        await fetch(`/api/scenarios/${scenario.displayId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            impact,
+            impactLabel: getFivePointLabel(impact),
+            threatSeverity,
+            threatSeverityLabel: getFivePointLabel(threatSeverity),
+            vulnerabilitySeverity,
+            vulnerabilitySeverityLabel: getFivePointLabel(vulnerabilitySeverity),
+            likelihood,
+            likelihoodLabel: getLikelihoodLabel(likelihood),
+            cyberRiskScore,
+            cyberRiskScoreLabel: getCyberRiskScoreLabel(cyberRiskScore),
+            scoringRationale: scoringRationale.trim(),
+          }),
+        });
+        // Refetch to get updated data
+        apiScenario.refetch();
+      } catch (error) {
+        console.error("Failed to save scenario to API:", error);
+      }
+    }
+
     const updated = getScenarioById(scenario.id);
     if (updated) {
       setScoringRationale(updated.scoringRationale);
@@ -395,7 +439,7 @@ export default function ScoringRationalePage() {
         setCatalogUiReleased(true);
       }
     }
-  }, [scenario, liveScores, initialScores, scoringRationale, nav?.fromNewCraDraft, location.pathname]);
+  }, [scenario, liveScores, initialScores, scoringRationale, nav?.fromNewCraDraft, location.pathname, apiScenario]);
 
   const handleSave = useCallback(() => {
     persistScenarioChanges();
@@ -445,6 +489,16 @@ export default function ScoringRationalePage() {
       onScoresChange={setLiveScores}
     />
   ) : null;
+
+  if (apiScenario.status === "loading") {
+    return (
+      <Container sx={{ py: 2 }}>
+        <Typography variant="body1" sx={{ py: 4 }}>
+          Loading scenario...
+        </Typography>
+      </Container>
+    );
+  }
 
   if (!scenario) {
     return (

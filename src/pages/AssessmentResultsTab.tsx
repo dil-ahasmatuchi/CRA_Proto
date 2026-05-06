@@ -17,16 +17,21 @@ import ResultsHero from "../components/ResultsHero.js";
 import ScoringInfoCardRead from "../components/ScoringInfoCardRead.js";
 import { ResultsRiskChip, ResultsTreeData } from "../components/ResultsTreeData.js";
 import type { MatrixSelectionPayload } from "../components/RisksMatrix.js";
-import { Box, Link, Stack } from "@mui/material";
+import { Box, Link, Skeleton, Stack } from "@mui/material";
 import { DataGridPro, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid-pro";
 import { assets } from "../data/assets.js";
 import {
   buildAssetResultRowsForScope,
+  buildAssetResultRowsFromApiAssessmentScenarios,
   buildCyberResultsRowsForScope,
+  buildCyberResultsRowsFromApiAssessmentScenarios,
+  buildHeatmapCyberRisksFromApiScenarios,
+  filterApiAssessmentScenariosForScope,
   type AssessmentAssetResultRow,
   type AssessmentCyberResultsRow,
 } from "./craAssessmentScopeRows.js";
 import { assessmentScopedCyberRisks } from "../data/assessmentScopeRollup.js";
+import { useAssessmentScenarios } from "../hooks/useAssessmentScenarios.js";
 import { scenarioRationaleReadOnlyPath } from "./craScenarioRoutes.js";
 import {
   NEW_CRA_RESULTS_TAB_INDEX,
@@ -167,6 +172,7 @@ export default function AssessmentResultsTab({
   scoringType,
   aiScoringPhase,
   aggregationMethod,
+  assessmentDisplayId = null,
 }: {
   includedAssetIds: Set<string>;
   excludedScopeCyberRiskIds: Set<string>;
@@ -180,8 +186,34 @@ export default function AssessmentResultsTab({
   aiScoringPhase: AiScoringPhase;
   /** Same source as {@link AssessmentScoringTab} aggregation radios (read-only display on Results). */
   aggregationMethod: CraScenarioScoreAggregationMethod;
+  /** When set, charts and result rows use scenario scores from GET /api/cyber-risk-assessments/:id/scenarios. */
+  assessmentDisplayId?: string | null;
 }) {
   const navigate = useNavigate();
+
+  const apiScenarioState = useAssessmentScenarios(assessmentDisplayId, includedAssetIds.size > 0);
+
+  const apiScenariosFiltered = useMemo(() => {
+    if (apiScenarioState.status !== "ok") return null;
+    return filterApiAssessmentScenariosForScope(
+      apiScenarioState.data,
+      includedAssetIds,
+      excludedScopeCyberRiskIds,
+      excludedScopeScenarioIds,
+    );
+  }, [
+    apiScenarioState,
+    includedAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeScenarioIds,
+  ]);
+
+  const useApiResults =
+    Boolean(assessmentDisplayId) && apiScenarioState.status === "ok" && apiScenariosFiltered != null;
+
+  const heroLoading =
+    Boolean(assessmentDisplayId) &&
+    (apiScenarioState.status === "loading" || apiScenarioState.status === "generating");
 
   const goToScenarioReadOnly = useCallback(
     (scenarioId: string) => {
@@ -203,28 +235,48 @@ export default function AssessmentResultsTab({
 
   const onScenarioRowClick =
     assessmentPhase === "assessmentApproved" ? goToScenarioReadOnly : undefined;
-  const cyberResultRows = useMemo(
-    () =>
-      buildCyberResultsRowsForScope(
-        includedAssetIds,
-        excludedScopeCyberRiskIds,
-        excludedScopeScenarioIds,
-      ),
-    [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds],
-  );
-  const assetResultRows = useMemo(
-    () =>
-      buildAssetResultRowsForScope(
-        includedAssetIds,
-        excludedScopeCyberRiskIds,
-        excludedScopeScenarioIds,
-      ),
-    [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds],
-  );
-  const relatedAssetNames = useMemo(
-    () => assets.filter((a) => includedAssetIds.has(a.id)).map((a) => a.name),
-    [includedAssetIds],
-  );
+  const cyberResultRows = useMemo((): AssessmentCyberResultsRow[] => {
+    if (useApiResults && apiScenariosFiltered) {
+      return buildCyberResultsRowsFromApiAssessmentScenarios(apiScenariosFiltered);
+    }
+    return buildCyberResultsRowsForScope(
+      includedAssetIds,
+      excludedScopeCyberRiskIds,
+      excludedScopeScenarioIds,
+    );
+  }, [
+    useApiResults,
+    apiScenariosFiltered,
+    includedAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeScenarioIds,
+  ]);
+  const assetResultRows = useMemo((): AssessmentAssetResultRow[] => {
+    if (useApiResults && apiScenariosFiltered) {
+      return buildAssetResultRowsFromApiAssessmentScenarios(includedAssetIds, apiScenariosFiltered);
+    }
+    return buildAssetResultRowsForScope(
+      includedAssetIds,
+      excludedScopeCyberRiskIds,
+      excludedScopeScenarioIds,
+    );
+  }, [
+    useApiResults,
+    apiScenariosFiltered,
+    includedAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeScenarioIds,
+  ]);
+  const relatedAssetNames = useMemo(() => {
+    if (useApiResults && apiScenariosFiltered) {
+      const names = new Map<string, string>();
+      for (const s of apiScenariosFiltered) {
+        if (s.assetId && s.assetName) names.set(s.assetId, s.assetName);
+      }
+      return [...includedAssetIds].map((id) => names.get(id) ?? id);
+    }
+    return assets.filter((a) => includedAssetIds.has(a.id)).map((a) => a.name);
+  }, [useApiResults, apiScenariosFiltered, includedAssetIds]);
 
   const [cyberSectionExpanded, setCyberSectionExpanded] = useState(true);
   const [assetsSectionExpanded, setAssetsSectionExpanded] = useState(true);
@@ -282,10 +334,12 @@ export default function AssessmentResultsTab({
   const filterCriteriaCount =
     countFilterResultsCriteria(appliedFilterResults) + (heatmapMatrixFilter != null ? 1 : 0);
 
-  const scopedCyberRisks = useMemo(
-    () => assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds),
-    [includedAssetIds, excludedScopeCyberRiskIds],
-  );
+  const scopedCyberRisks = useMemo(() => {
+    if (useApiResults && apiScenariosFiltered) {
+      return buildHeatmapCyberRisksFromApiScenarios(apiScenariosFiltered);
+    }
+    return assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds);
+  }, [useApiResults, apiScenariosFiltered, includedAssetIds, excludedScopeCyberRiskIds]);
 
   const cyberRiskById = useMemo(
     () => new Map(scopedCyberRisks.map((r) => [r.id, r] as const)),
@@ -330,12 +384,17 @@ export default function AssessmentResultsTab({
         aggregationMethod={aggregationMethod}
         aggregationMethodRadio={{ name: "cra-results-tab-aggregation" }}
       />
-      <ResultsHero
-        scopedRisks={scopedCyberRisks}
-        assetResultRows={assetResultRows}
-        scoringType={scoringType}
-        onMatrixSelection={handleMatrixSelectionForResultsTable}
-      />
+      {heroLoading ? (
+        <Box sx={{ width: "100%", minHeight: 360 }}>
+          <Skeleton variant="rounded" width="100%" height={360} animation="wave" />
+        </Box>
+      ) : (
+        <ResultsHero
+          scopedRisks={scopedCyberRisks}
+          scoringType={scoringType}
+          onMatrixSelection={handleMatrixSelectionForResultsTable}
+        />
+      )}
 
       <SectionHeader
         title="Cyber risks"

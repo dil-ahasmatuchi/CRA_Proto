@@ -58,21 +58,24 @@ import {
 } from "../data/riskAssessments.js";
 import { getUserById } from "../data/users.js";
 import { ASSESSMENT_DELETED_TOAST_STATE_KEY } from "../constants/assessmentNavigationState.js";
+import { useAssessments, type Assessment } from "../hooks/useAssessments.js";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface AssessmentRow {
   id: string;
-  assessmentId: string;
+  displayId: string;
   name: string;
-  status: AssessmentStatusValue;
-  cyberRisks: number;
-  assets: number;
-  threats: number;
-  vulnerabilities: number;
+  phase: string;
+  startDate: string | null;
+  dueDate: string | null;
+  scoringType: string;
   scenarios: number;
+  scopedAssets: number;
+  scenariosScored: number;
   owner: string;
   ownerInitials: string;
+  aiScoringPhase: string;
 }
 
 type AssessmentStatusCounts = {
@@ -84,33 +87,38 @@ type AssessmentStatusCounts = {
   overdue: number;
 };
 
-function buildAssessmentRows(): AssessmentRow[] {
-  return riskAssessments.map((a) => {
-    const u = getUserById(a.ownerId);
+function buildAssessmentRows(assessments: Assessment[]): AssessmentRow[] {
+  return assessments.map((a) => {
+    // Get first owner for display
+    const ownerId = a.ownerIds[0];
+    const u = ownerId ? getUserById(ownerId) : null;
+
     return {
       id: a.id,
-      assessmentId: a.id,
+      displayId: a.displayId,
       name: a.name,
-      status: a.status,
-      cyberRisks: a.cyberRiskIds.length,
-      assets: a.assetIds.length,
-      threats: a.threatIds.length,
-      vulnerabilities: a.vulnerabilityIds.length,
-      scenarios: a.scenarioIds.length,
+      phase: a.phase,
+      startDate: a.startDate,
+      dueDate: a.dueDate,
+      scoringType: a.scoringType,
+      scenarios: a.stats.scenarios,
+      scopedAssets: a.stats.scopedAssets,
+      scenariosScored: a.stats.scenariosScored,
       owner: u?.fullName ?? "—",
       ownerInitials: u?.initials ?? "—",
+      aiScoringPhase: a.aiScoringPhase,
     };
   });
 }
 
 function buildAssessmentStatusCounts(rows: AssessmentRow[]): AssessmentStatusCounts {
   return {
-    draft: rows.filter((r) => r.status === "Draft").length,
-    scoping: rows.filter((r) => r.status === "Scoping").length,
-    inProgress: rows.filter((r) => r.status === "Scoring").length,
-    review: rows.filter((r) => r.status === "Review").length,
-    approved: rows.filter((r) => r.status === "Approved").length,
-    overdue: rows.filter((r) => r.status === "Overdue").length,
+    draft: rows.filter((r) => r.phase === "draft").length,
+    scoping: rows.filter((r) => r.phase === "scoping").length,
+    inProgress: rows.filter((r) => r.phase === "inProgress").length,
+    review: rows.filter((r) => r.phase === "review").length,
+    approved: rows.filter((r) => r.phase === "assessmentApproved").length,
+    overdue: rows.filter((r) => r.phase === "overdue").length,
   };
 }
 
@@ -475,7 +483,18 @@ function AssessmentCoverageCard() {
   );
 }
 
-function StatusCell({ status }: { status: AssessmentRow["status"] }) {
+function PhaseCell({ phase }: { phase: string }) {
+  // Map database phase to UI status
+  const statusMap: Record<string, AssessmentStatusValue> = {
+    draft: "Draft",
+    scoping: "Scoping",
+    inProgress: "Scoring",
+    review: "Review",
+    assessmentApproved: "Approved",
+    overdue: "Overdue",
+  };
+
+  const status = statusMap[phase] || "Draft";
   return <AssessmentStatus status={status} />;
 }
 
@@ -540,7 +559,7 @@ function CustomToolbar() {
 function AssessmentsDataGrid({ rows }: { rows: AssessmentRow[] }) {
   const columns: GridColDef<AssessmentRow>[] = [
     {
-      field: "assessmentId",
+      field: "displayId",
       headerName: "ID",
       width: 100,
     },
@@ -552,7 +571,7 @@ function AssessmentsDataGrid({ rows }: { rows: AssessmentRow[] }) {
       renderCell: (params: GridRenderCellParams<AssessmentRow>) => (
         <Typography
           component={NavLink}
-          to={`/cyber-risk/cyber-risk-assessments/${params.row.assessmentId}`}
+          to={`/cyber-risk/cyber-risk-assessments/${params.row.displayId}`}
           variant="textMd"
           sx={({ tokens: t }) => ({
             color: t.semantic.color.accent.blue.content.value,
@@ -569,42 +588,45 @@ function AssessmentsDataGrid({ rows }: { rows: AssessmentRow[] }) {
       ),
     },
     {
-      field: "status",
-      headerName: "Status",
+      field: "phase",
+      headerName: "Phase",
       width: 140,
       renderCell: (params: GridRenderCellParams<AssessmentRow>) => (
-        <StatusCell status={params.value as AssessmentRow["status"]} />
+        <PhaseCell phase={params.value as string} />
       ),
     },
     {
-      field: "cyberRisks",
-      headerName: "Cyber risks",
-      width: 110,
-      type: "number",
-    },
-    {
-      field: "assets",
+      field: "scopedAssets",
       headerName: "Assets",
       width: 90,
       type: "number",
-    },
-    {
-      field: "threats",
-      headerName: "Threats",
-      width: 90,
-      type: "number",
-    },
-    {
-      field: "vulnerabilities",
-      headerName: "Vulnerabilities",
-      width: 120,
-      type: "number",
+      description: "Number of assets in scope",
     },
     {
       field: "scenarios",
       headerName: "Scenarios",
       width: 100,
       type: "number",
+      description: "Total scenarios generated",
+    },
+    {
+      field: "scenariosScored",
+      headerName: "Scored",
+      width: 90,
+      type: "number",
+      description: "Scenarios scored by AI",
+    },
+    {
+      field: "scoringType",
+      headerName: "Type",
+      width: 100,
+      description: "Inherent or Residual risk",
+    },
+    {
+      field: "aiScoringPhase",
+      headerName: "AI Status",
+      width: 110,
+      description: "AI scoring progress",
     },
     {
       field: "owner",
@@ -648,12 +670,11 @@ export default function AssessmentsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [assessmentDeletedToastOpen, setAssessmentDeletedToastOpen] = useState(false);
+  const [creatingAssessment, setCreatingAssessment] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
-  const catalogVersion = useSyncExternalStore(
-    subscribeRiskAssessments,
-    getRiskAssessmentsSnapshotVersion,
-    () => 0,
-  );
+  // Fetch assessments from API
+  const assessmentsResult = useAssessments();
 
   useEffect(() => {
     const raw = location.state;
@@ -678,17 +699,87 @@ export default function AssessmentsPage() {
     [],
   );
 
-  const { assessmentRows, statusData } = useMemo(() => {
-    const rows = buildAssessmentRows();
+  const { assessmentRows, statusData, loading, error } = useMemo(() => {
+    if (assessmentsResult.status === "loading") {
+      return {
+        assessmentRows: [],
+        statusData: {
+          draft: 0,
+          scoping: 0,
+          inProgress: 0,
+          review: 0,
+          approved: 0,
+          overdue: 0,
+        },
+        loading: true,
+        error: null,
+      };
+    }
+
+    if (assessmentsResult.status === "error") {
+      return {
+        assessmentRows: [],
+        statusData: {
+          draft: 0,
+          scoping: 0,
+          inProgress: 0,
+          review: 0,
+          approved: 0,
+          overdue: 0,
+        },
+        loading: false,
+        error: assessmentsResult.message,
+      };
+    }
+
+    const rows = buildAssessmentRows(assessmentsResult.assessments);
     return {
       assessmentRows: rows,
       statusData: buildAssessmentStatusCounts(rows),
+      loading: false,
+      error: null,
     };
-  }, [catalogVersion]);
+  }, [assessmentsResult]);
 
-  const handleNewAssessment = () => {
-    const created = addRiskAssessment();
-    navigate(`/cyber-risk/cyber-risk-assessments/${created.id}`);
+  const handleNewAssessment = async () => {
+    setCreatingAssessment(true);
+    setCreateError(null);
+
+    try {
+      const timestamp = new Date().toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const res = await fetch("/api/cyber-risk-assessments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `New Assessment ${timestamp}`,
+          ownerIds: ["user-1"], // TODO: Get from current user context
+          scoringType: "inherent",
+          aggregationMethod: "highest",
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || `HTTP ${res.status}`);
+      }
+
+      const created = await res.json();
+
+      // Navigate to the new assessment detail page
+      navigate(`/cyber-risk/cyber-risk-assessments/${created.displayId}`);
+    } catch (error) {
+      console.error("Error creating assessment:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      setCreateError(`Failed to create assessment: ${errorMessage}`);
+      setCreatingAssessment(false);
+    }
   };
 
   return (
@@ -713,26 +804,50 @@ export default function AssessmentsPage() {
             </OverflowBreadcrumbs>
           }
           moreButton={
-            <Button variant="contained" onClick={handleNewAssessment}>
-              New cyber risk assessment
+            <Button
+              variant="contained"
+              onClick={handleNewAssessment}
+              disabled={creatingAssessment}
+            >
+              {creatingAssessment ? "Creating..." : "New cyber risk assessment"}
             </Button>
           }
         />
 
-        <Box
-          sx={({ tokens }) => ({
-            backgroundColor: tokens.semantic.color.background.container.value,
-            borderRadius: 2,
-            p: 3,
-          })}
-        >
-          <Stack direction="row" gap={3} sx={{ minHeight: 460, width: "100%" }}>
-            <AssessmentsByStatusCard statusData={statusData} />
-            <AssessmentCoverageCard />
-          </Stack>
-        </Box>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Failed to load assessments: {error}
+          </Alert>
+        )}
 
-        <AssessmentsDataGrid rows={assessmentRows} />
+        {createError && (
+          <Alert severity="error" onClose={() => setCreateError(null)} sx={{ mb: 2 }}>
+            {createError}
+          </Alert>
+        )}
+
+        {loading ? (
+          <Box sx={{ py: 4, textAlign: "center" }}>
+            <Typography variant="body1">Loading assessments...</Typography>
+          </Box>
+        ) : (
+          <>
+            <Box
+              sx={({ tokens }) => ({
+                backgroundColor: tokens.semantic.color.background.container.value,
+                borderRadius: 2,
+                p: 3,
+              })}
+            >
+              <Stack direction="row" gap={3} sx={{ minHeight: 460, width: "100%" }}>
+                <AssessmentsByStatusCard statusData={statusData} />
+                <AssessmentCoverageCard />
+              </Stack>
+            </Box>
+
+            <AssessmentsDataGrid rows={assessmentRows} />
+          </>
+        )}
       </Stack>
 
       <Snackbar

@@ -99,18 +99,18 @@ const DEMO_SCORES: ScenarioScoringInitialScores = {
 };
 
 const DEMO_BAR_SEGMENTS: ScoringRangeSegment[] = [
-  { bandLabel: "Very low", from: 1, to: 25, rag: "pos05" },
-  { bandLabel: "Low", from: 26, to: 50, rag: "pos04" },
-  { bandLabel: "Medium", from: 51, to: 75, rag: "neu03" },
-  { bandLabel: "High", from: 76, to: 100, rag: "neg03" },
-  { bandLabel: "Very high", from: 101, to: 125, rag: "neg05" },
+  { bandLabel: "Very low", from: 1, to: 2, rag: "pos05" },
+  { bandLabel: "Low", from: 3, to: 8, rag: "pos04" },
+  { bandLabel: "Medium", from: 9, to: 27, rag: "neu03" },
+  { bandLabel: "High", from: 28, to: 64, rag: "neg03" },
+  { bandLabel: "Very high", from: 65, to: 125, rag: "neg05" },
 ];
 
 const DEMO_BAND_ROW: ScoringBandRow = {
   level: "veryLow",
   name: "Very low",
   from: 1,
-  to: 25,
+  to: 2,
   description: "Prototype band",
   rag: "pos05",
 };

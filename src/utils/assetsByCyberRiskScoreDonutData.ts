@@ -98,3 +98,35 @@ export function buildAssetCyberRiskDonutSegmentsFromAssessmentAssetRows(
     count: counts[row.label],
   }));
 }
+
+/** Minimal cyber risk shape for donut distribution. */
+export type CyberRiskForDonut = {
+  cyberRiskScore: number;
+  cyberRiskScoreLabel: string;
+};
+
+/**
+ * Donut bands for assessment results: counts cyber risks by their cyber risk score label
+ * from the assessment scenarios.
+ */
+export function buildCyberRiskDonutSegments(
+  risks: readonly CyberRiskForDonut[],
+): AssetCyberRiskDonutSegment[] {
+  const counts: Record<FivePointScaleLabel, number> = {
+    "Very high": 0,
+    High: 0,
+    Medium: 0,
+    Low: 0,
+    "Very low": 0,
+  };
+  for (const risk of risks) {
+    const lab = risk.cyberRiskScoreLabel as FivePointScaleLabel;
+    counts[lab] += 1;
+  }
+  return bandSpecFromActiveCyber().map((row) => ({
+    range: row.range,
+    label: row.label,
+    colorKey: row.colorKey,
+    count: counts[row.label],
+  }));
+}

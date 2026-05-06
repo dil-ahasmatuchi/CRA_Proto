@@ -1,22 +1,35 @@
 import { Footer } from "@diligentcorp/atlas-react-bundle";
-import { Box, Drawer, Stack, Typography, useTheme, Button } from "@mui/material";
+import { Box, Drawer, Stack, Typography, useTheme, Button, CircularProgress } from "@mui/material";
 
 import { fivePointLabelToRag } from "../data/types.js";
-import type { MockCyberRisk } from "../data/types.js";
+import type { CyberRiskStatus, FivePointScaleLabel } from "../data/types.js";
 import type { LabelScoreLegendValue } from "./LabelScoreLegend.js";
 import LabelScoreLegend from "./LabelScoreLegend.js";
 import LabelValueMd from "./LabelValueMd.js";
 import RiskStatus from "./RiskStatus.js";
 
+/**
+ * Minimal shape the drawer needs — a subset of MockCyberRisk, also compatible
+ * with DB cyber risk responses mapped from the /api/assets/:id/cyber-risks endpoint.
+ */
+export type DrawerCyberRisk = {
+  id: string;
+  name: string;
+  status: CyberRiskStatus;
+  cyberRiskScore: number;
+  cyberRiskScoreLabel: FivePointScaleLabel;
+};
+
 export type ScopedRiskSSProps = {
   open: boolean;
   onClose: () => void;
   title?: string;
+  loading?: boolean;
   /** Cyber risks to list (e.g. all risks linked to an asset). */
-  cyberRisks?: MockCyberRisk[];
+  cyberRisks?: DrawerCyberRisk[];
 };
 
-function cyberRiskToLegendValue(cr: MockCyberRisk): LabelScoreLegendValue {
+function cyberRiskToLegendValue(cr: DrawerCyberRisk): LabelScoreLegendValue {
   return {
     numeric: String(cr.cyberRiskScore),
     label: cr.cyberRiskScoreLabel,
@@ -28,6 +41,7 @@ export default function ScopedRiskSS({
   open,
   onClose,
   title = "Cyber risks",
+  loading = false,
   cyberRisks = [],
 }: ScopedRiskSSProps) {
   const { presets } = useTheme();
@@ -66,7 +80,11 @@ export default function ScopedRiskSS({
             gap: t.core.spacing["1_5"].value,
           })}
         >
-          {cyberRisks.length === 0 ? (
+          {loading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress size={32} aria-label="Loading cyber risks" />
+            </Box>
+          ) : cyberRisks.length === 0 ? (
             <Typography
               sx={({ tokens: t }) => ({
                 fontSize: t.semantic.font.text.md.fontSize.value,
