@@ -36,7 +36,8 @@ import RiskControlsIcon from "@diligentcorp/atlas-react-bundle/icons/RiskControl
 import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
-import { assets } from "../data/assets.js";
+import { assets as mockAssets } from "../data/assets.js";
+import { useDbAssets, type DbAsset } from "../hooks/useDbAssets.js";
 import { controls } from "../data/controls.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 import { objectives } from "../data/objectives.js";
@@ -74,7 +75,7 @@ import FilterSideSheet from "../components/FilterSideSheet.js";
 import FilterThreats from "../components/FilterThreats.js";
 import { DEFAULT_SEARCH_FIELD_SX } from "../components/NewToolbar.js";
 import { ScopeCard } from "../components/ScopeCard.js";
-import ScopedRiskSS from "../components/ScopedRiskSS.js";
+import ScopedRiskSS, { type DrawerCyberRisk } from "../components/ScopedRiskSS.js";
 import ScopeToolbar, {
   type ScopeViewFilter,
 } from "../components/ScopeToolbar.js";
@@ -150,21 +151,28 @@ const CRITICALITY_META: Record<
   1: { label: "1 - Very low", rag: "pos05" },
 };
 
-function buildScopeRows(): ScopeAssetRow[] {
+type AssetForScope = Pick<DbAsset, "id" | "name" | "assetType" | "criticality" | "orgUnitId"> & {
+  /** DB-sourced counts. When present they replace mock-data lookups. */
+  threatCount?: number;
+  vulnCount?: number;
+  cyberRiskCount?: number;
+  controlCount?: number;
+};
+
+function buildScopeRows(assetList: AssetForScope[]): ScopeAssetRow[] {
+  // Mock-data count maps — only consulted when an asset has no DB counts (i.e. mock fallback).
   const crCountByAsset = new Map<string, number>();
   for (const cr of cyberRisks) {
     for (const aid of cr.assetIds) {
       crCountByAsset.set(aid, (crCountByAsset.get(aid) ?? 0) + 1);
     }
   }
-
   const threatCountByAsset = new Map<string, number>();
   for (const t of threats) {
     for (const aid of t.assetIds) {
       threatCountByAsset.set(aid, (threatCountByAsset.get(aid) ?? 0) + 1);
     }
   }
-
   const vulnCountByAsset = new Map<string, number>();
   for (const v of vulnerabilities) {
     if (!isVulnerabilityActiveForAssessment(v)) continue;
@@ -172,26 +180,20 @@ function buildScopeRows(): ScopeAssetRow[] {
       vulnCountByAsset.set(aid, (vulnCountByAsset.get(aid) ?? 0) + 1);
     }
   }
-
   const controlIdsByAsset = new Map<string, Set<string>>();
   for (const c of controls) {
     for (const aid of c.assetIds) {
       let set = controlIdsByAsset.get(aid);
-      if (!set) {
-        set = new Set();
-        controlIdsByAsset.set(aid, set);
-      }
+      if (!set) { set = new Set(); controlIdsByAsset.set(aid, set); }
       set.add(c.id);
     }
   }
-
   const objectiveCountByAsset = new Map<string, number>();
   for (const o of objectives) {
     for (const aid of new Set(o.relationships.assetIds)) {
       objectiveCountByAsset.set(aid, (objectiveCountByAsset.get(aid) ?? 0) + 1);
     }
   }
-
   const processCountByAsset = new Map<string, number>();
   for (const p of processes) {
     for (const aid of new Set(p.relationships.assetIds)) {
@@ -199,9 +201,9 @@ function buildScopeRows(): ScopeAssetRow[] {
     }
   }
 
-  return assets.map((a, i) => {
+  return assetList.map((a, i) => {
     const relatedOuIds = new Set<string>();
-    relatedOuIds.add(a.orgUnitId);
+    if (a.orgUnitId) relatedOuIds.add(a.orgUnitId);
     for (const cr of cyberRisks) {
       if (cr.assetIds.includes(a.id)) relatedOuIds.add(cr.orgUnitId);
     }
@@ -211,10 +213,11 @@ function buildScopeRows(): ScopeAssetRow[] {
       included: false,
       assetName: a.name,
       assetType: a.assetType,
-      cyberRisks: crCountByAsset.get(a.id) ?? 0,
-      threats: threatCountByAsset.get(a.id) ?? 0,
-      vulnerabilities: vulnCountByAsset.get(a.id) ?? 0,
-      controls: controlIdsByAsset.get(a.id)?.size ?? 0,
+      // Prefer DB counts; fall back to mock-data lookups for the mock-asset fallback path.
+      cyberRisks: a.cyberRiskCount ?? crCountByAsset.get(a.id) ?? 0,
+      threats: a.threatCount ?? threatCountByAsset.get(a.id) ?? 0,
+      vulnerabilities: a.vulnCount ?? vulnCountByAsset.get(a.id) ?? 0,
+      controls: a.controlCount ?? controlIdsByAsset.get(a.id)?.size ?? 0,
       criticality: a.criticality,
       objectives: objectiveCountByAsset.get(a.id) ?? 0,
       processes: processCountByAsset.get(a.id) ?? 0,
@@ -762,7 +765,8 @@ function ScopeAssetsDataGrid({
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
   const [cyberRiskSheetOpen, setCyberRiskSheetOpen] = useState(false);
-  const [cyberRisksForSheet, setCyberRisksForSheet] = useState<MockCyberRisk[]>([]);
+  const [cyberRisksForSheet, setCyberRisksForSheet] = useState<DrawerCyberRisk[]>([]);
+  const [cyberRisksSheetLoading, setCyberRisksSheetLoading] = useState(false);
   const [isScopeAssetsFilterOpen, setIsScopeAssetsFilterOpen] = useState(false);
   const [appliedScopeAssetFilters, setAppliedScopeAssetFilters] = useState(
     EMPTY_SCOPE_ASSET_TABLE_FILTERS,
@@ -812,8 +816,39 @@ function ScopeAssetsDataGrid({
   }, [draftScopeAssetFilters]);
 
   const handleOpenCyberRisksForAsset = useCallback((assetId: string) => {
-    setCyberRisksForSheet(cyberRisks.filter((cr) => cr.assetIds.includes(assetId)));
+    setCyberRisksForSheet([]);
+    setCyberRisksSheetLoading(true);
     setCyberRiskSheetOpen(true);
+
+    fetch(`/api/assets/${assetId}/cyber-risks`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<{
+          display_id: string;
+          name: string;
+          status: string;
+          inherent_score: number | null;
+          inherent_score_label: string | null;
+        }[]>;
+      })
+      .then((data) => {
+        const LABELS = ["Very low", "Low", "Medium", "High", "Very high"] as const;
+        type FPLabel = (typeof LABELS)[number];
+        const safeLabel = (l: string | null): FPLabel =>
+          (LABELS as readonly string[]).includes(l ?? "") ? (l as FPLabel) : "Very low";
+
+        setCyberRisksForSheet(
+          data.map((cr) => ({
+            id: cr.display_id,
+            name: cr.name,
+            status: cr.status as import("../data/types.js").CyberRiskStatus,
+            cyberRiskScore: cr.inherent_score ?? 0,
+            cyberRiskScoreLabel: safeLabel(cr.inherent_score_label),
+          })),
+        );
+      })
+      .catch(() => setCyberRisksForSheet([]))
+      .finally(() => setCyberRisksSheetLoading(false));
   }, []);
 
   const includedCount = useMemo(() => rows.filter((r) => r.included).length, [rows]);
@@ -1136,6 +1171,7 @@ function ScopeAssetsDataGrid({
         open={cyberRiskSheetOpen}
         onClose={() => setCyberRiskSheetOpen(false)}
         title="Cyber risks"
+        loading={cyberRisksSheetLoading}
         cyberRisks={cyberRisksForSheet}
       />
       <FilterSideSheet
@@ -2362,6 +2398,11 @@ type AssessmentScopeTabProps = {
   onBulkAssetIdsIncluded: (assetIds: string[], included: boolean) => void;
   /** When true (e.g. approved assessment), scope include/exclude toggles are not editable. */
   scopeTogglesReadOnly?: boolean;
+  /** Optional: API-fetched related entities (cyber risks, threats, vulnerabilities, controls) */
+  apiCyberRisks?: any[];
+  apiThreats?: any[];
+  apiVulnerabilities?: any[];
+  apiControls?: any[];
 };
 
 export default function AssessmentScopeTab({
@@ -2383,14 +2424,23 @@ export default function AssessmentScopeTab({
   onToggleAssetIncluded,
   onBulkAssetIdsIncluded,
   scopeTogglesReadOnly = false,
+  apiCyberRisks,
+  apiThreats,
+  apiVulnerabilities,
+  apiControls,
 }: AssessmentScopeTabProps) {
+  const dbAssetsResult = useDbAssets();
+  const assetList: AssetForScope[] =
+    dbAssetsResult.status === "ok" ? dbAssetsResult.assets : mockAssets;
+
   const rows = useMemo(
     () =>
-      buildScopeRows().map((r) => ({
+      buildScopeRows(assetList).map((r) => ({
         ...r,
         included: includedAssetIds.has(r.assetId),
       })),
-    [includedAssetIds],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [includedAssetIds, assetList],
   );
 
   const includedCount = includedAssetIds.size;
@@ -2405,17 +2455,21 @@ export default function AssessmentScopeTab({
     [rows, onBulkAssetIdsIncluded],
   );
 
-  const scopedCrRows = useMemo(
-    () => assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds),
-    [includedAssetIds, excludedScopeCyberRiskIds],
-  );
+  const scopedCrRows = useMemo(() => {
+    // Use API data if available, otherwise fall back to mock data
+    const cyberRiskList = apiCyberRisks || assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds);
+    return cyberRiskList.filter((cr) => !excludedScopeCyberRiskIds.has(cr.id));
+  }, [includedAssetIds, excludedScopeCyberRiskIds, apiCyberRisks]);
 
   const scopeCyberRiskGridRows = useMemo((): ScopeCyberRiskRow[] => {
-    return candidateScopedCyberRisks(includedAssetIds).map((cr) => ({
+    // Use API data if available, otherwise fall back to mock data
+    const cyberRiskList = apiCyberRisks || candidateScopedCyberRisks(includedAssetIds);
+    console.log('[ScopeTab] Cyber risks data source:', apiCyberRisks ? 'API' : 'Mock', 'Count:', cyberRiskList.length, 'API data:', apiCyberRisks);
+    return cyberRiskList.map((cr) => ({
       ...cr,
       included: !excludedScopeCyberRiskIds.has(cr.id),
     }));
-  }, [includedAssetIds, excludedScopeCyberRiskIds]);
+  }, [includedAssetIds, excludedScopeCyberRiskIds, apiCyberRisks]);
 
   const effectiveCrSet = useMemo(
     () => effectiveCyberRiskIdSet(includedAssetIds, excludedScopeCyberRiskIds),
@@ -2423,50 +2477,48 @@ export default function AssessmentScopeTab({
   );
 
   const scopeThreatGridRows = useMemo((): ScopeThreatRow[] => {
-    return candidateScopedThreats(includedAssetIds).map((t) => {
-      const hasEffectiveCr = t.cyberRiskIds.some((id) => effectiveCrSet.has(id));
+    // Use API data if available, otherwise fall back to mock data
+    const threatList = apiThreats || candidateScopedThreats(includedAssetIds);
+    return threatList.map((t) => {
+      const hasEffectiveCr = t.cyberRiskIds ? t.cyberRiskIds.some((id: string) => effectiveCrSet.has(id)) : true;
       const included = hasEffectiveCr && !excludedScopeThreatIds.has(t.id);
       return { ...t, included, toggleDisabled: !hasEffectiveCr };
     });
-  }, [includedAssetIds, excludedScopeThreatIds, effectiveCrSet]);
+  }, [includedAssetIds, excludedScopeThreatIds, effectiveCrSet, apiThreats]);
 
   const scopeVulnerabilityGridRows = useMemo((): ScopeVulnerabilityRow[] => {
-    return candidateScopedVulnerabilities(includedAssetIds).map((v) => ({
+    // Use API data if available, otherwise fall back to mock data
+    const vulnerabilityList = apiVulnerabilities || candidateScopedVulnerabilities(includedAssetIds);
+    return vulnerabilityList.map((v) => ({
       ...v,
       included: !excludedScopeVulnerabilityIds.has(v.id),
     }));
-  }, [includedAssetIds, excludedScopeVulnerabilityIds]);
+  }, [includedAssetIds, excludedScopeVulnerabilityIds, apiVulnerabilities]);
 
   const scopeControlGridRows = useMemo((): ScopeControlRow[] => {
-    return candidateScopedControls(includedAssetIds).map((c) => {
-      const touchesIncludedAsset = c.assetIds.some((aid) => includedAssetIds.has(aid));
+    // Use API data if available, otherwise fall back to mock data
+    const controlList = apiControls || candidateScopedControls(includedAssetIds);
+    return controlList.map((c) => {
+      const touchesIncludedAsset = c.assetIds ? c.assetIds.some((aid: string) => includedAssetIds.has(aid)) : true;
       const included = touchesIncludedAsset && !excludedScopeControlIds.has(c.id);
       return { ...c, included, toggleDisabled: !touchesIncludedAsset };
     });
-  }, [includedAssetIds, excludedScopeControlIds]);
+  }, [includedAssetIds, excludedScopeControlIds, apiControls]);
 
-  const scopedThreatRows = useMemo(
-    () =>
-      assessmentScopedThreats(
-        includedAssetIds,
-        excludedScopeCyberRiskIds,
-        excludedScopeThreatIds,
-      ),
-    [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeThreatIds],
-  );
-  const scopedVulnRows = useMemo(
-    () => assessmentScopedVulnerabilities(includedAssetIds, excludedScopeVulnerabilityIds),
-    [includedAssetIds, excludedScopeVulnerabilityIds],
-  );
-  const scopedControlRows = useMemo(
-    () =>
-      assessmentScopedControls(
-        includedAssetIds,
-        excludedScopeCyberRiskIds,
-        excludedScopeControlIds,
-      ),
-    [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeControlIds],
-  );
+  const scopedThreatRows = useMemo(() => {
+    const threatList = apiThreats || assessmentScopedThreats(includedAssetIds, excludedScopeCyberRiskIds, excludedScopeThreatIds);
+    return threatList.filter((t) => !excludedScopeThreatIds.has(t.id));
+  }, [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeThreatIds, apiThreats]);
+
+  const scopedVulnRows = useMemo(() => {
+    const vulnList = apiVulnerabilities || assessmentScopedVulnerabilities(includedAssetIds, excludedScopeVulnerabilityIds);
+    return vulnList.filter((v) => !excludedScopeVulnerabilityIds.has(v.id));
+  }, [includedAssetIds, excludedScopeVulnerabilityIds, apiVulnerabilities]);
+
+  const scopedControlRows = useMemo(() => {
+    const controlList = apiControls || assessmentScopedControls(includedAssetIds, excludedScopeCyberRiskIds, excludedScopeControlIds);
+    return controlList.filter((c) => !excludedScopeControlIds.has(c.id));
+  }, [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeControlIds, apiControls]);
 
   if (scopeSubView === "assets") {
     return (

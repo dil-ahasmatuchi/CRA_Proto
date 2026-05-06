@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   Autocomplete,
   Box,
+  Button,
   Container,
   FormControl,
   Stack,
@@ -21,6 +22,7 @@ import AssessmentResultsTab from "./AssessmentResultsTab.js";
 import AssessmentScopeTab, {
   type ScopeSubView,
 } from "./AssessmentScopeTab.js";
+import { usePersistScope } from "../hooks/usePersistScope.js";
 import {
   assessmentPhaseToAssessmentStatus,
   assessmentStatusToPhase,
@@ -55,6 +57,8 @@ import { ASSESSMENT_DELETED_TOAST_STATE_KEY } from "../constants/assessmentNavig
 import UnsavedChangesDialog from "../components/UnsavedChangesDialog.js";
 import RadioButtonArray from "../components/RadioButtonArray.js";
 import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
+import { useAssessment } from "../hooks/useAssessment.js";
+import { useAssetRelations } from "../hooks/useAssetRelations.js";
 
 const DEFAULT_ASSESSMENT_TYPE = "Cyber risk assessment";
 const DEFAULT_NEW_ASSESSMENT_NAME = "New cyber risk assessment";
@@ -200,6 +204,9 @@ export default function AssessmentDetailsTab() {
   const { AutocompletePresets } = presets;
   const { notifySavedChanges } = useSavedChangesToast();
 
+  // Fetch assessment from API if we have a route ID
+  const assessmentFromApi = useAssessment(routeAssessmentId);
+
   const isReturningFromScenario = (() => {
     const st = location.state as
       | { craReturnToScoring?: boolean; craReturnToTabIndex?: number }
@@ -268,6 +275,31 @@ export default function AssessmentDetailsTab() {
     if (mockFromRoute) return [mockFromRoute.ownerId];
     return [DEFAULT_NEW_OWNER_ID];
   });
+
+  // Update state when API data loads initially (not on every refetch)
+  const [hasLoadedFromApi, setHasLoadedFromApi] = useState(false);
+  useEffect(() => {
+    if (assessmentFromApi.status === "ok" && !hasLoadedFromApi) {
+      const assessment = assessmentFromApi.assessment;
+      setName(assessment.name);
+      setAssessmentId(assessment.displayId);
+      setAssessmentPhase(assessment.phase as AssessmentPhase);
+      setDueDate(assessment.dueDate || "");
+      setOwnerIds(assessment.ownerIds.slice(0, 1));
+      setHasLoadedFromApi(true);
+
+      // Load scoped assets from API
+      fetch(`/api/cyber-risk-assessments/${assessment.displayId}/scope`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.assets) {
+            const assetIds = data.assets.map((a: any) => a.assetId);
+            setIncludedScopeAssetIds(new Set(assetIds));
+          }
+        })
+        .catch(err => console.error("Error loading scoped assets:", err));
+    }
+  }, [assessmentFromApi, hasLoadedFromApi]);
   /** Scope tab: card overview vs assets data grid (drives PageHeader). */
   const [scopeSubView, setScopeSubView] = useState<ScopeSubView>(() => {
     if (initialDraft) return initialDraft.scopeSubView;
@@ -313,11 +345,148 @@ export default function AssessmentDetailsTab() {
     return new Set();
   });
 
+  // Persists scope to the SQLite backend alongside the existing localStorage draft.
+  const persistScope = usePersistScope(assessmentId);
+
+  // Fetch linked entities from assessment (if persisted) or derive from assets (if new)
+  const [linkedEntities, setLinkedEntities] = useState<any>(null);
+  const [linkedEntitiesRefetch, setLinkedEntitiesRefetch] = useState(0);
+
+  const refetchLinkedEntities = useCallback(() => {
+    setLinkedEntitiesRefetch(prev => prev + 1);
+  }, []);
+
+  useEffect(() => {
+    // If we have a persisted assessment, fetch its linked entities
+    if (routeAssessmentId) {
+      console.log('[AssessmentDetailsTab] Fetching linked entities for', routeAssessmentId);
+      fetch(`/api/cyber-risk-assessments/${routeAssessmentId}/linked-entities`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) {
+            console.log('[AssessmentDetailsTab] Loaded linked entities from assessment:', {
+              cyberRisks: data.cyberRisks.length,
+              threats: data.threats.length,
+              vulnerabilities: data.vulnerabilities.length,
+              controls: data.controls.length
+            });
+            // Transform to match UI format
+            setLinkedEntities({
+              cyberRisks: data.cyberRisks.map((cr: any) => ({
+                id: cr.id,
+                displayId: cr.display_id,
+                name: cr.name,
+                domain: cr.domain,
+                description: cr.description || '',
+                status: cr.status,
+                inherentScore: cr.inherent_score,
+                inherentScoreLabel: cr.inherent_score_label,
+                residualScore: cr.residual_score,
+                residualScoreLabel: cr.residual_score_label,
+                controlIds: cr.control_ids || [],
+                ownerIds: [],
+                attachments: [],
+                assetIds: [],
+                threatIds: [],
+                vulnerabilityIds: [],
+                relationships: {
+                  assetIds: [],
+                  threatIds: [],
+                  vulnerabilityIds: [],
+                  controlIds: cr.control_ids || []
+                }
+              })),
+              threats: data.threats.map((t: any) => ({
+                id: t.id,
+                displayId: t.display_id,
+                name: t.name,
+                domain: t.domain,
+                description: t.description || '',
+                sources: t.sources || [],
+                threatActors: t.actors || [],
+                attackVectors: t.attack_vectors || [],
+                status: t.status,
+                ownerIds: t.owner ? [t.owner] : [],
+                attachments: [],
+                assetIds: [],
+                cyberRiskIds: [],
+                vulnerabilityIds: [],
+                relationships: {
+                  assetIds: [],
+                  cyberRiskIds: [],
+                  vulnerabilityIds: []
+                }
+              })),
+              vulnerabilities: data.vulnerabilities.map((v: any) => ({
+                id: v.id,
+                displayId: v.display_id,
+                name: v.name,
+                domain: v.domain,
+                vulnerabilityType: v.vulnerability_type,
+                description: v.description,
+                status: v.status || 'Active',
+                primaryCIAImpact: v.cia_impacts || [],
+                ownerIds: v.owner ? [v.owner] : [],
+                attachments: [],
+                assetIds: [],
+                cyberRiskIds: [],
+                threatIds: [],
+                relationships: {
+                  assetId: '',
+                  cyberRiskIds: [],
+                  threatIds: [],
+                  controlIds: [],
+                  mitigationPlanIds: [],
+                  scenarioIds: []
+                }
+              })),
+              controls: data.controls.map((c: any) => ({
+                id: c.id,
+                displayId: c.display_id,
+                name: c.name,
+                controlType: c.control_type,
+                description: c.description || '',
+                implementationStatus: c.implementation_status,
+                effectivenessRating: c.effectiveness_rating,
+                effectivenessLabel: c.effectiveness_label,
+                ownerIds: [],
+                attachments: [],
+                assetIds: [],
+                cyberRiskIds: [],
+                relationships: {
+                  assetIds: [],
+                  cyberRiskIds: []
+                }
+              }))
+            });
+          }
+        })
+        .catch(err => console.error('Error loading linked entities:', err));
+    } else {
+      // Clear linked entities for new assessments
+      setLinkedEntities(null);
+    }
+  }, [routeAssessmentId, linkedEntitiesRefetch]);
+
+  // For new assessments (no routeAssessmentId), derive from selected assets
+  // For existing assessments, don't fetch from assets - use linkedEntities instead
+  const assetRelations = useAssetRelations(routeAssessmentId ? new Set() : includedScopeAssetIds);
+
+  console.log('[AssessmentDetailsTab] Data sources:', {
+    routeAssessmentId,
+    hasLinkedEntities: !!linkedEntities,
+    assetRelationsStatus: assetRelations.status,
+    linkedCyberRisks: linkedEntities?.cyberRisks?.length,
+    assetRelationsCyberRisks: assetRelations.status === 'ok' ? assetRelations.data.cyberRisks.length : 0
+  });
+
   const [aiScoringPhase, setAiScoringPhase] = useState<AiScoringPhase>(() => {
     if (mockFromRoute) return "idle";
     if (initialDraft) return initialDraft.aiScoringPhase;
     return "idle";
   });
+
+  const [scenariosRefetchKey, setScenariosRefetchKey] = useState(0);
 
   const [scoringType, setScoringType] = useState<CraScoringTypeChoice>(() => {
     if (initialDraft) return initialDraft.scoringType;
@@ -460,12 +629,22 @@ export default function AssessmentDetailsTab() {
     [scopeDetailDirty],
   );
 
-  const handleDeletePersistedAssessment = useCallback(() => {
+  const handleDeletePersistedAssessment = useCallback(async () => {
     if (!routeAssessmentId) return;
-    removeRiskAssessmentById(routeAssessmentId);
-    navigate("/cyber-risk/cyber-risk-assessments", {
-      state: { [ASSESSMENT_DELETED_TOAST_STATE_KEY]: true },
-    });
+    try {
+      const response = await fetch(`/api/cyber-risk-assessments/${routeAssessmentId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        navigate("/cyber-risk/cyber-risk-assessments", {
+          state: { [ASSESSMENT_DELETED_TOAST_STATE_KEY]: true },
+        });
+      } else {
+        console.error("Failed to delete assessment");
+      }
+    } catch (error) {
+      console.error("Error deleting assessment:", error);
+    }
   }, [routeAssessmentId, navigate]);
 
   const handleScopeSubViewChange = useCallback(
@@ -505,11 +684,13 @@ export default function AssessmentDetailsTab() {
     });
   }, []);
 
-  /** Drop exclusions that no longer apply when asset scope changes. */
+  /** Drop exclusions that no longer apply when asset scope changes - using API data */
   useEffect(() => {
+    if (assetRelations.status !== "ok") return;
+
     setExcludedScopeCyberRiskIds((prev) => {
       const candidateIds = new Set(
-        candidateScopedCyberRisks(includedScopeAssetIds).map((cr) => cr.id),
+        assetRelations.data.cyberRisks.map((cr) => cr.id),
       );
       const next = new Set<string>();
       for (const id of prev) {
@@ -523,11 +704,13 @@ export default function AssessmentDetailsTab() {
       }
       return next;
     });
-  }, [includedScopeAssetIds]);
+  }, [assetRelations]);
 
-  /** Drop threat / vulnerability / control exclusions that no longer apply when asset scope changes. */
+  /** Drop threat / vulnerability / control exclusions that no longer apply when asset scope changes - using API data */
   useEffect(() => {
-    const threatCand = new Set(candidateScopedThreats(includedScopeAssetIds).map((t) => t.id));
+    if (assetRelations.status !== "ok") return;
+
+    const threatCand = new Set(assetRelations.data.threats.map((t) => t.id));
     setExcludedScopeThreatIds((prev) => {
       const next = new Set<string>();
       for (const id of prev) {
@@ -542,7 +725,7 @@ export default function AssessmentDetailsTab() {
       return next;
     });
 
-    const vulnCand = new Set(candidateScopedVulnerabilities(includedScopeAssetIds).map((v) => v.id));
+    const vulnCand = new Set(assetRelations.data.vulnerabilities.map((v) => v.id));
     setExcludedScopeVulnerabilityIds((prev) => {
       const next = new Set<string>();
       for (const id of prev) {
@@ -557,7 +740,7 @@ export default function AssessmentDetailsTab() {
       return next;
     });
 
-    const controlCand = new Set(candidateScopedControls(includedScopeAssetIds).map((c) => c.id));
+    const controlCand = new Set(assetRelations.data.controls.map((c) => c.id));
     setExcludedScopeControlIds((prev) => {
       const next = new Set<string>();
       for (const id of prev) {
@@ -571,7 +754,7 @@ export default function AssessmentDetailsTab() {
       }
       return next;
     });
-  }, [includedScopeAssetIds]);
+  }, [assetRelations]);
 
   const setCyberRiskScopeIncluded = useCallback((cyberRiskId: string, included: boolean) => {
     setExcludedScopeCyberRiskIds((prev) => {
@@ -717,12 +900,63 @@ export default function AssessmentDetailsTab() {
     setScenarioScoreAggregationMethod("highest");
   }, [includedScopeAssetIdsForWorkflow]);
 
-  const handleAssessmentPhaseChange = useCallback((phase: AssessmentPhase) => {
+  const handleAssessmentPhaseChange = useCallback(async (phase: AssessmentPhase) => {
     setAssessmentPhase(phase);
     if (phase === "scoping") {
       setScenarioScoreAggregationMethod("highest");
     }
-  }, []);
+
+    // Generate scenarios when moving to scoring
+    if (phase === "inProgress" && routeAssessmentId) {
+      try {
+        console.log("Generating scenarios for assessment:", routeAssessmentId);
+        const generateResponse = await fetch(
+          `/api/cyber-risk-assessments/${routeAssessmentId}/generate-scenarios`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        if (!generateResponse.ok) {
+          const errorData = await generateResponse.json().catch(() => ({ error: "Unknown error" }));
+          console.error("Failed to generate scenarios:", errorData);
+          alert(`Failed to generate scenarios: ${errorData.error || "Unknown error"}`);
+          return;
+        }
+
+        const result = await generateResponse.json();
+        console.log(`Generated ${result.count} scenarios`);
+
+        // Refetch assessment data to get updated scenario counts
+        assessmentFromApi.refetch();
+        notifySavedChanges();
+      } catch (error) {
+        console.error("Error generating scenarios:", error);
+        alert("Failed to generate scenarios. Please try again.");
+        return;
+      }
+    }
+
+    // Save phase change to API immediately
+    if (routeAssessmentId && phase !== "inProgress") {
+      try {
+        const response = await fetch(`/api/cyber-risk-assessments/${routeAssessmentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phase: phase,
+          }),
+        });
+        if (response.ok) {
+          assessmentFromApi.refetch();
+          notifySavedChanges();
+        }
+      } catch (error) {
+        console.error("Error updating phase:", error);
+      }
+    }
+  }, [routeAssessmentId, assessmentFromApi, notifySavedChanges]);
 
   const showAiScoringAction = useMemo(() => {
     if (
@@ -744,11 +978,11 @@ export default function AssessmentDetailsTab() {
     return false;
   }, [assessmentPhase, includedScopeAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds]);
 
-  const handleSaveDraft = useCallback(() => {
+  const handleSaveDraft = useCallback(async () => {
     const catalogAssessmentId =
       routeAssessmentId != null && routeAssessmentId !== ""
         ? routeAssessmentId
-        : /^CRA-\d+$/.test(assessmentId)
+        : /^ASM-\d+$/.test(assessmentId)
           ? assessmentId
           : undefined;
 
@@ -782,29 +1016,33 @@ export default function AssessmentDetailsTab() {
       ? snap.excludedScopeControlIds
       : [...excludedScopeControlIds];
 
+    // Save to API if we have a persisted assessment
     if (catalogAssessmentId) {
-      const row = getRiskAssessmentById(catalogAssessmentId);
-      if (row) {
+      try {
         const trimmedName = name.trim();
-        const rollup = computeAssessmentRollupForAssetIds(includedForPersist, {
-          excludedScopeCyberRiskIds: exCrForPersist,
-          excludedScopeThreatIds: exTForPersist,
-          excludedScopeVulnerabilityIds: exVForPersist,
-          excludedScopeControlIds: exCForPersist,
-          excludedScopeScenarioIds: [...excludedScopeScenarioIds],
+        const response = await fetch(`/api/cyber-risk-assessments/${catalogAssessmentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: trimmedName || "Untitled Assessment",
+            phase: assessmentPhase,
+            dueDate: dueDate || null,
+            ownerIds: ownerIds,
+            scoringType,
+            aggregationMethod: scenarioScoreAggregationMethod,
+            aiScoringPhase,
+          }),
         });
-        updateRiskAssessment(catalogAssessmentId, {
-          name: trimmedName || row.name,
-          ownerId: ownerIds[0] ?? row.ownerId,
-          status: assessmentPhaseToAssessmentStatus(assessmentPhase),
-          assessmentType: row.assessmentType,
-          dueDate,
-          startDate: row.startDate,
-          ...rollup,
-        });
+        if (response.ok) {
+          // Refetch the latest data from API after successful save
+          assessmentFromApi.refetch();
+        }
+      } catch (error) {
+        console.error("Error saving assessment:", error);
       }
     }
 
+    // Save draft to localStorage for new assessments
     if (!routeAssessmentId) {
       saveCraNewAssessmentDraft({
         activeTab,
@@ -830,6 +1068,38 @@ export default function AssessmentDetailsTab() {
         scenarioManuallyRevealedScoreIds: [...scenarioManuallyRevealedScoreIds],
       });
     }
+
+    // Persist scope to SQLite backend
+    if (routeAssessmentId) {
+      // For existing assessments, call scope API directly
+      fetch(`/api/cyber-risk-assessments/${routeAssessmentId}/scope`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetIds: includedForPersist }),
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) {
+            console.log('[handleSaveDraft] Scope saved, linked entities:', data.linkedEntities);
+            // Refetch linked entities after save
+            setTimeout(() => {
+              refetchLinkedEntities();
+            }, 300);
+          }
+        })
+        .catch(err => console.error('Error saving scope:', err));
+    } else {
+      // For new assessments, use persistScope (which creates the assessment first)
+      persistScope.save({
+        name: name.trim() || "Untitled Assessment",
+        phase: assessmentPhase,
+        includedAssetIds: includedForPersist,
+        excludedCyberRiskIds: exCrForPersist,
+        excludedThreatIds: exTForPersist,
+        excludedVulnerabilityCategoryIds: exVForPersist,
+        excludedControlIds: exCForPersist,
+      });
+    }
   }, [
     routeAssessmentId,
     activeTab,
@@ -852,6 +1122,8 @@ export default function AssessmentDetailsTab() {
     scenarioNotApplicableIds,
     scenarioCatalogScoresReleased,
     scenarioManuallyRevealedScoreIds,
+    persistScope,
+    refetchLinkedEntities,
   ]);
 
   const handleSaveDraftWithToast = useCallback(() => {
@@ -907,7 +1179,7 @@ export default function AssessmentDetailsTab() {
     notifySavedChanges,
   ]);
 
-  const handleAiScoringClick = useCallback(() => {
+  const handleAiScoringClick = useCallback(async () => {
     if (assessmentPhase === "scoping") {
       if (
         includedScopeAssetIds.size < 1 ||
@@ -921,19 +1193,76 @@ export default function AssessmentDetailsTab() {
       }
       setAssessmentPhase("inProgress");
     }
-    setAiScoringPhase((prev) => {
-      if (prev !== "idle") return prev;
-      if (aiScoringTimerRef.current) {
-        clearTimeout(aiScoringTimerRef.current);
+
+    // Start AI scoring
+    if (aiScoringPhase !== "idle") return;
+
+    setAiScoringPhase("processing");
+
+    try {
+      // Fetch scenarios for this assessment
+      const scenariosResponse = await fetch(
+        `/api/cyber-risk-assessments/${routeAssessmentId}/scenarios`
+      );
+
+      if (!scenariosResponse.ok) {
+        throw new Error("Failed to fetch scenarios");
       }
-      aiScoringTimerRef.current = setTimeout(() => {
-        aiScoringTimerRef.current = null;
-        setScenarioCatalogScoresReleased(true);
-        setAiScoringPhase("complete");
-      }, 3000);
-      return "processing";
-    });
-  }, [assessmentPhase, includedScopeAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds]);
+
+      const scenarios = await scenariosResponse.json();
+      const scenarioIds = scenarios.map((s: any) => s.displayId);
+
+      if (scenarioIds.length === 0) {
+        throw new Error("No scenarios to score");
+      }
+
+      // Call AI scoring endpoint
+      const scoringResponse = await fetch("/api/scenarios/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenarioIds }),
+      });
+
+      if (!scoringResponse.ok) {
+        const errorData = await scoringResponse.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "AI scoring failed");
+      }
+
+      const result = await scoringResponse.json();
+      console.log(`AI scored ${result.count} scenarios`);
+
+      // Mark scoring as complete
+      setScenarioCatalogScoresReleased(true);
+      setAiScoringPhase("complete");
+
+      // Update assessment AI scoring phase
+      if (routeAssessmentId) {
+        await fetch(`/api/cyber-risk-assessments/${routeAssessmentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ aiScoringPhase: "complete" }),
+        });
+      }
+
+      // Refresh assessment data and scenarios
+      assessmentFromApi.refetch();
+      setScenariosRefetchKey((prev) => prev + 1);
+      notifySavedChanges();
+    } catch (error) {
+      console.error("AI scoring failed:", error);
+      alert(`AI scoring failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      setAiScoringPhase("idle");
+    }
+  }, [
+    assessmentPhase,
+    includedScopeAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeScenarioIds,
+    aiScoringPhase,
+    routeAssessmentId,
+    assessmentFromApi,
+    notifySavedChanges,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -943,17 +1272,11 @@ export default function AssessmentDetailsTab() {
     };
   }, []);
 
-  useEffect(() => {
-    handleSaveDraft();
-  }, [handleSaveDraft]);
+  // Removed auto-save effect that was causing infinite re-renders with API refetch
+  // Now only save on explicit user action (Save Changes button)
 
-  useEffect(() => {
-    if (!routeAssessmentId) return;
-    const a = getRiskAssessmentById(routeAssessmentId);
-    if (!a) {
-      navigate("/cyber-risk/cyber-risk-assessments", { replace: true });
-    }
-  }, [routeAssessmentId, navigate]);
+  // Removed old mock data check that was causing premature redirects
+  // Now relying on API loading states to handle missing assessments
 
   useEffect(() => {
     const st = location.state as
@@ -995,6 +1318,44 @@ export default function AssessmentDetailsTab() {
     assessmentPhaseToAssessmentStatus(assessmentPhase) === "Scoring" ||
     assessmentPhaseToAssessmentStatus(assessmentPhase) === "Review";
 
+  // Show loading state if fetching from API
+  if (routeAssessmentId && assessmentFromApi.status === "loading") {
+    return (
+      <Container sx={{ py: 2 }}>
+        <Stack gap={3} alignItems="center" justifyContent="center" sx={{ minHeight: "50vh" }}>
+          <Typography variant="h6">Loading assessment...</Typography>
+        </Stack>
+      </Container>
+    );
+  }
+
+  // Show error state if API fetch failed
+  if (routeAssessmentId && assessmentFromApi.status === "error") {
+    return (
+      <Container sx={{ py: 2 }}>
+        <Stack gap={3}>
+          <Typography variant="h4">Assessment Not Found</Typography>
+          <Typography variant="body1" color="error">
+            {assessmentFromApi.message}
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => navigate("/cyber-risk/cyber-risk-assessments")}
+          >
+            Back to Assessments
+          </Button>
+        </Stack>
+      </Container>
+    );
+  }
+
+  // Get data from API or fallback to mock
+  const displayData = assessmentFromApi.status === "ok"
+    ? assessmentFromApi.assessment
+    : mockFromRoute
+      ? { ...mockFromRoute, ownerIds: [mockFromRoute.ownerId] }
+      : null;
+
   return (
     <Container sx={{ py: 2 }}>
       <Stack gap={0}>
@@ -1002,11 +1363,11 @@ export default function AssessmentDetailsTab() {
           assessmentName={name}
           assessmentId={assessmentId}
           dueDate={dueDate}
-          createdAtDisplay={mockFromRoute ? mockFromRoute.startDate : "—"}
+          createdAtDisplay={displayData?.startDate || displayData?.createdAt || "—"}
           createdBy={createdByDisplay}
-          lastUpdatedAtDisplay={mockFromRoute ? mockFromRoute.dueDate : "—"}
+          lastUpdatedAtDisplay={displayData?.updatedAt || displayData?.dueDate || "—"}
           lastUpdatedByDisplay={
-            mockFromRoute ? joinUserFullNames([mockFromRoute.ownerId]) : "—"
+            displayData ? joinUserFullNames(displayData.ownerIds) : "—"
           }
           assessmentPhase={assessmentPhase}
           onPhaseChange={handleAssessmentPhaseChange}
@@ -1037,7 +1398,7 @@ export default function AssessmentDetailsTab() {
           onResetScores={() => setScenarioScoreAggregationMethod("highest")}
           onReassess={() => {}}
           onDeletePersistedAssessment={
-            mockFromRoute && routeAssessmentId ? handleDeletePersistedAssessment : undefined
+            routeAssessmentId ? handleDeletePersistedAssessment : undefined
           }
         />
 
@@ -1194,6 +1555,10 @@ export default function AssessmentDetailsTab() {
             onToggleAssetIncluded={toggleAssetIncluded}
             onBulkAssetIdsIncluded={bulkSetAssetsIncluded}
             scopeTogglesReadOnly={isApproved}
+            apiCyberRisks={routeAssessmentId ? linkedEntities?.cyberRisks : (assetRelations.status === "ok" ? assetRelations.data.cyberRisks : undefined)}
+            apiThreats={routeAssessmentId ? linkedEntities?.threats : (assetRelations.status === "ok" ? assetRelations.data.threats : undefined)}
+            apiVulnerabilities={routeAssessmentId ? linkedEntities?.vulnerabilities : (assetRelations.status === "ok" ? assetRelations.data.vulnerabilities : undefined)}
+            apiControls={routeAssessmentId ? linkedEntities?.controls : (assetRelations.status === "ok" ? assetRelations.data.controls : undefined)}
           />
         </TabPanel>
         <TabPanel
@@ -1206,6 +1571,8 @@ export default function AssessmentDetailsTab() {
           }}
         >
           <AssessmentScoringTab
+            dbDisplayId={routeAssessmentId || persistScope.dbDisplayId}
+            scenariosRefetchKey={scenariosRefetchKey}
             assessmentName={name}
             returnToAssessmentPath={location.pathname}
             aggregationMethod={scenarioScoreAggregationMethod}
@@ -1243,6 +1610,7 @@ export default function AssessmentDetailsTab() {
             scoringType={scoringType}
             aiScoringPhase={aiScoringPhase}
             aggregationMethod={scenarioScoreAggregationMethod}
+            assessmentDisplayId={routeAssessmentId || persistScope.dbDisplayId}
           />
         </TabPanel>
       </Stack>

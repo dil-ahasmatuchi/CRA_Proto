@@ -3,12 +3,14 @@ import {
   OverflowBreadcrumbs,
 } from "@diligentcorp/atlas-react-bundle";
 import {
+  Alert,
   Avatar,
   Box,
   Button,
   Card,
   CardContent,
   CardHeader,
+  CircularProgress,
   Container,
   Link,
   Stack,
@@ -20,7 +22,8 @@ import {
   type GridColDef,
   type GridRenderCellParams,
 } from "@mui/x-data-grid-pro";
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useApiList } from "../hooks/useApiList.js";
 import { NavLink, useNavigate } from "react-router";
 
 import {
@@ -29,15 +32,7 @@ import {
   RAG_DATA_VIZ_CANVAS_FALLBACK,
   type RagDataVizKey,
 } from "../data/ragDataVisualization.js";
-import {
-  addThreat,
-  getThreatsSnapshotVersion,
-  subscribeThreats,
-  threats,
-} from "../data/threats.js";
-import { getAssetById } from "../data/assets.js";
-import { getUserById, joinUserFullNames } from "../data/users.js";
-import type { FivePointScaleLabel } from "../data/types.js";
+import { addThreat } from "../data/threats.js";
 import { Doughnut, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -64,69 +59,14 @@ import {
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
-function seededRandom(seed: number) {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
 
-interface AssetCriticalityCounts {
-  veryHigh: number;
-  high: number;
-  medium: number;
-  low: number;
-  veryLow: number;
-}
-
-const CRITICALITY_LEVELS: { key: keyof AssetCriticalityCounts; label: FivePointScaleLabel }[] = [
-  { key: "veryHigh", label: "Very high" },
-  { key: "high", label: "High" },
-  { key: "medium", label: "Medium" },
-  { key: "low", label: "Low" },
-  { key: "veryLow", label: "Very low" },
-];
-
-function countLinkedAssetsByCriticality(assetIds: string[]): AssetCriticalityCounts {
-  const counts: AssetCriticalityCounts = {
-    veryHigh: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
-    veryLow: 0,
-  };
-  for (const aid of assetIds) {
-    const asset = getAssetById(aid);
-    if (!asset) continue;
-    switch (asset.criticality) {
-      case 5:
-        counts.veryHigh += 1;
-        break;
-      case 4:
-        counts.high += 1;
-        break;
-      case 3:
-        counts.medium += 1;
-        break;
-      case 2:
-        counts.low += 1;
-        break;
-      case 1:
-        counts.veryLow += 1;
-        break;
-      default:
-        break;
-    }
-  }
-  return counts;
-}
 
 interface ThreatRow {
   id: string;
   name: string;
   threatId: string;
-  criticality: number;
   assessments: number;
   aggregatedAssets: number;
-  assetsByCriticality: AssetCriticalityCounts;
   vulnerabilities: number;
   assetIds: string[];
   vulnerabilityIds: string[];
@@ -139,36 +79,52 @@ interface ThreatRow {
   lastUpdatedByInitials: string;
 }
 
-function buildThreatRows(): ThreatRow[] {
-  return threats.map((t, i) => {
-    const owner = getUserById(t.ownerIds[0] ?? "");
-    const seed = i + 1;
-    const assessments = Math.floor(seededRandom(seed * 19) * 8) + 1;
-    const assetsByCriticality = countLinkedAssetsByCriticality(t.assetIds);
 
-    return {
-      id: t.id,
-      name: t.name,
-      threatId: t.id,
-      criticality: 0,
-      assessments,
-      aggregatedAssets: t.assetIds.length,
-      assetsByCriticality,
-      vulnerabilities: t.vulnerabilityIds.length,
-      assetIds: t.assetIds,
-      vulnerabilityIds: t.vulnerabilityIds,
-      threatDomain: t.domain,
-      created: "23 Jan 2025",
-      createdBy: joinUserFullNames(t.ownerIds),
-      createdByInitials: owner?.initials ?? "",
-      lastUpdated: "23 Jan 2025",
-      lastUpdatedBy: owner?.fullName ?? "Unassigned",
-      lastUpdatedByInitials: owner?.initials ?? "",
-    };
-  });
+interface ApiThreatRow {
+  id: string;
+  display_id: string;
+  name: string;
+  domain: string;
+  description: string | null;
+  status: string;
+  owner: string | null;
+  severity_level: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
-function aggregateSeverityFromThreats(): {
+function getInitials(name: string | null): string {
+  if (!name) return "";
+  return name
+    .split(" ")
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function mapApiThreat(row: ApiThreatRow): ThreatRow {
+  const dateStr = row.created_at?.slice(0, 10) ?? "";
+  return {
+    id: row.display_id,
+    name: row.name,
+    threatId: row.display_id,
+    assessments: 0,
+    aggregatedAssets: 0,
+    vulnerabilities: 0,
+    assetIds: [],
+    vulnerabilityIds: [],
+    threatDomain: row.domain,
+    created: dateStr,
+    createdBy: row.owner ?? "Unassigned",
+    createdByInitials: getInitials(row.owner),
+    lastUpdated: dateStr,
+    lastUpdatedBy: row.owner ?? "Unassigned",
+    lastUpdatedByInitials: getInitials(row.owner),
+  };
+}
+
+function aggregateSeverityFromThreats(rows: ApiThreatRow[]): {
   veryLow: number;
   low: number;
   medium: number;
@@ -176,21 +132,21 @@ function aggregateSeverityFromThreats(): {
   veryHigh: number;
 } {
   const buckets = { veryLow: 0, low: 0, medium: 0, high: 0, veryHigh: 0 };
-  threats.forEach((_, i) => {
-    const score = Math.floor(seededRandom((i + 1) * 41) * 5) + 1;
+  for (const row of rows) {
+    const score = row.severity_level ?? 3;
     if (score === 1) buckets.veryLow += 1;
     else if (score === 2) buckets.low += 1;
     else if (score === 3) buckets.medium += 1;
     else if (score === 4) buckets.high += 1;
     else buckets.veryHigh += 1;
-  });
+  }
   return buckets;
 }
 
-function aggregateTop5ThreatDomains(): { label: string; value: number }[] {
+function aggregateTop5ThreatDomains(rows: ApiThreatRow[]): { label: string; value: number }[] {
   const counts: Record<string, number> = {};
-  for (const t of threats) {
-    counts[t.domain] = (counts[t.domain] ?? 0) + 1;
+  for (const row of rows) {
+    counts[row.domain] = (counts[row.domain] ?? 0) + 1;
   }
   return Object.entries(counts)
     .map(([label, value]) => ({ label, value }))
@@ -200,9 +156,9 @@ function aggregateTop5ThreatDomains(): { label: string; value: number }[] {
 
 const THREAT_SEVERITY_CHART_RAG: RagDataVizKey[] = ["pos05", "pos04", "neu03", "neg03", "neg05"];
 
-function ThreatsBySeverityCard({ catalogVersion }: { catalogVersion: number }) {
+function ThreatsBySeverityCard({ rows }: { rows: ApiThreatRow[] }) {
   const { tokens } = useTheme();
-  const severityData = useMemo(() => aggregateSeverityFromThreats(), [catalogVersion]);
+  const severityData = useMemo(() => aggregateSeverityFromThreats(rows), [rows]);
 
   const chartBackgroundColors = useMemo(
     () =>
@@ -363,9 +319,9 @@ function ThreatsBySeverityCard({ catalogVersion }: { catalogVersion: number }) {
   );
 }
 
-function Top5ThreatDomainsCard({ catalogVersion }: { catalogVersion: number }) {
+function Top5ThreatDomainsCard({ rows }: { rows: ApiThreatRow[] }) {
   const { tokens } = useTheme();
-  const domainBars = useMemo(() => aggregateTop5ThreatDomains(), [catalogVersion]);
+  const domainBars = useMemo(() => aggregateTop5ThreatDomains(rows), [rows]);
   const maxValue = useMemo(
     () => (domainBars.length > 0 ? Math.max(...domainBars.map((d) => d.value)) : 1),
     [domainBars],
@@ -486,37 +442,6 @@ function Top5ThreatDomainsCard({ catalogVersion }: { catalogVersion: number }) {
   );
 }
 
-function AssetsByCriticalityTags({ counts }: { counts: AssetCriticalityCounts }) {
-  return (
-    <Stack direction="row" gap={0.5} flexWrap="wrap" useFlexGap>
-      {CRITICALITY_LEVELS.map(({ key, label }) => {
-        const n = counts[key];
-        if (n === 0) return null;
-        return (
-          <Box
-            key={key}
-            sx={({ tokens: t }) => ({
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 0.5,
-              px: 0.5,
-              py: 0.25,
-              borderRadius: 0.5,
-              backgroundColor: t.semantic.color.background.container.value,
-            })}
-          >
-            <Typography variant="textSm" sx={{ fontSize: 11 }}>
-              {label}
-            </Typography>
-            <Typography variant="textSm" sx={{ fontSize: 11, fontWeight: 600 }}>
-              {n}
-            </Typography>
-          </Box>
-        );
-      })}
-    </Stack>
-  );
-}
 
 function AvatarCell({ name, initials }: { name: string; initials: string }) {
   const { presets } = useTheme();
@@ -583,17 +508,6 @@ function ThreatsDataGrid({
         <Typography variant="textMd" sx={{ fontWeight: 600 }}>
           {params.value}
         </Typography>
-      ),
-    },
-    {
-      field: "criticality",
-      headerName: "Assets by criticality",
-      flex: 1,
-      minWidth: 260,
-      sortable: false,
-      filterable: false,
-      renderCell: (params: GridRenderCellParams<ThreatRow>) => (
-        <AssetsByCriticalityTags counts={params.row.assetsByCriticality} />
       ),
     },
     {
@@ -689,12 +603,11 @@ export default function ThreatsPage() {
     EMPTY_THREAT_TABLE_FILTERS,
   );
 
-  const catalogVersion = useSyncExternalStore(
-    subscribeThreats,
-    getThreatsSnapshotVersion,
-    () => 0,
+  const api = useApiList<ApiThreatRow>("/api/threats");
+  const threatRows = useMemo(
+    () => (api.status === "ok" ? api.data.map(mapApiThreat) : []),
+    [api],
   );
-  const threatRows = useMemo(() => buildThreatRows(), [catalogVersion]);
 
   const filteredThreatRows = useMemo(
     () => applyThreatTableFilters(threatRows, appliedFilters),
@@ -787,17 +700,27 @@ export default function ThreatsPage() {
           })}
         >
           <Stack direction="row" gap={3} sx={{ minHeight: 460 }}>
-            <ThreatsBySeverityCard catalogVersion={catalogVersion} />
-            <Top5ThreatDomainsCard catalogVersion={catalogVersion} />
+            <ThreatsBySeverityCard rows={api.status === "ok" ? api.data : []} />
+            <Top5ThreatDomainsCard rows={api.status === "ok" ? api.data : []} />
           </Stack>
         </Box>
 
-        <ThreatsDataGrid
-          rows={filteredThreatRows}
-          onOpenFilters={handleOpenFilters}
-          filterCriteriaCount={countThreatFilterCriteria(appliedFilters)}
-          onClearFilters={handleClearFilters}
-        />
+        {api.status === "loading" && (
+          <Stack alignItems="center" py={4}>
+            <CircularProgress />
+          </Stack>
+        )}
+        {api.status === "error" && (
+          <Alert severity="error">Failed to load threats: {api.error}</Alert>
+        )}
+        {api.status !== "loading" && (
+          <ThreatsDataGrid
+            rows={filteredThreatRows}
+            onOpenFilters={handleOpenFilters}
+            filterCriteriaCount={countThreatFilterCriteria(appliedFilters)}
+            onClearFilters={handleClearFilters}
+          />
+        )}
       </Stack>
 
       <FilterSideSheet

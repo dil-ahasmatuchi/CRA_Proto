@@ -1,9 +1,10 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useApiList } from "../hooks/useApiList.js";
 import {
   PageHeader,
   OverflowBreadcrumbs,
 } from "@diligentcorp/atlas-react-bundle";
-import { Container, Stack } from "@mui/material";
+import { Alert, CircularProgress, Container, Stack } from "@mui/material";
 import { NavLink, useSearchParams } from "react-router";
 
 import type { OrgUnitOption } from "../components/OrgUnitDropdown.js";
@@ -21,13 +22,106 @@ import {
 } from "../utils/cyberRiskMatrixTableQuery.js";
 import {
   applyCyberRiskFilters,
-  buildCyberRiskRows,
   countCyberRiskFilterCriteria,
   CYBER_RISK_WORKFLOW_FILTER_OPTIONS,
   EMPTY_CYBER_RISK_TABLE_FILTERS,
   type CyberRiskMatrixTableFilter,
   type CyberRiskTableFilters,
+  type CyberRiskRow,
 } from "../utils/cyberRiskTableRows.js";
+import type { FivePointScaleValue, FivePointScaleLabel, CyberRiskStatus, MockCyberRisk } from "../data/types.js";
+import type { RiskHeatmapLevel } from "../data/ragDataVisualization.js";
+
+// ---------------------------------------------------------------------------
+// API → CyberRiskRow mapping
+// ---------------------------------------------------------------------------
+
+interface ApiCyberRiskRow {
+  id: string;
+  display_id: string;
+  name: string;
+  domain: string | null;
+  description: string | null;
+  status: string;
+  inherent_score: number | null;
+  inherent_score_label: string | null;
+  residual_score: number | null;
+  residual_score_label: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const SCORE_LABEL_TO_HEATMAP: Record<FivePointScaleLabel, RiskHeatmapLevel> = {
+  "Very low": "veryLow",
+  Low: "low",
+  Medium: "medium",
+  High: "high",
+  "Very high": "veryHigh",
+};
+
+function mapApiCyberRisk(row: ApiCyberRiskRow): CyberRiskRow {
+  const scoreLabel = (row.inherent_score_label ?? "Medium") as FivePointScaleLabel;
+  const residualLabel = (row.residual_score_label ?? "Medium") as FivePointScaleLabel;
+  const impact = (row.inherent_score ?? 3) as FivePointScaleValue;
+  return {
+    id: row.display_id,
+    name: row.name,
+    riskId: row.display_id,
+    ownerId: "",
+    orgUnitId: "",
+    cyberRiskScore: `${impact} - ${scoreLabel}`,
+    riskLevel: SCORE_LABEL_TO_HEATMAP[scoreLabel] ?? "medium",
+    ownerName: "Unassigned",
+    ownerInitials: "",
+    assets: 0,
+    workflowStatus: row.status as CyberRiskStatus,
+    cyberRiskScoreLabel: scoreLabel,
+    impact,
+    likelihoodLabel: scoreLabel,
+    residualLikelihoodLabel: residualLabel,
+    residualCyberRiskScoreLabel: residualLabel,
+    assetIds: [],
+  };
+}
+
+const EMPTY_RELATIONSHIPS = {
+  assetIds: [],
+  threatIds: [],
+  vulnerabilityIds: [],
+  scenarioIds: [],
+  mitigationPlanIds: [],
+  assessmentIds: [],
+};
+
+function mapApiToHeroRisk(row: ApiCyberRiskRow): MockCyberRisk {
+  const scoreLabel = (row.inherent_score_label ?? "Medium") as FivePointScaleLabel;
+  const residualLabel = (row.residual_score_label ?? "Medium") as FivePointScaleLabel;
+  const score = (row.inherent_score ?? 3) as FivePointScaleValue;
+  const residualScore = row.residual_score ?? 3;
+  return {
+    id: row.display_id,
+    name: row.name,
+    ownerId: "",
+    status: row.status as CyberRiskStatus,
+    orgUnitId: "",
+    likelihood: score,
+    likelihoodLabel: scoreLabel,
+    impact: score,
+    impactLabel: scoreLabel,
+    cyberRiskScore: score,
+    cyberRiskScoreLabel: scoreLabel,
+    residualLikelihood: residualScore,
+    residualLikelihoodLabel: residualLabel,
+    residualCyberRiskScore: residualScore,
+    residualCyberRiskScoreLabel: residualLabel,
+    assetIds: [],
+    threatIds: [],
+    vulnerabilityIds: [],
+    scenarioIds: [],
+    mitigationPlanIds: [],
+    relationships: EMPTY_RELATIONSHIPS,
+  };
+}
 
 function hasAnyFilterSelected(f: CyberRiskTableFilters): boolean {
   return (
@@ -68,9 +162,15 @@ export default function RisksPage() {
     });
   }, [searchParams, isFilterOpen]);
 
+  const api = useApiList<ApiCyberRiskRow>("/api/cyber-risks");
+  const heroRisks = useMemo(
+    () => (api.status === "ok" ? api.data.map(mapApiToHeroRisk) : []),
+    [api],
+  );
   const allRows = useMemo(
-    () => buildCyberRiskRows(),
-    [cyberScoreBands, likelihoodBands],
+    () => (api.status === "ok" ? api.data.map(mapApiCyberRisk) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [api, cyberScoreBands, likelihoodBands],
   );
   const filteredRows = useMemo(
     () => applyCyberRiskFilters(allRows, appliedFilters),
@@ -187,17 +287,28 @@ export default function RisksPage() {
         />
 
         <RisksHeroSection
+          risks={heroRisks}
           onMatrixSelection={handleMatrixSelection}
           orgUnit={heroOrgUnit}
           onOrgUnitChange={handleOrgUnitChange}
         />
 
-        <RisksTable
-          rows={filteredRows}
-          onOpenFilters={handleOpenFilters}
-          filterCriteriaCount={countCyberRiskFilterCriteria(appliedFilters)}
-          onClearFilters={handleClearFilters}
-        />
+        {api.status === "loading" && (
+          <Stack alignItems="center" py={4}>
+            <CircularProgress />
+          </Stack>
+        )}
+        {api.status === "error" && (
+          <Alert severity="error">Failed to load cyber risks: {api.error}</Alert>
+        )}
+        {api.status !== "loading" && (
+          <RisksTable
+            rows={filteredRows}
+            onOpenFilters={handleOpenFilters}
+            filterCriteriaCount={countCyberRiskFilterCriteria(appliedFilters)}
+            onClearFilters={handleClearFilters}
+          />
+        )}
       </Stack>
 
       <FilterSideSheet

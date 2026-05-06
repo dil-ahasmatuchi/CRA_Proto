@@ -1,11 +1,20 @@
 import { assets } from "../data/assets.js";
 import type { CraRagKey } from "../data/craScoringScenarioLibrary.js";
-import type { MockCyberRisk, MockScenario, FivePointScaleLabel } from "../data/types.js";
+import type {
+  MockCyberRisk,
+  MockCyberRiskRelationships,
+  MockScenario,
+  MockScenarioRelationships,
+  FivePointScaleLabel,
+  FivePointScaleValue,
+} from "../data/types.js";
 import {
   fivePointLabelToRag,
   getCyberRiskScoreLabel,
+  getFivePointLabel,
   getLikelihoodLabel,
 } from "../data/types.js";
+import type { ApiAssessmentScenario } from "../hooks/useAssessmentScenarios.js";
 import {
   assessmentScopedCyberRisks,
   assessmentScopedScenarios,
@@ -202,4 +211,256 @@ export function buildAssetResultRowsForScope(
       availability: crit,
     };
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API assessment scenarios → Results tab (charts + tree), same semantics as mock scope
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FIVE_POINT_LABELS: readonly FivePointScaleLabel[] = [
+  "Very low",
+  "Low",
+  "Medium",
+  "High",
+  "Very high",
+];
+
+function parseFivePointLabel(s: string | null | undefined, fallback: FivePointScaleLabel): FivePointScaleLabel {
+  if (s && (FIVE_POINT_LABELS as readonly string[]).includes(s)) return s as FivePointScaleLabel;
+  return fallback;
+}
+
+function clampFive(n: number): FivePointScaleValue {
+  const x = Math.round(n);
+  if (x < 1) return 1;
+  if (x > 5) return 5;
+  return x as FivePointScaleValue;
+}
+
+/** Scenarios for an assessment from the DB, filtered like {@link assessmentScopedScenarios}. */
+export function filterApiAssessmentScenariosForScope(
+  scenarios: readonly ApiAssessmentScenario[],
+  includedAssetIds: Set<string>,
+  excludedScopeCyberRiskIds: Set<string>,
+  excludedScopeScenarioIds: ReadonlySet<string> = new Set(),
+): ApiAssessmentScenario[] {
+  if (includedAssetIds.size === 0) return [];
+  return scenarios.filter(
+    (s) =>
+      !s.isExcluded &&
+      Boolean(s.assetId) &&
+      includedAssetIds.has(s.assetId!) &&
+      !excludedScopeCyberRiskIds.has(s.cyberRiskId) &&
+      !excludedScopeScenarioIds.has(s.displayId) &&
+      !excludedScopeScenarioIds.has(s.id),
+  );
+}
+
+function apiScenarioToMockScenario(s: ApiAssessmentScenario): MockScenario {
+  const impactNum = clampFive(s.impact ?? s.assetCriticality ?? 1);
+  const impactLabel = parseFivePointLabel(s.impactLabel, getFivePointLabel(impactNum));
+  const thNum = clampFive(s.threatSeverity ?? impactNum);
+  const thLab = parseFivePointLabel(s.threatSeverityLabel, getFivePointLabel(thNum));
+  const vulNum = clampFive(s.vulnerabilitySeverity ?? impactNum);
+  const vulLab = parseFivePointLabel(s.vulnerabilitySeverityLabel, getFivePointLabel(vulNum));
+  const lik = s.likelihood ?? 0;
+  const likLab = parseFivePointLabel(s.likelihoodLabel, getLikelihoodLabel(lik));
+  const crs = s.cyberRiskScore ?? 0;
+  const crsLab = parseFivePointLabel(s.cyberRiskScoreLabel, getCyberRiskScoreLabel(crs));
+
+  const rel: MockScenarioRelationships = {
+    cyberRiskId: s.cyberRiskId,
+    assetId: s.assetId ?? "",
+    threatIds: s.threatId ? [s.threatId] : [],
+    vulnerabilityIds: [],
+    controlIds: [],
+    mitigationPlanIds: [],
+  };
+
+  return {
+    id: s.displayId,
+    name: s.name,
+    ownerId: "",
+    cyberRiskId: s.cyberRiskId,
+    assetId: s.assetId ?? "",
+    impact: impactNum,
+    impactLabel,
+    threatSeverity: thNum,
+    threatSeverityLabel: thLab,
+    vulnerabilitySeverity: vulNum,
+    vulnerabilitySeverityLabel: vulLab,
+    likelihood: lik,
+    likelihoodLabel: likLab,
+    cyberRiskScore: crs,
+    cyberRiskScoreLabel: crsLab,
+    threatIds: rel.threatIds,
+    vulnerabilityIds: rel.vulnerabilityIds,
+    scoringRationale: "",
+    relationships: rel,
+  };
+}
+
+function synthMockCyberRiskFromApiScenarios(
+  riskId: string,
+  riskName: string,
+  scenarios: ApiAssessmentScenario[],
+): MockCyberRisk {
+  const applicable = scenarios.filter((s) => !s.isNotApplicable);
+  const pool = applicable.length > 0 ? applicable : scenarios;
+
+  const impact = clampFive(Math.max(1, ...pool.map((s) => s.impact ?? s.assetCriticality ?? 1)));
+  const impactLabel = getFivePointLabel(impact);
+
+  const likelihood =
+    applicable.length > 0 ? Math.max(0, ...applicable.map((s) => s.likelihood ?? 0)) : 0;
+  const likelihoodLabel = getLikelihoodLabel(likelihood);
+
+  const cyberRiskScore =
+    applicable.length > 0 ? Math.max(0, ...applicable.map((s) => s.cyberRiskScore ?? 0)) : 0;
+  const cyberRiskScoreLabel = getCyberRiskScoreLabel(cyberRiskScore);
+
+  const assetIds = [...new Set(scenarios.map((s) => s.assetId).filter((x): x is string => Boolean(x)))];
+  const scenarioIds = scenarios.map((s) => s.displayId);
+
+  const rel: MockCyberRiskRelationships = {
+    assetIds,
+    threatIds: [],
+    vulnerabilityIds: [],
+    scenarioIds,
+    mitigationPlanIds: [],
+    assessmentIds: [],
+  };
+
+  return {
+    id: riskId,
+    name: riskName,
+    ownerId: "",
+    status: "Assessment",
+    orgUnitId: "",
+    likelihood,
+    likelihoodLabel,
+    impact,
+    impactLabel,
+    cyberRiskScore,
+    cyberRiskScoreLabel,
+    residualLikelihood: likelihood,
+    residualLikelihoodLabel: likelihoodLabel,
+    residualCyberRiskScore: cyberRiskScore,
+    residualCyberRiskScoreLabel: cyberRiskScoreLabel,
+    assetIds,
+    threatIds: [],
+    vulnerabilityIds: [],
+    scenarioIds,
+    mitigationPlanIds: [],
+    relationships: rel,
+  };
+}
+
+/** Heatmap + legend on Results: one synthetic row per cyber risk in API scenarios. */
+export function buildHeatmapCyberRisksFromApiScenarios(
+  scenarios: readonly ApiAssessmentScenario[],
+): MockCyberRisk[] {
+  if (scenarios.length === 0) return [];
+
+  const riskOrder: string[] = [];
+  const byRisk = new Map<string, ApiAssessmentScenario[]>();
+  for (const s of scenarios) {
+    if (!byRisk.has(s.cyberRiskId)) {
+      riskOrder.push(s.cyberRiskId);
+      byRisk.set(s.cyberRiskId, []);
+    }
+    byRisk.get(s.cyberRiskId)!.push(s);
+  }
+
+  return riskOrder.map((rid) => {
+    const list = byRisk.get(rid)!;
+    const name = list[0]?.cyberRiskName ?? rid;
+    return synthMockCyberRiskFromApiScenarios(rid, name, list);
+  });
+}
+
+/** Cyber risk + scenario rows for Results from API scenarios. */
+export function buildCyberResultsRowsFromApiAssessmentScenarios(
+  scenarios: readonly ApiAssessmentScenario[],
+): AssessmentCyberResultsRow[] {
+  if (scenarios.length === 0) return [];
+
+  const riskOrder: string[] = [];
+  const byRisk = new Map<string, ApiAssessmentScenario[]>();
+  for (const s of scenarios) {
+    if (!byRisk.has(s.cyberRiskId)) {
+      riskOrder.push(s.cyberRiskId);
+      byRisk.set(s.cyberRiskId, []);
+    }
+    byRisk.get(s.cyberRiskId)!.push(s);
+  }
+
+  const rows: AssessmentCyberResultsRow[] = [];
+  for (const rid of riskOrder) {
+    const apiList = byRisk.get(rid)!;
+    const mockScens = apiList.map(apiScenarioToMockScenario);
+    const synthCr = synthMockCyberRiskFromApiScenarios(rid, apiList[0]?.cyberRiskName ?? rid, apiList);
+    const rc = riskRowChips(synthCr, mockScens);
+    rows.push({
+      id: rid,
+      kind: "cyberRisk",
+      groupId: rid,
+      name: synthCr.name,
+      ...rc,
+    });
+    for (const ms of mockScens) {
+      const sc = scenarioRowChips(ms);
+      rows.push({
+        id: ms.id,
+        kind: "scenario",
+        groupId: rid,
+        name: ms.name,
+        ...sc,
+      });
+    }
+  }
+  return rows;
+}
+
+/** Asset rows for donut + grid from API scenarios (max scored cyber risk per asset). */
+export function buildAssetResultRowsFromApiAssessmentScenarios(
+  includedAssetIds: Set<string>,
+  scenarios: readonly ApiAssessmentScenario[],
+): AssessmentAssetResultRow[] {
+  if (includedAssetIds.size === 0) return [];
+
+  const byAsset = new Map<string, MockScenario[]>();
+  for (const s of scenarios) {
+    if (!s.assetId) continue;
+    const ms = apiScenarioToMockScenario(s);
+    const list = byAsset.get(s.assetId) ?? [];
+    list.push(ms);
+    byAsset.set(s.assetId, list);
+  }
+
+  let i = 0;
+  const out: AssessmentAssetResultRow[] = [];
+  for (const assetId of includedAssetIds) {
+    const scens = byAsset.get(assetId) ?? [];
+    const scored = scens.filter((s) => s.cyberRiskScore > 0);
+    const crs =
+      scored.length > 0 ? maxScenarioCyberRiskChip(scored) : chipCyberRiskScore(0);
+    const first = scenarios.find((s) => s.assetId === assetId);
+    const critVal = clampFive(first?.assetCriticality ?? 3);
+    const critLab = parseFivePointLabel(first?.assetCriticalityLabel ?? null, getFivePointLabel(critVal));
+    const crit = chipFive(critVal, critLab);
+    const name = first?.assetName ?? assetId;
+    i += 1;
+    out.push({
+      id: String(i),
+      name,
+      assetId,
+      cyberRiskScore: crs,
+      criticality: crit,
+      confidentiality: crit,
+      integrity: crit,
+      availability: crit,
+    });
+  }
+  return out;
 }

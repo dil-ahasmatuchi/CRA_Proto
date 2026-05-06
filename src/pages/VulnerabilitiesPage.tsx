@@ -7,6 +7,7 @@ import {
   Avatar,
   Box,
   Button,
+  CircularProgress,
   Container,
   InputAdornment,
   Link,
@@ -29,42 +30,47 @@ import {
   Toolbar,
 } from "@mui/x-data-grid-pro";
 import { useMemo, useState } from "react";
+import { useApiList } from "../hooks/useApiList.js";
 import { NavLink, Link as RouterNavLink } from "react-router";
 
 import "../data/threats.js";
-import { vulnerabilities } from "../data/vulnerabilities.js";
-import { getUserById, joinUserFullNames } from "../data/users.js";
-import {
-  ragDataVizColor,
-  type RagDataVizKey,
-} from "../data/ragDataVisualization.js";
-import type { FivePointScaleValue, FivePointScaleLabel } from "../data/types.js";
+
+// ---------------------------------------------------------------------------
+// API types + mapping
+// ---------------------------------------------------------------------------
+
+interface ApiVulnCategoryRow {
+  id: string;
+  display_id: string;
+  name: string;
+  description: string | null;
+  domain: string;
+  vulnerability_type: string | null;
+  status: string;
+  owner: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function getInitials(name: string | null): string {
+  if (!name) return "";
+  return name
+    .split(" ")
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 import {
   atlasNavigationTabsSlotProps,
   atlasNavigationTabsSx,
 } from "../utils/atlasNavigationTabsSx.js";
-import { getVulnerabilityListMetrics } from "../utils/vulnerabilityListMetrics.js";
 import ImportIcon from "@diligentcorp/atlas-react-bundle/icons/Import";
 import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 import FilterIcon from "@diligentcorp/atlas-react-bundle/icons/Filter";
 import ColumnsIcon from "@diligentcorp/atlas-react-bundle/icons/Columns";
 import AvatarIcon from "@diligentcorp/atlas-react-bundle/icons/Avatar";
 
-const SEVERITY_LABELS: Record<FivePointScaleValue, FivePointScaleLabel> = {
-  1: "Very low",
-  2: "Low",
-  3: "Medium",
-  4: "High",
-  5: "Very high",
-};
-
-const SEVERITY_RAG: Record<FivePointScaleValue, RagDataVizKey> = {
-  1: "pos05",
-  2: "pos04",
-  3: "neu03",
-  4: "neg03",
-  5: "neg05",
-};
 
 const AVATAR_COLORS = ["red", "blue", "green", "purple", "yellow"] as const;
 
@@ -72,7 +78,6 @@ interface VulnerabilityRow {
   id: string;
   name: string;
   vulnerabilityId: string;
-  severityScore: FivePointScaleValue;
   assessments: number;
   findings: number;
   cves: number;
@@ -86,51 +91,25 @@ interface VulnerabilityRow {
   lastUpdatedByInitials: string;
 }
 
-const vulnerabilityRows: VulnerabilityRow[] = vulnerabilities.map((v) => {
-  const ownerLabel = joinUserFullNames(v.ownerIds);
-  const primaryOwner = v.ownerIds[0] ? getUserById(v.ownerIds[0]!) : undefined;
-  const metrics = getVulnerabilityListMetrics(v.id)!;
-
+function mapApiVulnCategory(row: ApiVulnCategoryRow): VulnerabilityRow {
+  const dateStr = row.created_at?.slice(0, 10) ?? "";
+  const ownerName = row.owner ?? "Unassigned";
   return {
-    id: v.id,
-    name: v.name,
-    vulnerabilityId: v.displayId,
-    severityScore: metrics.severityScore,
-    assessments: metrics.assessments,
-    findings: metrics.findings,
-    cves: metrics.cves,
-    aggregatedAssets: v.assetIds.length,
-    vulnerabilityDomain: v.domain,
-    created: "23 Jan 2025",
-    createdByName: ownerLabel,
-    createdByInitials: primaryOwner?.initials ?? "",
-    lastUpdated: "23 Jan 2025",
-    lastUpdatedByName: ownerLabel,
-    lastUpdatedByInitials: primaryOwner?.initials ?? "",
+    id: row.display_id,
+    name: row.name,
+    vulnerabilityId: row.display_id,
+    assessments: 0,
+    findings: 0,
+    cves: 0,
+    aggregatedAssets: 0,
+    vulnerabilityDomain: row.domain,
+    created: dateStr,
+    createdByName: ownerName,
+    createdByInitials: getInitials(row.owner),
+    lastUpdated: dateStr,
+    lastUpdatedByName: ownerName,
+    lastUpdatedByInitials: getInitials(row.owner),
   };
-});
-
-function SeverityScoreCell({ value }: { value: FivePointScaleValue }) {
-  const { tokens } = useTheme();
-  const ragKey = SEVERITY_RAG[value];
-  const label = SEVERITY_LABELS[value];
-
-  return (
-    <Stack direction="row" alignItems="center" gap={1}>
-      <Box
-        sx={{
-          width: 16,
-          height: 16,
-          borderRadius: 0.5,
-          backgroundColor: ragDataVizColor(tokens, ragKey),
-          flexShrink: 0,
-        }}
-      />
-      <Typography variant="labelXs">
-        {value} - {label}
-      </Typography>
-    </Stack>
-  );
 }
 
 function OwnerCell({ name, initials }: { name: string; initials: string }) {
@@ -204,7 +183,7 @@ function CustomToolbar() {
   );
 }
 
-function VulnerabilitiesDataGrid() {
+function VulnerabilitiesDataGrid({ rows }: { rows: VulnerabilityRow[] }) {
   const columns: GridColDef<VulnerabilityRow>[] = useMemo(
     () => [
       {
@@ -229,12 +208,9 @@ function VulnerabilitiesDataGrid() {
         width: 100,
       },
       {
-        field: "severityScore",
-        headerName: "Severity score",
-        width: 140,
-        renderCell: (params: GridRenderCellParams<VulnerabilityRow>) => (
-          <SeverityScoreCell value={params.value as FivePointScaleValue} />
-        ),
+        field: "vulnerabilityDomain",
+        headerName: "Domain",
+        width: 130,
       },
       {
         field: "assessments",
@@ -281,11 +257,6 @@ function VulnerabilitiesDataGrid() {
         ),
       },
       {
-        field: "vulnerabilityDomain",
-        headerName: "Vulnerability domain",
-        width: 160,
-      },
-      {
         field: "created",
         headerName: "Created",
         width: 120,
@@ -324,8 +295,9 @@ function VulnerabilitiesDataGrid() {
   return (
     <Box sx={{ width: "100%" }}>
       <DataGridPro
-        rows={vulnerabilityRows}
+        rows={rows}
         columns={columns}
+        getRowId={(row) => row.id}
         pagination
         pageSizeOptions={[10, 25, 50]}
         initialState={{
@@ -357,6 +329,12 @@ export default function VulnerabilitiesPage() {
   const { presets } = useTheme();
   const { TabsPresets } = presets;
   const [activeTab, setActiveTab] = useState(1);
+
+  const api = useApiList<ApiVulnCategoryRow>("/api/vulnerability-categories");
+  const vulnRows = useMemo(
+    () => (api.status === "ok" ? api.data.map(mapApiVulnCategory) : []),
+    [api],
+  );
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -429,7 +407,17 @@ export default function VulnerabilitiesPage() {
               You have <strong>3</strong> discrete assets that are not yet linked to aggregated assets. You can automate the linking process with asset linking rules.
             </Alert>
 
-            <VulnerabilitiesDataGrid />
+            {api.status === "loading" && (
+              <Stack alignItems="center" py={4}>
+                <CircularProgress />
+              </Stack>
+            )}
+            {api.status === "error" && (
+              <Alert severity="error">
+                Failed to load vulnerability categories: {api.error}
+              </Alert>
+            )}
+            {api.status === "ok" && <VulnerabilitiesDataGrid rows={vulnRows} />}
           </Stack>
         </div>
 

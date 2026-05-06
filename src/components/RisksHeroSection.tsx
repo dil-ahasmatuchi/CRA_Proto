@@ -4,11 +4,11 @@ import { Box, Card, CardContent, CardHeader, Stack, Typography } from "@mui/mate
 import OrgUnitDropdown, { type OrgUnitOption } from "./OrgUnitDropdown.js";
 import RiskStatusDonut from "./RiskStatusDonut.js";
 import RisksMatrix, { type MatrixSelectionPayload } from "./RisksMatrix.js";
-import { cyberRisks } from "../data/cyberRisks.js";
 import { getOrgUnitById } from "../data/orgUnits.js";
+import type { MockCyberRisk } from "../data/types.js";
 
-function orgUnitOptionsFromRisks(): OrgUnitOption[] {
-  const ids = new Set(cyberRisks.map((r) => r.orgUnitId));
+function orgUnitOptionsFromRisks(risks: readonly MockCyberRisk[]): OrgUnitOption[] {
+  const ids = new Set(risks.map((r) => r.orgUnitId).filter(Boolean));
   return Array.from(ids)
     .map((id) => {
       const ou = getOrgUnitById(id);
@@ -18,6 +18,8 @@ function orgUnitOptionsFromRisks(): OrgUnitOption[] {
 }
 
 type RisksHeroSectionProps = {
+  /** Real risks from the API, used to drive the donut and matrix. */
+  risks: readonly MockCyberRisk[];
   /** When set, matrix/legend drill-in updates the cyber risks list (URL) without full navigation. */
   onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
   /** Selected org. unit for the overview (donut/matrix); drives table filtering when owned by the page. */
@@ -27,18 +29,19 @@ type RisksHeroSectionProps = {
 
 /** Cyber risks overview: workflow status donut, likelihood/impact matrix, org. unit filter. */
 export default function RisksHeroSection({
+  risks,
   onMatrixSelection,
   orgUnit: selectedOrgUnit,
   onOrgUnitChange,
 }: RisksHeroSectionProps) {
-  const ouOptions = useMemo(() => orgUnitOptionsFromRisks(), []);
+  const ouOptions = useMemo(() => orgUnitOptionsFromRisks(risks), [risks]);
 
   const filteredRisks = useMemo(() => {
     if (!selectedOrgUnit) {
-      return cyberRisks;
+      return risks;
     }
-    return cyberRisks.filter((r) => r.orgUnitId === selectedOrgUnit.id);
-  }, [selectedOrgUnit]);
+    return risks.filter((r) => r.orgUnitId === selectedOrgUnit.id);
+  }, [risks, selectedOrgUnit]);
 
   const ouId = selectedOrgUnit?.id ?? null;
 

@@ -2,6 +2,7 @@
   "buildCommand": "npx vite build && rm -rf public && mv dist public",
   "outputDirectory": "public",
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

@@ -1,0 +1,325 @@
+{
+  "examples": [
+    {
+      "confidence": "high",
+      "name": "SQL Injection on Payment Server",
+      "input": {
+        "scenarioId": "SCN-001",
+        "scenarioName": "SQL Injection Attack on Payment Processing Server",
+        "cyberRiskId": "RISK-042",
+        "cyberRiskName": "SQL Injection threat",
+        "isNotApplicable": false,
+        "asset": {
+          "id": "AST-101",
+          "name": "Payment Processing Server",
+          "assetType": "Server",
+          "criticality": 5,
+          "criticalityLabel": "Very high",
+          "orgUnitId": "ORG-001",
+          "status": "Active",
+          "controlIds": ["CTL-201"]
+        },
+        "threat": {
+          "id": "THR-023",
+          "displayId": "THR-023",
+          "name": "SQL Injection Attack",
+          "domain": "Application & API",
+          "description": "Malicious SQL statements injected into application entry fields to manipulate or extract database contents, bypass authentication, or execute administrative operations. Common in web applications with inadequate input validation.",
+          "sources": ["Deliberate"],
+          "threatActors": ["Organised Cybercriminal Group", "Hacktivist"],
+          "attackVectors": ["Web Application & Browser"],
+          "status": "Active"
+        },
+        "vulnerability": {
+          "id": "VUL-045",
+          "displayId": "VUL-045",
+          "name": "Application Security Defect",
+          "description": "Software vulnerabilities including injection flaws, broken authentication, insecure deserialization, and insufficient input validation that can be exploited to compromise application integrity and data.",
+          "domain": "Technology",
+          "vulnerabilityType": "Application Security Defect",
+          "primaryCIAImpact": ["Confidentiality", "Integrity"],
+          "status": "Active"
+        },
+        "controls": [
+          {
+            "id": "CTL-201",
+            "name": "Web Application Firewall",
+            "controlType": "Preventive",
+            "effectiveness": 3,
+            "effectivenessLabel": "Medium",
+            "keyControl": true,
+            "controlFrequency": "Daily",
+            "status": "Active"
+          }
+        ],
+        "orgUnit": {
+          "id": "ORG-001",
+          "name": "Finance Operations"
+        }
+      },
+      "expectedOutput": {
+        "scenarioId": "SCN-001",
+        "timestamp": "2026-05-06T15:30:00Z",
+        "scoringMode": "inherent",
+        "skipped": false,
+        "threatSeverity": 4,
+        "threatSeverityLabel": "High",
+        "threatConfidence": "high",
+        "threatRationale": "**Threat Severity: 4 - High**\n\n**Confidence: High**\n\n**Scoring Basis:** Inherent Risk (without controls)\n\n**Analysis:**\n\n**1. Threat Actor Capability**\nPrimary actor identified as Organised Cybercriminal Group, representing professional, profit-motivated adversaries with established attack patterns and specialized tooling. These actors possess intermediate-to-advanced capabilities and target high-value financial systems. Secondary actor (Hacktivist) adds ideological motivation vector, though typically lower sophistication.\n\n**2. Asset Context**\nAsset: Payment Processing Server (Server, Criticality: 5/5)\nOrg Unit: Finance Operations\nThis is mission-critical financial infrastructure handling sensitive payment data with strict regulatory requirements (PCI-DSS). High asset criticality amplifies threat severity as successful attack would cause maximum business impact including financial loss, regulatory penalties, and reputational damage.\n\n**3. Threat Characteristics**\n• Attack Vector: Web Application & Browser → Highly accessible, no physical proximity required, supports both automated and manual exploitation\n• Threat Source: Deliberate → Intentional, repeatable attack pattern indicating persistent threat\n• Description Content: \"Common in web applications\" confirms this is an established, prevalent threat with known exploitation patterns\n• Status: Active → Threat is currently relevant and poses immediate risk\n\n**4. Domain-Asset Type Alignment**\nThreat Domain: Application & API\nAsset Type: Server (hosting web applications with database connectivity)\nAlignment: Strong\nServers running web applications are primary targets for application-layer attacks. The threat domain directly maps to the asset's function and exposure, maximizing exploitability.\n\n**5. Attack Vector Analysis**\nWeb Application & Browser vector provides universal accessibility to any internet-connected attacker. No specialized access requirements or physical controls create barriers. Automated reconnaissance and exploitation tools (e.g., SQLMap, Burp Suite) are freely available, lowering the skill threshold for successful attacks.\n\n**Severity Determination:**\nHigh severity (4) is warranted based on organized, financially-motivated threat actors, highly accessible attack vectors, critical asset value (criticality 5/5), and strong threat domain/asset type alignment. The threat is active, deliberate, and targets financial systems matching this asset profile. Not scored as Very High (5) because this represents organized crime rather than nation-state level threat, and the attack requires some application interaction rather than passive exploitation.",
+        "vulnerabilitySeverity": 4,
+        "vulnerabilitySeverityLabel": "High",
+        "vulnerabilityConfidence": "high",
+        "vulnerabilityRationale": "**Vulnerability Severity: 4 - High**\n\n**Confidence: High**\n\n**Scoring Basis:** Inherent Risk (without controls)\n\n**Analysis:**\n\n**1. Exploitability Assessment**\nApplication Security Defects, specifically SQL injection flaws, are classified as easily exploitable with only basic SQL knowledge required. Automated scanning tools (SQLMap, Havij, jSQL Injection) are freely available and capable of detecting and exploiting these vulnerabilities with minimal user intervention. The OWASP Top 10 consistently ranks injection flaws in the highest severity category, indicating widespread exploitability.\n\n**2. Asset Context**\nAsset: Payment Processing Server (Server, Criticality: 5/5)\nOrg Unit: Finance Operations\nCritical server hosting payment applications with direct database connectivity. Successful exploitation provides immediate access to sensitive financial records, customer payment information, and transaction data. The asset's role in financial operations creates severe consequences for any confidentiality or integrity breach.\n\n**3. Vulnerability Characteristics**\n• Type: Application Security Defect (code-level weakness in input validation)\n• Domain: Technology (systematic technical vulnerability)\n• Description: \"injection flaws, broken authentication, insecure deserialization, insufficient input validation\" - comprehensive list indicating multiple exploitation paths\n• Status: Active → Vulnerability is present and exploitable in current system state\n\n**4. Domain-Asset Type Alignment**\nVulnerability Domain: Technology\nAsset Type: Server (running web applications with database backend)\nAlignment: Strong\nApplication security defects are highly relevant to servers hosting web-facing applications. The vulnerability type directly enables the identified SQL injection threat through inadequate input sanitization and validation at the application layer.\n\n**5. CIA Impact Analysis**\n• Confidentiality: Payment data extraction, customer PII exposure (HIGH impact)\n• Integrity: Transaction manipulation, data modification, authentication bypass (HIGH impact)\n• Availability: Not primary impact vector (database locks possible but not main concern)\n\nDual CIA impact (Confidentiality + Integrity) significantly increases severity. Both pillars are critical for financial systems where data accuracy and privacy are regulatory requirements.\n\n**Severity Determination:**\nHigh severity (4) is justified by easy exploitability through well-known SQL injection techniques, dual CIA impact on critical data pillars, and the critical nature of the payment processing server (criticality 5/5). Strong domain-asset alignment and documented exploitation methods in the description confirm significant vulnerability. Not scored as Very High (5) because the vulnerability lacks the third CIA pillar (Availability is not critically impacted) and requires some application-level interaction rather than being a passive network-level exploit.",
+        "combinedRationaleSummary": "## Threat Severity: 4 - High | Confidence: High\n\nSQL injection attacks pose a high-severity threat to this payment processing server due to organized cybercriminal actors who are financially motivated and possess established attack tools. The web application vector is highly accessible, requiring no physical proximity, and the strong alignment between the Application & API threat domain and this server's function creates significant exposure. This server's critical role in financial operations (criticality 5/5) amplifies the threat as successful attacks would cause severe business impact including data breaches, financial loss, and regulatory penalties.\n\n---\n\n## Vulnerability Severity: 4 - High | Confidence: High\n\nThe application security defect representing SQL injection vulnerabilities scores high severity due to easy exploitability using freely available automated tools and widespread documentation of exploitation techniques. This vulnerability impacts both confidentiality (payment data extraction) and integrity (transaction manipulation), affecting critical security pillars for financial systems. Given the payment processing server's criticality (5/5) and its direct database connectivity, this weakness provides attackers with immediate access to sensitive financial records and transaction data.\n\n---\n\n## Calculated Risk Metrics\n\n**Likelihood:** 16 - High (Threat Severity 4 × Vulnerability Severity 4)\n**Cyber Risk Score:** 80 - High (Impact 5 × Likelihood 16)\n\nThis scenario represents a high-probability, high-impact risk requiring immediate attention and mitigation planning. The combination of motivated threat actors, easily exploitable vulnerabilities, and critical asset value creates substantial organizational exposure.\n\n---\n\n## Scoring Context\n\n**Asset:** Payment Processing Server (Server, Criticality: 5/5)\n**Org Unit:** Finance Operations\n**Scoring Mode:** Inherent Risk (without controls)",
+        "calculatedLikelihood": 16,
+        "calculatedLikelihoodLabel": "High",
+        "calculatedCyberRiskScore": 80,
+        "calculatedCyberRiskScoreLabel": "High",
+        "needsReview": false
+      }
+    },
+    {
+      "confidence": "medium",
+      "name": "Ransomware on File Server",
+      "input": {
+        "scenarioId": "SCN-042",
+        "scenarioName": "Ransomware Attack on Corporate File Server",
+        "cyberRiskId": "RISK-128",
+        "cyberRiskName": "Ransomware threat",
+        "isNotApplicable": false,
+        "asset": {
+          "id": "AST-250",
+          "name": "Corporate File Server",
+          "assetType": "Server",
+          "criticality": 3,
+          "criticalityLabel": "Medium",
+          "orgUnitId": "ORG-005",
+          "status": "Active",
+          "controlIds": ["CTL-401", "CTL-402"]
+        },
+        "threat": {
+          "id": "THR-067",
+          "displayId": "THR-067",
+          "name": "Ransomware Attack",
+          "domain": "Endpoint & Device",
+          "description": "Encrypts files and demands payment for decryption",
+          "sources": ["Deliberate", "Accidental"],
+          "threatActors": [
+            "Organised Cybercriminal Group",
+            "Opportunistic / Script Kiddie",
+            "Negligent / Untrained Employee"
+          ],
+          "attackVectors": ["Email & Messaging (phishing, BEC, malicious attachments)"],
+          "status": "Active"
+        },
+        "vulnerability": {
+          "id": "VUL-188",
+          "displayId": "VUL-188",
+          "name": "Patch Management Gap",
+          "description": "Systems lack current security patches creating exploitation opportunities",
+          "domain": "Technology",
+          "vulnerabilityType": "Patch / Update Management",
+          "primaryCIAImpact": ["Availability"],
+          "status": "Active"
+        },
+        "controls": [
+          {
+            "id": "CTL-401",
+            "name": "Email Filtering",
+            "controlType": "Preventive",
+            "effectiveness": 2,
+            "effectivenessLabel": "Low",
+            "keyControl": false,
+            "controlFrequency": "Daily",
+            "status": "Active"
+          },
+          {
+            "id": "CTL-402",
+            "name": "Backup and Recovery",
+            "controlType": "Detective",
+            "effectiveness": 4,
+            "effectivenessLabel": "High",
+            "keyControl": true,
+            "controlFrequency": "Daily",
+            "status": "Active"
+          }
+        ],
+        "orgUnit": {
+          "id": "ORG-005",
+          "name": "IT Operations"
+        }
+      },
+      "expectedOutput": {
+        "scenarioId": "SCN-042",
+        "timestamp": "2026-05-06T16:15:00Z",
+        "scoringMode": "inherent",
+        "skipped": false,
+        "threatSeverity": 3,
+        "threatSeverityLabel": "Medium",
+        "threatConfidence": "medium",
+        "threatConfidenceReason": "Multiple threat actor types ranging from sophisticated (Organised Cybercriminal) to opportunistic create scoring ambiguity. Limited threat description details.",
+        "threatRationale": "**Threat Severity: 3 - Medium**\n\n**Confidence: Medium**\nMultiple threat actor types ranging from sophisticated (Organised Cybercriminal) to opportunistic create ambiguity in capability assessment. Brief threat description limits detailed analysis.\n\n**Scoring Basis:** Inherent Risk (without controls)\n\n**Analysis:**\n\n**1. Threat Actor Capability**\nThree distinct actor types identified: Organised Cybercriminal Group (high capability), Opportunistic/Script Kiddie (low capability), and Negligent Employee (accidental). This range creates uncertainty - organized groups would score higher (4-5) while opportunistic actors would score lower (1-3). The presence of organized crime suggests this is not trivial, but the inclusion of accidental/opportunistic actors indicates varied threat landscape.\n\n**2. Asset Context**\nAsset: Corporate File Server (Server, Criticality: 3/5)\nOrg Unit: IT Operations\nMedium criticality asset handling standard business files. Not mission-critical infrastructure, but disruption would impact operations. The medium criticality moderates threat severity compared to critical assets.\n\n**3. Threat Characteristics**\n• Attack Vector: Email & Messaging (phishing) → Accessible but requires social engineering success, not pure technical exploitation\n• Threat Sources: Both Deliberate and Accidental → Mixed intentionality reduces predictability\n• Description: Brief (\"Encrypts files and demands payment\") - lacks operational detail on techniques, variants, or specific targeting\n• Status: Active → Currently relevant threat\n\n**4. Domain-Asset Type Alignment**\nThreat Domain: Endpoint & Device\nAsset Type: Server (file server)\nAlignment: Moderate\nEndpoint-focused threats typically target workstations/laptops rather than servers. File servers can be affected via lateral movement after endpoint compromise, but the primary domain mismatch reduces direct threat exposure.\n\n**5. Attack Vector Analysis**\nEmail phishing is accessible but success-rate dependent. Requires user interaction and security awareness failures. More conditional than direct technical exploits.\n\n**Severity Determination:**\nMedium severity (3) reflects the balance of organized threat actors (increasing severity) against medium asset criticality, moderate domain alignment, and the conditional nature of the email attack vector. The mix of deliberate and accidental sources, plus the range of actor sophistication, creates moderate overall threat. Scored in middle range due to these conflicting indicators.\n\n**Review Recommended:** Validate primary threat actor profile relevant to this organization's threat landscape.",
+        "vulnerabilitySeverity": 3,
+        "vulnerabilitySeverityLabel": "Medium",
+        "vulnerabilityConfidence": "medium",
+        "vulnerabilityConfidenceReason": "Generic 'Patch Management Gap' classification without specific CVEs or patch details limits precise severity assessment.",
+        "vulnerabilityRationale": "**Vulnerability Severity: 3 - Medium**\n\n**Confidence: Medium**\nGeneric \"Patch Management Gap\" classification without specific CVE identifiers or patch details prevents precise exploitability assessment.\n\n**Scoring Basis:** Inherent Risk (without controls)\n\n**Analysis:**\n\n**1. Exploitability Assessment**\nPatch management gaps have variable exploitability depending on specific missing patches. Known CVEs for unpatched systems can range from trivial (exploit kits available) to complex (requiring specific conditions). Without knowing which patches are missing, exploitability could be anywhere from moderate (3) to high (4). Conservative middle-ground estimate applied.\n\n**2. Asset Context**\nAsset: Corporate File Server (Server, Criticality: 3/5)\nOrg Unit: IT Operations\nMedium criticality file server. Patch gaps on file servers are concerning but less critical than database or payment systems. The medium criticality limits maximum severity.\n\n**3. Vulnerability Characteristics**\n• Type: Patch / Update Management (operational process weakness)\n• Domain: Technology (technical vulnerability category)\n• Description: \"Systems lack current security patches\" - confirms presence but lacks specifics\n• Status: Active → Vulnerability is present in current environment\n\n**4. Domain-Asset Type Alignment**\nVulnerability Domain: Technology\nAsset Type: Server\nAlignment: Strong\nPatch management vulnerabilities directly apply to server assets. Operating system and application patches are critical for server security, making this a relevant weakness.\n\n**5. CIA Impact Analysis**\n• Confidentiality: Not primary impact (file access possible but not main vector)\n• Integrity: Not primary impact (modification possible but not main concern)\n• Availability: Primary impact - ransomware encryption renders files unavailable\n\nSingle CIA impact (Availability only) limits maximum severity compared to dual or triple impact vulnerabilities.\n\n**Severity Determination:**\nMedium severity (3) based on moderate exploitability (depends on specific patches), single CIA impact (Availability), medium asset criticality (3/5), and strong domain-asset alignment. Not scored higher due to lack of specific exploit details and single-pillar impact. Not scored lower because patch gaps are well-known exploitation paths for ransomware.\n\n**Review Recommended:** Identify specific missing patches and associated CVEs to refine severity assessment.",
+        "combinedRationaleSummary": "## Threat Severity: 3 - Medium | Confidence: Medium\n\nRansomware attacks represent a moderate threat to this file server, with threat actors ranging from organized groups to opportunistic attackers. The email phishing vector is accessible but requires social engineering success rather than technical exploitation. While the threat domain (Endpoint & Device) has moderate alignment with file servers, the asset's medium criticality (3/5) and standard business function reduce overall severity compared to critical infrastructure.\n\n⚠️ *Confidence Note: Limited attack vector details and multiple threat actor types (ranging from sophisticated to opportunistic) create scoring ambiguity. Recommend validating threat actor profiles specific to your organization's threat landscape.*\n\n---\n\n## Vulnerability Severity: 3 - Medium | Confidence: Medium\n\nThe patch management gap shows moderate exploitability depending on specific unpatched systems and known CVEs. Single CIA impact (Availability through ransomware encryption) limits maximum severity. The Technology domain aligns with the Server asset type, but the generic \"Patch Management\" classification without specific CVE details prevents precise severity assessment.\n\n⚠️ *Confidence Note: Vulnerability type is generic without specific patch details or CVE identifiers. Actual severity may vary based on specific unpatched systems and available exploits.*\n\n---\n\n## Calculated Risk Metrics\n\n**Likelihood:** 9 - Low (Threat Severity 3 × Vulnerability Severity 3)\n**Cyber Risk Score:** 27 - Low (Impact 3 × Likelihood 9)\n\nThis scenario presents moderate risk requiring scheduled remediation within standard patch management cycles. The combination of medium-confidence scores suggests additional investigation would improve accuracy.\n\n---\n\n## Scoring Context\n\n**Asset:** Corporate File Server (Server, Criticality: 3/5)\n**Org Unit:** IT Operations\n**Scoring Mode:** Inherent Risk (without controls)\n\n---\n\n## Review Notes\n\n• **Threat Actor Clarification**: Validate which threat actor profile is most relevant to this asset and organization\n• **Patch Inventory**: Identify specific missing patches and associated CVEs to refine vulnerability severity\n• **Attack Vector Detail**: Confirm email phishing is the primary vector or if other vectors apply (RDP, VPN, etc.)\n• **Historical Context**: Check if this asset type has been targeted previously in your environment",
+        "calculatedLikelihood": 9,
+        "calculatedLikelihoodLabel": "Low",
+        "calculatedCyberRiskScore": 27,
+        "calculatedCyberRiskScoreLabel": "Low",
+        "needsReview": false
+      }
+    },
+    {
+      "confidence": "low",
+      "name": "Unknown Threat on Legacy System",
+      "input": {
+        "scenarioId": "SCN-099",
+        "scenarioName": "Emerging Threat on Legacy Mainframe",
+        "cyberRiskId": "RISK-999",
+        "cyberRiskName": "Legacy system compromise",
+        "isNotApplicable": false,
+        "asset": {
+          "id": "AST-999",
+          "name": "Legacy Mainframe",
+          "assetType": "Server",
+          "criticality": 4,
+          "criticalityLabel": "High",
+          "orgUnitId": "ORG-002",
+          "status": "Active",
+          "controlIds": []
+        },
+        "threat": {
+          "id": "THR-999",
+          "displayId": "THR-999",
+          "name": "Emerging Threat",
+          "domain": "Operational Technology (OT/ICS)",
+          "description": "",
+          "sources": ["Deliberate"],
+          "threatActors": [],
+          "attackVectors": [],
+          "status": "Draft"
+        },
+        "vulnerability": {
+          "id": "VUL-999",
+          "displayId": "VUL-999",
+          "name": "Unknown Vulnerability",
+          "description": "",
+          "domain": "Technology",
+          "vulnerabilityType": "",
+          "primaryCIAImpact": ["Confidentiality"],
+          "status": "Draft"
+        },
+        "controls": [],
+        "orgUnit": {
+          "id": "ORG-002",
+          "name": "IT Operations"
+        }
+      },
+      "expectedOutput": {
+        "scenarioId": "SCN-099",
+        "timestamp": "2026-05-06T16:45:00Z",
+        "scoringMode": "inherent",
+        "skipped": false,
+        "threatSeverity": 2,
+        "threatSeverityLabel": "Low",
+        "threatConfidence": "low",
+        "threatConfidenceReason": "Missing critical threat description, no threat actors specified, no attack vectors defined, and unusual OT/ICS domain classification for a mainframe asset. Threat status is Draft indicating incomplete data entry.",
+        "threatRationale": "**Threat Severity: 2 - Low**\n\n**Confidence: Low**\n**Critical data missing** - No threat description, actors, or attack vectors provided. Threat status is Draft indicating incomplete catalog entry. OT/ICS domain classification for a mainframe appears misaligned.\n\n**Scoring Basis:** Inherent Risk (without controls)\n\n**Analysis:**\n\n**1. Threat Actor Capability**\nNo threat actors specified - unable to assess attacker sophistication, motivation, or capability. This is a critical data gap preventing confident severity assessment. Default assumption of moderate capability based solely on deliberate source, but this is highly uncertain.\n\n**2. Asset Context**\nAsset: Legacy Mainframe (Server, Criticality: 4/5)\nOrg Unit: IT Operations\nHigh criticality asset suggests significant business value, which would normally elevate threat severity. However, without threat details, the asset context alone cannot determine appropriate scoring. Legacy systems typically have known vulnerabilities due to age, but specific threats must be identified.\n\n**3. Threat Characteristics**\n• Attack Vector: NONE SPECIFIED - Cannot assess accessibility\n• Threat Source: Deliberate (intentional attack) - Only data point available\n• Description: EMPTY - No scenario narrative, techniques, or targeting information\n• Status: Draft - Incomplete threat definition, not ready for assessment use\n\n**4. Domain-Asset Type Alignment**\nThreat Domain: Operational Technology (OT/ICS)\nAsset Type: Server (described as \"Mainframe\")\nAlignment: WEAK - Severe mismatch\nOT/ICS threats typically target industrial control systems, SCADA, and operational technology environments, not mainframes. Mainframes are typically classified under Network & Infrastructure or Data & Information domains. This misalignment suggests possible catalog data error.\n\n**5. Attack Vector Analysis**\nNo attack vectors specified - completely unable to assess how the threat would be delivered or executed against this asset.\n\n**Severity Determination:**\nLow severity (2) assigned as conservative baseline given high asset criticality (4/5) adjusted for deliberate threat source. Scored above Very Low (1) only due to asset importance. Cannot score higher without threat actors, attack vectors, or description. This score should NOT be used for risk decisions.\n\n**Review Recommended:** Complete all missing threat catalog fields before including in assessment.",
+        "vulnerabilitySeverity": 2,
+        "vulnerabilitySeverityLabel": "Low",
+        "vulnerabilityConfidence": "low",
+        "vulnerabilityConfidenceReason": "No vulnerability type specified, missing description, and generic domain classification prevent accurate severity assessment. Vulnerability status is Draft indicating incomplete data.",
+        "vulnerabilityRationale": "**Vulnerability Severity: 2 - Low**\n\n**Confidence: Low**\n**Critical data missing** - No vulnerability type or description provided. Generic domain classification and Draft status indicate incomplete data entry.\n\n**Scoring Basis:** Inherent Risk (without controls)\n\n**Analysis:**\n\n**1. Exploitability Assessment**\nUnable to assess exploitability without vulnerability type or description. Unknown whether this is a code-level defect, configuration issue, or process weakness. Without knowing the specific vulnerability nature, exploitability could range from trivial (1) to very difficult (5). Default conservative estimate applied but highly uncertain.\n\n**2. Asset Context**\nAsset: Legacy Mainframe (Server, Criticality: 4/5)\nOrg Unit: IT Operations\nHigh criticality asset handling important business functions. Legacy systems inherently have vulnerabilities due to age, end-of-support status, and outdated technology. However, specific vulnerability must be identified for accurate severity.\n\n**3. Vulnerability Characteristics**\n• Type: NOT SPECIFIED - Critical gap\n• Domain: Technology (generic classification, no specificity)\n• Description: EMPTY - No details on exploitation method, impact, or remediation\n• Status: Draft - Incomplete vulnerability definition\n\n**4. Domain-Asset Type Alignment**\nVulnerability Domain: Technology (generic)\nAsset Type: Server (mainframe)\nAlignment: Moderate\nTechnology vulnerabilities broadly apply to servers, but without specific vulnerability type, cannot assess true relevance. Generic classification prevents meaningful alignment analysis.\n\n**5. CIA Impact Analysis**\n• Confidentiality: Specified as primary impact\n• Integrity: Not specified\n• Availability: Not specified\n\nSingle CIA impact (Confidentiality only) limits maximum severity. However, for mainframes handling sensitive data, confidentiality breaches can be severe. Without context, impact scope unclear.\n\n**Severity Determination:**\nLow severity (2) assigned conservatively due to significant data gaps. Single CIA impact and lack of exploitability information prevent higher scoring. The asset criticality (4/5) prevents scoring as Very Low (1), but without specific vulnerability type or description, scoring above Low would be purely speculative. This score is NOT suitable for risk decisions.\n\n**Review Recommended:** Complete vulnerability catalog entry with specific type, description, and exploitation details before including in assessment.",
+        "combinedRationaleSummary": "## Threat Severity: 2 - Low | Confidence: Low\n\nLimited threat data prevents confident severity assessment. The threat is classified under Operational Technology (OT/ICS) domain targeting a mainframe server, which represents an unusual domain-asset pairing. With no threat actors specified, no attack vectors documented, and an empty threat description, this score defaults to Low (2) as a conservative baseline, adjusted upward slightly from Very Low due to the asset's high criticality (4/5).\n\n⚠️ *Confidence Note: **Critical data missing** - No threat description, actors, or attack vectors provided. Threat status is Draft indicating incomplete catalog entry. OT/ICS domain classification for a mainframe appears misaligned.*\n\n---\n\n## Vulnerability Severity: 2 - Low | Confidence: Low\n\nGeneric Technology domain classification with no specific vulnerability type prevents accurate exploitability assessment. Single CIA impact (Confidentiality only) and absence of exploitation details force conservative Low (2) scoring. The lack of vulnerability description and empty vulnerability type field indicate incomplete catalog data rather than actual low severity.\n\n⚠️ *Confidence Note: **Critical data missing** - No vulnerability type or description provided. Generic domain classification and Draft status indicate incomplete data entry.*\n\n---\n\n## Calculated Risk Metrics\n\n**Likelihood:** 4 - Very Low (Threat Severity 2 × Vulnerability Severity 2)\n**Cyber Risk Score:** 16 - Very Low (Impact 4 × Likelihood 4)\n\n**⚠️ WARNING: These scores are based on incomplete data and should NOT be used for risk decisions without completing the threat and vulnerability catalog entries.**\n\n---\n\n## Scoring Context\n\n**Asset:** Legacy Mainframe (Server, Criticality: 4/5)\n**Org Unit:** IT Operations\n**Scoring Mode:** Inherent Risk (without controls)\n\n---\n\n## Review Notes - **REQUIRED BEFORE ASSESSMENT**\n\n### Critical Data Gaps:\n• **Threat Description**: Add detailed threat scenario narrative\n• **Threat Actors**: Specify applicable threat actor types\n• **Attack Vectors**: Document attack vector(s) relevant to mainframe systems\n• **Vulnerability Type**: Specify vulnerability classification beyond generic \"Technology\"\n• **Vulnerability Description**: Add exploitability and impact details\n\n### Data Quality Issues:\n• **Domain Mismatch**: Verify OT/ICS classification for mainframe (typically classified under Network & Infrastructure or Data & Information)\n• **Draft Status**: Complete catalog entries and change status to Active before including in assessment\n• **CIA Impact**: Validate if only Confidentiality is impacted or if Integrity/Availability should be included\n\n### Recommended Actions:\n1. Consult with threat intelligence team to complete threat profile\n2. Perform vulnerability scan/assessment to identify specific weaknesses\n3. Reclassify threat domain to match mainframe asset type\n4. Update catalog entries from Draft to Active with complete data\n5. Re-run scoring agent after data completion\n\n**DO NOT PROCEED WITH ASSESSMENT** using these scores until catalog data is complete.",
+        "calculatedLikelihood": 4,
+        "calculatedLikelihoodLabel": "Very low",
+        "calculatedCyberRiskScore": 16,
+        "calculatedCyberRiskScoreLabel": "Very low",
+        "needsReview": true,
+        "reviewReason": "Low confidence in both threat severity and vulnerability severity due to missing critical data (threat description, actors, vectors, vulnerability type). Threat and vulnerability both in Draft status. Domain-asset type mismatch (OT/ICS on mainframe) suggests possible catalog errors. Complete threat and vulnerability catalog entries before proceeding with assessment."
+      }
+    },
+    {
+      "confidence": "N/A",
+      "name": "Not Applicable Scenario",
+      "input": {
+        "scenarioId": "SCN-555",
+        "scenarioName": "Physical Security Breach on Cloud Infrastructure",
+        "cyberRiskId": "RISK-333",
+        "cyberRiskName": "Physical security threat",
+        "isNotApplicable": true,
+        "asset": {
+          "id": "AST-789",
+          "name": "Cloud Storage Service",
+          "assetType": "Cloud service",
+          "criticality": 5,
+          "criticalityLabel": "Very high",
+          "orgUnitId": "ORG-004",
+          "status": "Active",
+          "controlIds": ["CTL-501"]
+        },
+        "threat": {
+          "id": "THR-156",
+          "displayId": "THR-156",
+          "name": "Physical Facility Breach",
+          "domain": "Physical & Facilities",
+          "description": "Unauthorized physical access to data center or server room",
+          "sources": ["Deliberate"],
+          "threatActors": ["Malicious Insider (employee, contractor)"],
+          "attackVectors": ["Physical Access & Removable Media"],
+          "status": "Active"
+        },
+        "vulnerability": {
+          "id": "VUL-234",
+          "displayId": "VUL-234",
+          "name": "Physical Security Gap",
+          "description": "Inadequate physical security controls at facility perimeter",
+          "domain": "Physical",
+          "vulnerabilityType": "Physical and Environmental Security Gap",
+          "primaryCIAImpact": ["Confidentiality", "Integrity", "Availability"],
+          "status": "Active"
+        },
+        "controls": [
+          {
+            "id": "CTL-501",
+            "name": "Datacenter Physical Security",
+            "controlType": "Preventive",
+            "effectiveness": 5,
+            "effectivenessLabel": "Very high",
+            "keyControl": true,
+            "controlFrequency": "Daily",
+            "status": "Active"
+          }
+        ],
+        "orgUnit": {
+          "id": "ORG-004",
+          "name": "Cloud Infrastructure"
+        }
+      },
+      "expectedOutput": {
+        "scenarioId": "SCN-555",
+        "timestamp": "2026-05-06T17:00:00Z",
+        "scoringMode": "inherent",
+        "skipped": true,
+        "skipReason": "Scenario marked as Not Applicable to this assessment",
+        "threatSeverity": null,
+        "threatSeverityLabel": null,
+        "threatConfidence": "high",
+        "threatRationale": "",
+        "vulnerabilitySeverity": null,
+        "vulnerabilitySeverityLabel": null,
+        "vulnerabilityConfidence": "high",
+        "vulnerabilityRationale": "",
+        "combinedRationaleSummary": "This scenario has been marked as Not Applicable to this assessment and was not scored.\n\n**Reason**: The assessment team determined this physical security threat is not relevant to cloud infrastructure assets where physical security is managed by the third-party cloud provider.\n\n---\n\n## Scoring Context\n\n**Asset:** Cloud Storage Service (Cloud service, Criticality: 5/5)\n**Org Unit:** Cloud Infrastructure\n**Status:** Not Applicable",
+        "calculatedLikelihood": null,
+        "calculatedLikelihoodLabel": null,
+        "calculatedCyberRiskScore": null,
+        "calculatedCyberRiskScoreLabel": null,
+        "needsReview": false
+      }
+    }
+  ]
+}

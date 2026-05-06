@@ -50,6 +50,105 @@ import {
   assessmentScopedCyberRisks,
   assessmentScopedScenarios,
 } from "../data/assessmentScopeRollup.js";
+import type { ApiAssessmentScenario } from "../hooks/useAssessmentScenarios.js";
+import { useAssessmentScenarios } from "../hooks/useAssessmentScenarios.js";
+
+type ApiScenario = ApiAssessmentScenario;
+
+// ---------------------------------------------------------------------------
+// Build ScoringRow[] from API scenarios (grouped by cyber risk)
+// ---------------------------------------------------------------------------
+
+function buildScoringRowsFromApiScenarios(scenarios: ApiScenario[]): ScoringRow[] {
+  // Preserve insertion order — first time we see a cyberRiskId, register the group.
+  const riskOrder: string[] = [];
+  const riskNames = new Map<string, string>();
+  const byRisk = new Map<string, ApiScenario[]>();
+
+  for (const s of scenarios) {
+    if (!s.isExcluded) {
+      if (!byRisk.has(s.cyberRiskId)) {
+        riskOrder.push(s.cyberRiskId);
+        riskNames.set(s.cyberRiskId, s.cyberRiskName ?? s.cyberRiskId);
+        byRisk.set(s.cyberRiskId, []);
+      }
+      byRisk.get(s.cyberRiskId)!.push(s);
+    }
+  }
+
+  const rows: ScoringRow[] = [];
+  for (const riskId of riskOrder) {
+    rows.push({
+      id: riskId,
+      kind: "cyberRisk",
+      groupId: riskId,
+      tag: "Cyber risk",
+      title: (
+        <Link
+          href="#"
+          onClick={(e) => e.preventDefault()}
+          underline="always"
+          sx={({ tokens: t }) => ({
+            fontSize: t.semantic.font.text.md.fontSize.value,
+            lineHeight: t.semantic.font.text.md.lineHeight.value,
+            letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+            fontWeight: 600,
+            color: t.semantic.color.type.default.value,
+          })}
+        >
+          {riskNames.get(riskId)}
+        </Link>
+      ),
+      impact: null,
+      threat: null,
+      vulnerability: null,
+      likelihood: null,
+      cyberRiskScore: null,
+    });
+
+    for (const s of byRisk.get(riskId) ?? []) {
+      const na = s.isNotApplicable;
+      rows.push({
+        id: s.displayId,
+        kind: "scenario",
+        groupId: riskId,
+        tag: "Scenario",
+        title: (
+          <Typography
+            sx={({ tokens: t }) => ({
+              fontSize: t.semantic.font.text.md.fontSize.value,
+              lineHeight: t.semantic.font.text.md.lineHeight.value,
+              letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+              color: t.semantic.color.type.default.value,
+            })}
+          >
+            {s.name}
+          </Typography>
+        ),
+        impact:
+          !na && s.impact != null && s.impactLabel
+            ? toFivePointScore(s.impact, s.impactLabel as FivePointScaleLabel)
+            : null,
+        threat:
+          !na && s.threatSeverity != null && s.threatSeverityLabel
+            ? toFivePointScore(s.threatSeverity, s.threatSeverityLabel as FivePointScaleLabel)
+            : null,
+        vulnerability:
+          !na && s.vulnerabilitySeverity != null && s.vulnerabilitySeverityLabel
+            ? toFivePointScore(
+                s.vulnerabilitySeverity,
+                s.vulnerabilitySeverityLabel as FivePointScaleLabel,
+              )
+            : null,
+        likelihood: !na && s.likelihood != null ? toLikelihoodScore(s.likelihood) : null,
+        cyberRiskScore:
+          !na && s.cyberRiskScore != null ? toCyberRiskScoreValue(s.cyberRiskScore) : null,
+      });
+    }
+  }
+
+  return rows;
+}
 
 const EMPTY_SCENARIO_NOT_APPLICABLE_IDS = new Set<string>();
 
@@ -549,6 +648,13 @@ function MetricScoreSkeleton() {
 }
 
 type AssessmentScoringTabProps = {
+  /**
+   * When set, scenarios are loaded from the DB via the API for this assessment display ID.
+   * If absent, the component falls back to the mock catalog store.
+   */
+  dbDisplayId?: string | null;
+  /** Increment this to trigger a scenarios refetch after AI scoring completes */
+  scenariosRefetchKey?: number;
   /** Passed to the scenario detail page for breadcrumbs. */
   assessmentName?: string;
   /** Current CRA assessment URL; used when returning from scenario scoring rationale. */
@@ -587,6 +693,8 @@ type AssessmentScoringTabProps = {
 };
 
 export default function AssessmentScoringTab({
+  dbDisplayId,
+  scenariosRefetchKey = 0,
   assessmentName = "",
   returnToAssessmentPath,
   aggregationMethod,
@@ -612,21 +720,47 @@ export default function AssessmentScoringTab({
   rowActionsDisabled = false,
 }: AssessmentScoringTabProps) {
   const navigate = useNavigate();
+
+  // API-based scenario loading (when assessment has been saved to DB).
+  const apiScenarios = useAssessmentScenarios(dbDisplayId, includedAssetIds.size > 0);
+  const useApiData = Boolean(dbDisplayId);
+
+  // Trigger refetch when scenariosRefetchKey changes
+  useEffect(() => {
+    if (scenariosRefetchKey > 0 && apiScenarios.refetch) {
+      apiScenarios.refetch();
+    }
+  }, [scenariosRefetchKey, apiScenarios]);
+
+  // Fall back to mock catalog store only when no dbDisplayId is set.
   const catalogVersion = useSyncExternalStore(
     subscribeCatalog,
     getCatalogSnapshotVersion,
     getCatalogSnapshotVersion,
   );
-  const scoringRows = useMemo(
+  const mockScoringRows = useMemo(
     () =>
-      buildScoringRowsForScope(
-        includedAssetIds,
-        excludedScopeCyberRiskIds,
-        excludedScopeScenarioIds,
-        scenarioNotApplicableIds,
-      ),
-    [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds, scenarioNotApplicableIds, catalogVersion],
+      useApiData
+        ? []
+        : buildScoringRowsForScope(
+            includedAssetIds,
+            excludedScopeCyberRiskIds,
+            excludedScopeScenarioIds,
+            scenarioNotApplicableIds,
+          ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [useApiData, includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds, scenarioNotApplicableIds, catalogVersion],
   );
+
+  const apiScoringRows = useMemo(
+    () =>
+      apiScenarios.status === "ok" ? buildScoringRowsFromApiScenarios(apiScenarios.data) : [],
+    [apiScenarios],
+  );
+
+  const scoringRows = useApiData ? apiScoringRows : mockScoringRows;
+  const isLoadingScenarios =
+    useApiData && (apiScenarios.status === "loading" || apiScenarios.status === "generating");
 
   const rowsForDisplay = useMemo(() => {
     if (!isNewCraDraftFlow) return scoringRows;
@@ -801,6 +935,43 @@ export default function AssessmentScoringTab({
       >
         <AssessmentScopeEmptyState variant="scoring" onPrimaryAction={onGoToScope} />
       </Stack>
+    );
+  }
+
+  if (isLoadingScenarios) {
+    return (
+      <Stack
+        alignItems="center"
+        justifyContent="center"
+        sx={({ tokens: t }) => ({
+          width: "100%",
+          pt: t.core.spacing["6"].value,
+          gap: t.core.spacing["2"].value,
+        })}
+      >
+        <Skeleton variant="rounded" width="100%" height={52} sx={{ borderRadius: 1 }} />
+        <Skeleton variant="rounded" width="100%" height={52} sx={{ borderRadius: 1 }} />
+        <Skeleton variant="rounded" width="100%" height={52} sx={{ borderRadius: 1 }} />
+        <Typography
+          variant="body2"
+          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value, mt: 1 })}
+        >
+          {apiScenarios.status === "generating"
+            ? "Generating scenarios from scope…"
+            : "Loading scenarios…"}
+        </Typography>
+      </Stack>
+    );
+  }
+
+  if (useApiData && apiScenarios.status === "error") {
+    return (
+      <Typography
+        variant="body1"
+        sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value, pt: 2 })}
+      >
+        Failed to load scenarios: {apiScenarios.error}
+      </Typography>
     );
   }
 
