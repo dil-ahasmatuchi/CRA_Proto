@@ -1,12 +1,12 @@
 import TableIcon from "@diligentcorp/atlas-react-bundle/icons/Table";
 import { RelationCard } from "../components/RelationCard.js";
 import RiskDetailHeader from "../components/RiskDetailHeader.js";
-import { Box, Button, Container, Link, Stack, Typography, useTheme } from "@mui/material";
+import RiskDetailsForm from "../components/RiskDetailsForm.js";
+import { Box, Button, Container, Link, Stack, Typography } from "@mui/material";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink, Navigate, useParams } from "react-router";
 
 import type { CyberRiskStatus } from "../data/types.js";
-import { getOrgUnitById } from "../data/orgUnits.js";
 import { getCyberRiskById, updateCyberRisk } from "../data/cyberRisks.js";
 import { getMitigationPlanById } from "../data/mitigationPlans.js";
 import { riskAssessments } from "../data/riskAssessments.js";
@@ -33,7 +33,6 @@ const relationshipLinkUnlinkAction = (
 
 export default function CyberRiskDetailPage() {
   const { riskId } = useParams<{ riskId: string }>();
-  const { tokens } = useTheme();
 
   const risk = useMemo(() => (riskId ? getCyberRiskById(riskId) : undefined), [riskId]);
 
@@ -79,7 +78,6 @@ export default function CyberRiskDetailPage() {
 
   const owner = getUserById(risk.ownerId);
   const ownerName = owner?.fullName ?? "Unassigned";
-  const ou = getOrgUnitById(risk.orgUnitId);
 
   return (
     <Container sx={{ py: 2, pb: 4 }}>
@@ -102,44 +100,24 @@ export default function CyberRiskDetailPage() {
             role="tabpanel"
             id="risk-panel-0"
             aria-labelledby="risk-tab-0"
-            sx={{ pt: 2 }}
           >
-            <Stack
-              sx={{
-                width: "100%",
-                gap: tokens.core.spacing["4"].value,
+            <RiskDetailsForm
+              initialData={{
+                name: risk.name,
+                customId: "",
+                ownerIds: [risk.ownerId],
+                riskCategory: "",
+                orgUnitId: risk.orgUnitId,
+                description: "",
+                inherentLikelihood: risk.likelihoodLabel,
+                inherentImpact: risk.impactLabel,
+                inherentScore: risk.cyberRiskScoreLabel,
+                treatmentType: "",
+                residualLikelihood: risk.residualLikelihoodLabel,
+                residualImpact: "",
+                residualScore: risk.residualCyberRiskScoreLabel,
               }}
-            >
-              <Typography variant="h6" component="h3" fontWeight={600}>
-                Summary
-              </Typography>
-              <Stack gap={1.5} sx={{ maxWidth: 720 }}>
-                <Typography variant="body1">
-                  <strong>Org. unit:</strong> {ou?.name ?? risk.orgUnitId}
-                </Typography>
-                <Typography variant="body1">
-                  <strong>Owner:</strong> {ownerName}
-                </Typography>
-                <Typography variant="body1">
-                  <strong>Impact:</strong> {risk.impact} — {risk.impactLabel}
-                </Typography>
-                <Typography variant="body1">
-                  <strong>Inherent likelihood:</strong> {risk.likelihood} — {risk.likelihoodLabel}
-                </Typography>
-                <Typography variant="body1">
-                  <strong>Inherent cyber risk score:</strong> {risk.cyberRiskScore} —{" "}
-                  {risk.cyberRiskScoreLabel}
-                </Typography>
-                <Typography variant="body1">
-                  <strong>Residual likelihood:</strong> {risk.residualLikelihood} —{" "}
-                  {risk.residualLikelihoodLabel}
-                </Typography>
-                <Typography variant="body1">
-                  <strong>Residual cyber risk score:</strong> {risk.residualCyberRiskScore} —{" "}
-                  {risk.residualCyberRiskScoreLabel}
-                </Typography>
-              </Stack>
-            </Stack>
+            />
           </Box>
         )}
 
