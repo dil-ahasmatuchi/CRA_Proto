@@ -7,12 +7,7 @@ import {
 import {
   Box,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
   Container,
-  Chip,
-  Link,
   Stack,
   Tab,
   Tabs,
@@ -21,141 +16,13 @@ import {
 } from "@mui/material";
 import { NavLink } from "react-router";
 
-import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
-
 import {
   atlasNavigationTabsSlotProps,
   atlasNavigationTabsSx,
 } from "../utils/atlasNavigationTabsSx.js";
+import RiskDetailsForm from "../components/RiskDetailsForm.js";
 
-interface ScopeItem {
-  id: string;
-  title: string;
-  url: string;
-}
-
-interface ScopeCategory {
-  id: string;
-  title: string;
-  count: number;
-  items: ScopeItem[];
-}
-
-const scopeData: ScopeCategory[] = [
-  {
-    id: "threats",
-    title: "Threats",
-    count: 5,
-    items: [
-      { id: "t1", title: "Ransomware deployment on critical infrastructure", url: "#" },
-      { id: "t2", title: "Phishing targeting executive accounts", url: "#" },
-      { id: "t3", title: "Supply chain compromise via third-party vendor", url: "#" },
-      { id: "t4", title: "Insider threat from privileged access misuse", url: "#" },
-      { id: "t5", title: "Distributed denial-of-service (DDoS) attack", url: "#" },
-    ],
-  },
-  {
-    id: "vulnerabilities",
-    title: "Vulnerabilities",
-    count: 4,
-    items: [
-      { id: "v1", title: "Unpatched CVE-2025-3271 in web application framework", url: "#" },
-      { id: "v2", title: "Misconfigured cloud storage bucket with public access", url: "#" },
-      { id: "v3", title: "Weak authentication on remote access endpoints", url: "#" },
-      { id: "v4", title: "SQL injection in legacy reporting module", url: "#" },
-    ],
-  },
-  {
-    id: "assets",
-    title: "Assets",
-    count: 6,
-    items: [
-      { id: "a1", title: "Primary database server (DB-PROD-01)", url: "#" },
-      { id: "a2", title: "Customer data processing system", url: "#" },
-      { id: "a3", title: "Internal HR management platform", url: "#" },
-      { id: "a4", title: "Cloud-hosted API gateway", url: "#" },
-      { id: "a5", title: "File share server (FS-CORP-02)", url: "#" },
-      { id: "a6", title: "Email exchange server", url: "#" },
-    ],
-  },
-  {
-    id: "cyber-risks",
-    title: "Cyber risks",
-    count: 3,
-    items: [
-      { id: "r1", title: "Data breach due to unpatched vulnerability", url: "#" },
-      { id: "r2", title: "Business disruption from ransomware encryption", url: "#" },
-      { id: "r3", title: "Regulatory non-compliance with data protection laws", url: "#" },
-    ],
-  },
-];
-
-const tabLabels = ["Overview", "Scope", "Assessment", "Treatment", "Monitoring"];
-
-function ScopeCategoryCard({ category }: { category: ScopeCategory }) {
-  return (
-    <Card>
-      <CardHeader
-        title={
-          <Stack direction="row" alignItems="center" gap={1}>
-            <Typography variant="h4" component="h3" fontWeight="600">
-              {category.title}
-            </Typography>
-            <Chip label={category.count} size="small" />
-          </Stack>
-        }
-        action={
-          <Button variant="text" size="small" aria-label={`More options for ${category.title}`}>
-            <MoreIcon aria-hidden />
-          </Button>
-        }
-      />
-      <CardContent>
-        <Stack gap={0.5}>
-          {category.items.map((item) => (
-            <Box
-              key={item.id}
-              sx={({ tokens }) => ({
-                py: 1,
-                px: 1.5,
-                borderRadius: 1,
-                "&:hover": {
-                  backgroundColor: tokens.semantic.color.surface.variant.value,
-                },
-              })}
-            >
-              <Link
-                href={item.url}
-                variant="body1"
-                underline="hover"
-                sx={{ cursor: "pointer" }}
-              >
-                {item.title}
-              </Link>
-            </Box>
-          ))}
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ScopeTabContent() {
-  return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-        gap: 3,
-        py: 3,
-      }}
-    >
-      {scopeData.map((category) => (
-        <ScopeCategoryCard key={category.id} category={category} />
-      ))}
-    </Box>
-  );
-}
+const tabLabels = ["Details", "Relationships", "Risk assessments", "Risk mitigations", "Questionnaires"];
 
 function TabPanel({
   children,
@@ -199,7 +66,7 @@ function PlaceholderContent({ label }: { label: string }) {
 }
 
 export default function RiskDetailsPage() {
-  const [activeTab, setActiveTab] = useState(1);
+  const [activeTab, setActiveTab] = useState(0);
   const { presets } = useTheme();
   const { TabsPresets } = presets;
 
@@ -287,23 +154,23 @@ export default function RiskDetailsPage() {
         </Tabs>
 
         <TabPanel value={activeTab} index={0}>
-          <PlaceholderContent label="Overview" />
+          <RiskDetailsForm />
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
-          <ScopeTabContent />
+          <PlaceholderContent label="Relationships" />
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
-          <PlaceholderContent label="Assessment" />
+          <PlaceholderContent label="Risk assessments" />
         </TabPanel>
 
         <TabPanel value={activeTab} index={3}>
-          <PlaceholderContent label="Treatment" />
+          <PlaceholderContent label="Risk mitigations" />
         </TabPanel>
 
         <TabPanel value={activeTab} index={4}>
-          <PlaceholderContent label="Monitoring" />
+          <PlaceholderContent label="Questionnaires" />
         </TabPanel>
       </Stack>
     </Container>
