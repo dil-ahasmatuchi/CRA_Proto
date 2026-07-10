@@ -32,6 +32,7 @@ import DocumentIcon from "@diligentcorp/atlas-react-bundle/icons/Document";
 import FilterIcon from "@diligentcorp/atlas-react-bundle/icons/Filter";
 import FolderIcon from "@diligentcorp/atlas-react-bundle/icons/Folder";
 import HistoryIcon from "@diligentcorp/atlas-react-bundle/icons/History";
+import OrgStructureIcon from "@diligentcorp/atlas-react-bundle/icons/OrgStructure";
 import RiskControlsIcon from "@diligentcorp/atlas-react-bundle/icons/RiskControls";
 import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 
@@ -40,6 +41,7 @@ import { assets } from "../data/assets.js";
 import { controls } from "../data/controls.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 import { objectives } from "../data/objectives.js";
+import { orgUnits, getOrgUnitById } from "../data/orgUnits.js";
 import { processes } from "../data/processes.js";
 import { threats } from "../data/threats.js";
 import {
@@ -105,6 +107,7 @@ import {
 export type ScopeSubView =
   | "overview"
   | "assets"
+  | "orgUnits"
   | "scopedCyberRisks"
   | "scopedThreats"
   | "scopedVulnerabilities"
@@ -130,6 +133,12 @@ export type ScopeAssetRow = {
   relatedOrgUnitsCount: number;
 };
 
+export type ScopeOrgUnitRow = {
+  id: string;        // org unit id (used as getRowId)
+  name: string;
+  assets: number;    // # of selected assets related to this org unit
+};
+
 export type ScopeCyberRiskRow = MockCyberRisk & { included: boolean };
 
 export type ScopeThreatRow = MockThreat & { included: boolean; toggleDisabled: boolean };
@@ -148,6 +157,27 @@ const CRITICALITY_META: Record<
   2: { label: "2 - Low", rag: "pos04" },
   1: { label: "1 - Very low", rag: "pos05" },
 };
+
+function buildScopeOrgUnitRows(includedAssetIds: Set<string>): ScopeOrgUnitRow[] {
+  const assetCountByOrgUnit = new Map<string, number>();
+  for (const a of assets) {
+    if (!includedAssetIds.has(a.id)) continue;
+    const relatedOuIds = new Set<string>([a.orgUnitId]);
+    for (const cr of cyberRisks) {
+      if (cr.assetIds.includes(a.id)) relatedOuIds.add(cr.orgUnitId);
+    }
+    for (const ouId of relatedOuIds) {
+      assetCountByOrgUnit.set(ouId, (assetCountByOrgUnit.get(ouId) ?? 0) + 1);
+    }
+  }
+  return [...assetCountByOrgUnit.entries()]
+    .map(([ouId, count]) => ({
+      id: ouId,
+      name: getOrgUnitById(ouId)?.name ?? ouId, // guards BU-051/052 with no catalog entry
+      assets: count,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
 
 function buildScopeRows(): ScopeAssetRow[] {
   const crCountByAsset = new Map<string, number>();
@@ -658,11 +688,14 @@ function ScopeCyberRiskIncludedColumnHeader({
 function ScopeOverviewCards({
   totalAssets,
   includedAssets,
+  totalOrgUnits,
+  includedOrgUnits,
   includedCyberRisks,
   includedThreats,
   includedVulnerabilities,
   includedControls,
   onEditAssetsScope,
+  onOpenOrgUnits,
   onOpenCyberRisks,
   onOpenThreats,
   onOpenVulnerabilities,
@@ -670,11 +703,14 @@ function ScopeOverviewCards({
 }: {
   totalAssets: number;
   includedAssets: number;
+  totalOrgUnits: number;
+  includedOrgUnits: number;
   includedCyberRisks: number;
   includedThreats: number;
   includedVulnerabilities: number;
   includedControls: number;
   onEditAssetsScope: () => void;
+  onOpenOrgUnits: () => void;
   onOpenCyberRisks: () => void;
   onOpenThreats: () => void;
   onOpenVulnerabilities: () => void;
@@ -704,7 +740,29 @@ function ScopeOverviewCards({
           totalCount={totalAssets}
           countNoun="Assets"
           onCardClick={onEditAssetsScope}
+          headerAction={
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditAssetsScope();
+              }}
+              aria-label="Start here with Assets"
+            >
+              Start here
+            </Button>
+          }
           cardActionAriaLabel="Include assets: open the scoped assets view for this assessment"
+        />
+        <ScopeCard
+          title="Org. units"
+          icon={wrapHeaderIcon(<OrgStructureIcon size="lg" aria-hidden />)}
+          includedCount={includedOrgUnits}
+          totalCount={totalOrgUnits}
+          countNoun="Org. units"
+          onCardClick={onOpenOrgUnits}
+          cardActionAriaLabel="View org. units included in this assessment"
         />
         <ScopeCard
           title="Cyber risks"
@@ -1154,6 +1212,120 @@ function ScopeAssetsDataGrid({
         />
       </FilterSideSheet>
     </>
+  );
+}
+
+function ScopeOrgUnitsDataGrid({
+  rows,
+  onNavigateToScopedAssets,
+}: {
+  rows: ScopeOrgUnitRow[];
+  onNavigateToScopedAssets: () => void;
+}) {
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+
+  const columns: GridColDef<ScopeOrgUnitRow>[] = useMemo(
+    () => [
+      {
+        field: "name",
+        headerName: "Name",
+        flex: 1,
+        minWidth: 240,
+        renderCell: (params: GridRenderCellParams<ScopeOrgUnitRow>) => (
+          <Typography
+            component="span"
+            variant="body1"
+            sx={{ fontSize: 16, lineHeight: "24px" }}
+          >
+            {params.value as string}
+          </Typography>
+        ),
+      },
+      {
+        field: "assets",
+        headerName: "Assets",
+        width: 140,
+        type: "number",
+        align: "left",
+        headerAlign: "left",
+        renderCell: (params: GridRenderCellParams<ScopeOrgUnitRow>) => (
+          <Typography
+            component="span"
+            variant="body1"
+            sx={{ fontSize: 16, lineHeight: "24px" }}
+            aria-label={`Assets related to ${params.row.name}: ${params.value as number}`}
+          >
+            {params.value as number}
+          </Typography>
+        ),
+      },
+    ],
+    [],
+  );
+
+  if (rows.length === 0) {
+    return (
+      <AssessmentScopeEmptyState
+        variant="scopeEntity"
+        entityTitle="Org. units"
+        reason="needAssets"
+        onNavigateToScopedAssets={onNavigateToScopedAssets}
+      />
+    );
+  }
+
+  return (
+    <Box sx={{ width: "100%", pt: 2, pb: 3, minHeight: 520 }}>
+      <DataGridPro
+        rows={rows}
+        columns={columns}
+        pagination
+        autoHeight
+        pinnedColumnsSectionSeparator="border"
+        pinnedRowsSectionSeparator="border"
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        pageSizeOptions={[10, 25, 50]}
+        disableRowSelectionOnClick
+        getRowId={(r) => r.id}
+        slotProps={{
+          main: {
+            "aria-label": "Org. units related to assets included in this assessment.",
+          },
+          basePagination: {
+            material: { labelRowsPerPage: "Rows" },
+          },
+        }}
+        initialState={{
+          sorting: {
+            sortModel: [{ field: "name", sort: "asc" }],
+          },
+        }}
+        sx={({ tokens: t }) => ({
+          border: "none",
+          borderRadius: t.semantic.radius.md.value,
+          "& .MuiDataGrid-scrollShadow": {
+            display: "none",
+          },
+          "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": {
+            boxShadow: "none",
+          },
+          "& .MuiDataGrid-columnHeaders": {
+            backgroundColor: t.semantic.color.surface.variant.value,
+          },
+          "& .MuiDataGrid-columnHeaderTitle": {
+            fontWeight: 600,
+            fontSize: 12,
+            letterSpacing: "0.3px",
+          },
+          "& .MuiDataGrid-withBorderColor": {
+            borderColor: t.semantic.color.outline.default.value,
+          },
+        })}
+        showColumnVerticalBorder
+        showCellVerticalBorder
+      />
+    </Box>
   );
 }
 
@@ -2394,6 +2566,18 @@ export default function AssessmentScopeTab({
 
   const includedCount = includedAssetIds.size;
 
+  const includedOrgUnitCount = useMemo(() => {
+    const orgUnitIds = new Set<string>();
+    for (const a of assets) {
+      if (!includedAssetIds.has(a.id)) continue;
+      orgUnitIds.add(a.orgUnitId);
+      for (const cr of cyberRisks) {
+        if (cr.assetIds.includes(a.id)) orgUnitIds.add(cr.orgUnitId);
+      }
+    }
+    return orgUnitIds.size;
+  }, [includedAssetIds]);
+
   const handleBulkRowIdsIncluded = useCallback(
     (rowIds: number[], included: boolean) => {
       const assetIds = rowIds
@@ -2462,6 +2646,11 @@ export default function AssessmentScopeTab({
     [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeControlIds],
   );
 
+  const orgUnitRows = useMemo(
+    () => buildScopeOrgUnitRows(includedAssetIds),
+    [includedAssetIds],
+  );
+
   if (scopeSubView === "assets") {
     return (
       <ScopeAssetsDataGrid
@@ -2469,6 +2658,15 @@ export default function AssessmentScopeTab({
         onToggleAssetIncluded={onToggleAssetIncluded}
         onBulkRowIdsIncluded={handleBulkRowIdsIncluded}
         togglesReadOnly={scopeTogglesReadOnly}
+      />
+    );
+  }
+
+  if (scopeSubView === "orgUnits") {
+    return (
+      <ScopeOrgUnitsDataGrid
+        rows={orgUnitRows}
+        onNavigateToScopedAssets={() => onScopeSubViewChange("assets")}
       />
     );
   }
@@ -2529,11 +2727,14 @@ export default function AssessmentScopeTab({
     <ScopeOverviewCards
       totalAssets={rows.length}
       includedAssets={includedCount}
+      totalOrgUnits={orgUnits.length}
+      includedOrgUnits={includedOrgUnitCount}
       includedCyberRisks={scopedCrRows.length}
       includedThreats={scopedThreatRows.length}
       includedVulnerabilities={scopedVulnRows.length}
       includedControls={scopedControlRows.length}
       onEditAssetsScope={() => onScopeSubViewChange("assets")}
+      onOpenOrgUnits={() => onScopeSubViewChange("orgUnits")}
       onOpenCyberRisks={() => onScopeSubViewChange("scopedCyberRisks")}
       onOpenThreats={() => onScopeSubViewChange("scopedThreats")}
       onOpenVulnerabilities={() => onScopeSubViewChange("scopedVulnerabilities")}

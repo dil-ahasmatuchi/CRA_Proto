@@ -100,6 +100,11 @@ const SCOPE_DETAIL_PAGE: Record<
     subtitle: "Choose which assets to include in this assessment.",
     crumb: "Assets",
   },
+  orgUnits: {
+    title: "Org. units",
+    subtitle: "Org. units related to assets included in this assessment.",
+    crumb: "Org. units",
+  },
   scopedCyberRisks: {
     title: "Cyber risks",
     subtitle: "Cyber risks linked to assets included in this assessment.",

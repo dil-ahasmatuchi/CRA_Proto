@@ -42,6 +42,7 @@ export type CraScenarioScoreAggregationMethod = "highest" | "average";
 export type ScopeSubView =
   | "overview"
   | "assets"
+  | "orgUnits"
   | "scopedCyberRisks"
   | "scopedThreats"
   | "scopedVulnerabilities"
