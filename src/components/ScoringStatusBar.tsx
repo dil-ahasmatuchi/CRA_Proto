@@ -53,34 +53,34 @@ export function ScoringStatusBar({
       <ScoringLoading />
 
       <Box
-        sx={({ tokens: t }: Theme) => ({
+        sx={({ tokens }: Theme) => ({
           width: "2px",
           height: 12,
-          bgcolor: t.semantic.color.ui.divider.default.value,
+          bgcolor: tokens.semantic.color.ui.divider.default.value,
           flexShrink: 0,
         })}
       />
 
       <Typography
         component="span"
-        sx={({ tokens: t }: Theme) => ({
+        sx={{
           fontSize: 14,
           lineHeight: "20px",
           letterSpacing: "0.010em",
-        })}
+        }}
       >
         <Typography
           component="span"
-          sx={({ tokens: t }: Theme) => ({
-            color: t.semantic.color.type.muted.value,
+          sx={({ tokens }: Theme) => ({
+            color: tokens.semantic.color.type.muted.value,
           })}
         >
           Scenarios:{" "}
         </Typography>
         <Typography
           component="span"
-          sx={({ tokens: t }: Theme) => ({
-            color: t.semantic.color.type.default.value,
+          sx={({ tokens }: Theme) => ({
+            color: tokens.semantic.color.type.default.value,
             fontWeight: 700,
           })}
         >
@@ -89,34 +89,34 @@ export function ScoringStatusBar({
       </Typography>
 
       <Box
-        sx={({ tokens: t }: Theme) => ({
+        sx={({ tokens }: Theme) => ({
           width: "2px",
           height: 12,
-          bgcolor: t.semantic.color.ui.divider.default.value,
+          bgcolor: tokens.semantic.color.ui.divider.default.value,
           flexShrink: 0,
         })}
       />
 
       <Typography
         component="span"
-        sx={({ tokens: t }: Theme) => ({
+        sx={{
           fontSize: 14,
           lineHeight: "20px",
           letterSpacing: "0.010em",
-        })}
+        }}
       >
         <Typography
           component="span"
-          sx={({ tokens: t }: Theme) => ({
-            color: t.semantic.color.type.muted.value,
+          sx={({ tokens }: Theme) => ({
+            color: tokens.semantic.color.type.muted.value,
           })}
         >
           Elapsed time:{" "}
         </Typography>
         <Typography
           component="span"
-          sx={({ tokens: t }: Theme) => ({
-            color: t.semantic.color.type.default.value,
+          sx={({ tokens }: Theme) => ({
+            color: tokens.semantic.color.type.default.value,
             fontWeight: 700,
           })}
         >

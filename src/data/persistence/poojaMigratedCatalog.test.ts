@@ -17,7 +17,7 @@ describe("pooja migrated catalog bundle", () => {
   });
 
   it("every cyber risk has threatIds that intersect its assetIds", () => {
-    const c = bundledCatalog as PersistedCatalogV3;
+    const c = bundledCatalog as unknown as PersistedCatalogV3;
     const threatById = new Map(c.threats.map((t) => [t.id, t]));
     const riskAssets = (ids: readonly string[]) => new Set(ids);
 
@@ -34,7 +34,7 @@ describe("pooja migrated catalog bundle", () => {
   });
 
   it("has referential integrity for core links", () => {
-    const c = bundledCatalog as PersistedCatalogV3;
+    const c = bundledCatalog as unknown as PersistedCatalogV3;
     expect(c.users.length).toBeGreaterThan(0);
     expect(c.assets.length).toBeGreaterThan(0);
     expect(c.scenarios.length).toBeGreaterThan(0);
@@ -76,7 +76,7 @@ describe("pooja migrated catalog bundle", () => {
   });
 
   it("vulnerabilities link to valid assets with full multi-asset lists", () => {
-    const c = bundledCatalog as PersistedCatalogV3;
+    const c = bundledCatalog as unknown as PersistedCatalogV3;
     const assetIds = new Set(c.assets.map((a) => a.id));
     const multi = c.vulnerabilities.filter((v) => v.assetIds.length > 1);
     expect(multi.length).toBeGreaterThan(0);
@@ -93,7 +93,7 @@ describe("pooja migrated catalog bundle", () => {
   });
 
   it("scenarios carry CRA assessmentId and duplicate template rows split by assessment", () => {
-    const c = bundledCatalog as PersistedCatalogV3;
+    const c = bundledCatalog as unknown as PersistedCatalogV3;
     const craIds = new Set(c.riskAssessments.map((a) => a.id));
     for (const s of c.scenarios) {
       expect(s.assessmentId, `scenario ${s.id}`).toBeDefined();
@@ -111,7 +111,7 @@ describe("pooja migrated catalog bundle", () => {
   });
 
   it("CR-001 library inherent matches CRA-029 Highest parent chips (80 High)", () => {
-    const c = bundledCatalog as PersistedCatalogV3;
+    const c = bundledCatalog as unknown as PersistedCatalogV3;
     const cr1 = c.cyberRisks.find((r) => r.id === "CR-001");
     expect(cr1).toBeDefined();
     expect(cr1!.impact).toBe(4);
@@ -132,7 +132,7 @@ describe("pooja migrated catalog bundle", () => {
   });
 
   it("CRA-030 residual: CR-010 top-right; CR-002 low-likelihood band; heatmap merge preserves inherent", () => {
-    const c = bundledCatalog as PersistedCatalogV3;
+    const c = bundledCatalog as unknown as PersistedCatalogV3;
     const s030 = c.scenarios.filter((s) => s.assessmentId === "CRA-030") as MockScenario[];
     const byCr = (crId: string) => s030.filter((s) => s.cyberRiskId === crId);
 

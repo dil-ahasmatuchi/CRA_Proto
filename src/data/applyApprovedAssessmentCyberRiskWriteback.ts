@@ -60,11 +60,14 @@ export function applyApprovedAssessmentCyberRiskWriteback(
 
   if (includedAssetIds.size === 0) return;
 
-  const scopedRisks = assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds);
+  const scopedRisks = assessmentScopedCyberRisks(
+    new Set(includedAssetIds),
+    new Set(excludedScopeCyberRiskIds)
+  );
   const scenarioList = assessmentScopedScenarios(
-    includedAssetIds,
-    excludedScopeCyberRiskIds,
-    excludedScopeScenarioIds,
+    new Set(includedAssetIds),
+    new Set(excludedScopeCyberRiskIds),
+    new Set(excludedScopeScenarioIds),
     scenarioScopeAssessmentId,
   );
 
