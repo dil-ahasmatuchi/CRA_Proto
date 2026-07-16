@@ -159,7 +159,7 @@ export default function RisksPage() {
   }, [draftFilters]);
 
   return (
-    <Container sx={{ py: 2 }}>
+    <Container maxWidth="xl" sx={{ py: 2 }}>
       <Stack gap={6}>
         <PageHeader
           pageTitle="Cyber risks"

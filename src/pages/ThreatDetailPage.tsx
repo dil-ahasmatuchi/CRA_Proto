@@ -320,7 +320,7 @@ export default function ThreatDetailPage() {
   const pageTitleText = name.trim() || threat.name;
 
   return (
-    <Container sx={{ py: 2, pb: 4 }}>
+    <Container maxWidth="xl" sx={{ py: 2, pb: 4 }}>
       <Stack gap={2}>
         <ThreatDetailHeader
           pageTitle={pageTitleText}

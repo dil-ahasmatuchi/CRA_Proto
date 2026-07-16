@@ -13,7 +13,7 @@ export default function ComponentShowcasePage() {
 
   if (!entry) {
     return (
-      <Container sx={{ py: 2 }}>
+      <Container maxWidth="xl" sx={{ py: 2 }}>
         <Typography>Component not found.</Typography>
       </Container>
     );
@@ -22,7 +22,7 @@ export default function ComponentShowcasePage() {
   const preview = entry.render();
 
   return (
-    <Container sx={{ py: 2 }}>
+    <Container maxWidth="xl" sx={{ py: 2 }}>
       <Stack gap={4}>
         <PageHeader
           pageTitle={entry.name}

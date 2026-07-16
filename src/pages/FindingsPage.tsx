@@ -6,6 +6,7 @@ import {
   AIChatContextProvider,
   AIChatContent,
   AIChatBox,
+  AIDisclaimer,
   AIChatUserMessage,
   AIChatAIMessage,
   AIChatMessageHeader,
@@ -137,6 +138,11 @@ function ChatPanel() {
         collapseButton: { ariaLabel: "Minimize chat panel" },
         expandButton: { ariaLabel: "Expand chat panel" },
       }}
+      disclaimer={
+        <AIDisclaimer>
+          AI-generated content may be inaccurate. Verify important information.
+        </AIDisclaimer>
+      }
       chatBox={
         <AIChatBox
           onSubmit={handleSubmit}
@@ -256,7 +262,7 @@ export default function FindingsPage() {
       })}
     >
       <Stack sx={{ flexGrow: 1, overflow: "auto", minWidth: 0 }}>
-        <Container sx={{ py: 2 }}>
+        <Container maxWidth="xl" sx={{ py: 2 }}>
           <Stack gap={3}>
             <PageHeader
               pageTitle="Findings"

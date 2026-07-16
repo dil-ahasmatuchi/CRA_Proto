@@ -408,7 +408,7 @@ export default function OverviewPage() {
   );
 
   return (
-    <Container sx={{ py: 2 }}>
+    <Container maxWidth="xl" sx={{ py: 2 }}>
       <Stack gap={3}>
         <PageHeader
           pageTitle="Cyber risk management overview"

@@ -75,7 +75,7 @@ export default function RiskDetailsPage() {
   };
 
   return (
-    <Container sx={{ py: 2 }}>
+    <Container maxWidth="xl" sx={{ py: 2 }}>
       <Stack gap={0}>
         <PageHeader
           pageTitle="Cyber risk assessment Q1 - 2026"

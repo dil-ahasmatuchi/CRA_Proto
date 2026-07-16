@@ -120,7 +120,7 @@ export default function RationaleReadOnly() {
 
   if (!scenario) {
     return (
-      <Container sx={{ py: 2 }}>
+      <Container maxWidth="xl" sx={{ py: 2 }}>
         <Stack gap={0}>
           <ScoringRationaleHeader
             scenarioName="Scenario not found"
@@ -138,7 +138,7 @@ export default function RationaleReadOnly() {
   }
 
   return (
-    <Container sx={{ py: 2 }}>
+    <Container maxWidth="xl" sx={{ py: 2 }}>
       <Stack gap={0}>
         <ScoringRationaleHeader
           scenarioName={scenario.name.trim() || scenario.id}

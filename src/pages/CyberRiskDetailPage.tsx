@@ -80,7 +80,7 @@ export default function CyberRiskDetailPage() {
   const ownerName = owner?.fullName ?? "Unassigned";
 
   return (
-    <Container sx={{ py: 2, pb: 4 }}>
+    <Container maxWidth="xl" sx={{ py: 2, pb: 4 }}>
       <Stack gap={2}>
         <RiskDetailHeader
           pageTitle={risk.name}

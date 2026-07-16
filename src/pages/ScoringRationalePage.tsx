@@ -448,7 +448,7 @@ export default function ScoringRationalePage() {
 
   if (!scenario) {
     return (
-      <Container sx={{ py: 2 }}>
+      <Container maxWidth="xl" sx={{ py: 2 }}>
         <Stack gap={0}>
           <ScoringRationaleHeader
             scenarioName="Scenario not found"
@@ -466,7 +466,7 @@ export default function ScoringRationalePage() {
   }
 
   return (
-    <Container sx={{ py: 2 }}>
+    <Container maxWidth="xl" sx={{ py: 2 }}>
       <Stack gap={0}>
         <ScoringRationaleHeader
           scenarioName={scenario.name.trim() || scenario.id}
