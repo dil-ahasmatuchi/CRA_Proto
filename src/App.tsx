@@ -26,6 +26,7 @@ import MitigationPlansPage from "./pages/MitigationPlansPage.js";
 import VulnerabilitiesPage from "./pages/VulnerabilitiesPage.js";
 import VulnerabilityDetailPage from "./pages/VulnerabilityDetailPage.js";
 import ScrollToTop from "./components/ScrollToTop.js";
+import NavAppTitleOverride from "./components/NavAppTitleOverride.js";
 import { CyberRiskScoringConfigProvider } from "./context/CyberRiskScoringConfigContext.js";
 import { SavedChangesToastProvider } from "./context/SavedChangesToastContext.js";
 import ComponentShowcasePage from "./pages/dev/ComponentShowcasePage.js";
@@ -37,6 +38,7 @@ export default function App() {
         path="/"
         element={
           <AppLayout navigation={<Navigation />}>
+            <NavAppTitleOverride />
             <CyberRiskScoringConfigProvider>
               <SavedChangesToastProvider>
                 <ScrollToTop />
