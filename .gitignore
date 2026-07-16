@@ -1,6 +1,5 @@
 node_modules
 dist
-package-lock.json
 pnpm-lock.yaml
 .cursor/mcp.json
 .mcp.json
